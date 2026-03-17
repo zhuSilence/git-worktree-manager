@@ -1,4 +1,4 @@
-use crate::models::{CreateWorktreeParams, Worktree, WorktreeListResponse, WorktreeResult, WorktreeStatus};
+use crate::models::{CreateWorktreeParams, Worktree, WorktreeListResponse, WorktreeResult, WorktreeStatus, Branch, BranchListResponse};
 use git2::Repository;
 use std::path::Path;
 use std::process::Command;
@@ -254,4 +254,39 @@ pub fn open_in_editor(path: &str, editor: Option<String>) -> anyhow::Result<()> 
 pub fn is_git_repo(path: &str) -> anyhow::Result<bool> {
     let full_path = Path::new(path).join(".git");
     Ok(full_path.exists())
+}
+
+/// 获取分支列表
+pub fn list_branches(repo_path: &str) -> anyhow::Result<BranchListResponse> {
+    let repo = Repository::open(repo_path)?;
+    
+    let mut branches = Vec::new();
+    let mut current_branch = String::new();
+    
+    // 获取当前分支
+    if let Ok(head) = repo.head() {
+        if let Some(name) = head.shorthand() {
+            current_branch = name.to_string();
+        }
+    }
+    
+    // 获取所有本地分支
+    let local_branches = repo.branches(Some(git2::BranchType::Local))?;
+    
+    for branch_result in local_branches {
+        if let Ok((branch, _)) = branch_result {
+            if let Some(name) = branch.name()? {
+                let is_current = name == current_branch;
+                branches.push(Branch {
+                    name: name.to_string(),
+                    is_current,
+                });
+            }
+        }
+    }
+    
+    Ok(BranchListResponse {
+        branches,
+        current_branch,
+    })
 }

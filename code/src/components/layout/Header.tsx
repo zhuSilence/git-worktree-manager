@@ -1,14 +1,15 @@
 import { useState } from 'react'
-import { GitBranch, FolderOpen, Settings, RefreshCw } from 'lucide-react'
+import { GitBranch, FolderOpen, Settings, RefreshCw, Plus } from 'lucide-react'
 import { Button } from '@/components/common'
 import { open } from '@tauri-apps/plugin-dialog'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 
 interface HeaderProps {
+  onCreateWorktree?: () => void
   onOpenSettings?: () => void
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
+export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings }) => {
   const { currentRepo, loadRepository, refreshWorktrees, isLoading } = useWorktreeStore()
   const [isOpening, setIsOpening] = useState(false)
 
@@ -63,14 +64,27 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
           </Button>
           
           {currentRepo && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleRefresh}
-              disabled={isLoading}
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            </Button>
+            <>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={onCreateWorktree}
+                disabled={isLoading}
+                className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white"
+              >
+                <Plus className="h-4 w-4" />
+                创建
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleRefresh}
+                disabled={isLoading}
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              </Button>
+            </>
           )}
           
           <Button variant="ghost" size="icon" onClick={onOpenSettings}>

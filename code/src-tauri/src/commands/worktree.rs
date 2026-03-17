@@ -59,3 +59,9 @@ pub async fn open_in_editor(worktree_path: String, editor: Option<String>) -> Re
 pub async fn is_git_repo(path: String) -> Result<bool, String> {
     git_service::is_git_repo(&path).map_err(|e| e.to_string())
 }
+
+/// 获取分支列表
+#[command]
+pub async fn list_branches(repo_path: String) -> Result<crate::models::BranchListResponse, String> {
+    git_service::list_branches(&repo_path).map_err(|e| e.to_string())
+}

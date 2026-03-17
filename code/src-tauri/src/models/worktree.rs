@@ -60,3 +60,19 @@ pub struct WorktreeListResponse {
     pub repo_path: String,
     pub is_valid_repo: bool,
 }
+
+/// 分支信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Branch {
+    /// 分支名
+    pub name: String,
+    /// 是否为当前分支
+    pub is_current: bool,
+}
+
+/// 分支列表响应
+#[derive(Debug, Serialize)]
+pub struct BranchListResponse {
+    pub branches: Vec<Branch>,
+    pub current_branch: String,
+}
