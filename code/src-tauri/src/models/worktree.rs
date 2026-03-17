@@ -93,3 +93,33 @@ pub struct BranchListResponse {
     pub branches: Vec<Branch>,
     pub current_branch: String,
 }
+
+/// Diff 统计信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiffStats {
+    /// 文件路径
+    pub path: String,
+    /// 新增行数
+    pub additions: usize,
+    /// 删除行数
+    pub deletions: usize,
+    /// 状态 (added, modified, deleted, renamed)
+    pub status: String,
+}
+
+/// Diff 响应
+#[derive(Debug, Serialize)]
+pub struct DiffResponse {
+    /// 源分支
+    pub source_branch: String,
+    /// 目标分支
+    pub target_branch: String,
+    /// 文件变更统计
+    pub files: Vec<DiffStats>,
+    /// 总新增行数
+    pub total_additions: usize,
+    /// 总删除行数
+    pub total_deletions: usize,
+    /// 变更文件数
+    pub files_changed: usize,
+}

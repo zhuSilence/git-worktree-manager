@@ -1,4 +1,4 @@
-use crate::models::{CreateWorktreeParams, Worktree, WorktreeListResponse, WorktreeResult, WorktreeStatus, Branch, BranchListResponse, LastCommit};
+use crate::models::{CreateWorktreeParams, Worktree, WorktreeListResponse, WorktreeResult, WorktreeStatus, Branch, BranchListResponse, LastCommit, DiffStats, DiffResponse};
 use crate::utils::validation::{sanitize_branch_name, validate_path};
 use git2::Repository;
 use std::path::Path;
@@ -446,5 +446,96 @@ pub fn list_branches(repo_path: &str) -> anyhow::Result<BranchListResponse> {
     Ok(BranchListResponse {
         branches,
         current_branch,
+    })
+}
+
+/// 获取 worktree 与目标分支的 diff
+pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<DiffResponse> {
+    let repo = Repository::open(worktree_path)?;
+    
+    // 获取当前分支名
+    let head = repo.head()?;
+    let source_branch = head.shorthand().unwrap_or("HEAD").to_string();
+    
+    // 查找目标分支的 commit
+    let target_commit = if target_branch == "main" || target_branch == "master" {
+        // 尝试 main 和 master
+        repo.find_reference("refs/heads/main")
+            .and_then(|r| r.peel_to_commit())
+            .or_else(|_| {
+                repo.find_reference("refs/heads/master")
+                    .and_then(|r| r.peel_to_commit())
+            })
+            .map_err(|_| anyhow::anyhow!("Neither 'main' nor 'master' branch found"))?
+    } else {
+        let branch_ref = format!("refs/heads/{}", target_branch);
+        repo.find_reference(&branch_ref)?
+            .peel_to_commit()?
+    };
+    
+    // 获取当前 HEAD commit
+    let source_commit = head.peel_to_commit()?;
+    
+    // 执行 diff
+    let diff = repo.diff_tree_to_tree(
+        Some(&target_commit.as_object().peel_to_tree()?),
+        Some(&source_commit.as_object().peel_to_tree()?),
+        None,
+    )?;
+    
+    // 统计文件变更
+    let mut files: Vec<DiffStats> = Vec::new();
+    let mut total_additions = 0;
+    let mut total_deletions = 0;
+    
+    // 使用 git diff 命令获取更详细的统计
+    let output = Command::new("git")
+        .args(["diff", "--numstat", &format!("{}...{}", target_branch, source_branch)])
+        .current_dir(worktree_path)
+        .output()?;
+    
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 3 {
+                let additions = parts[0].parse::<usize>().unwrap_or(0);
+                let deletions = parts[1].parse::<usize>().unwrap_or(0);
+                let path = parts[2].to_string();
+                
+                // 判断文件状态
+                let status = if additions > 0 && deletions == 0 {
+                    "added"
+                } else if additions == 0 && deletions > 0 {
+                    "deleted"
+                } else {
+                    "modified"
+                };
+                
+                files.push(DiffStats {
+                    path,
+                    additions,
+                    deletions,
+                    status: status.to_string(),
+                });
+                
+                total_additions += additions;
+                total_deletions += deletions;
+            }
+        }
+    }
+    
+    // 按变更量排序
+    files.sort_by(|a, b| {
+        (b.additions + b.deletions).cmp(&(a.additions + a.deletions))
+    });
+    
+    Ok(DiffResponse {
+        source_branch,
+        target_branch: target_branch.to_string(),
+        files_changed: files.len(),
+        total_additions,
+        total_deletions,
+        files,
     })
 }
