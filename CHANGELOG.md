@@ -78,5 +78,5 @@ First release of Git Worktree Manager!
 
 ---
 
-[Unreleased]: https://github.com/zhuSilence/worktree-manager/compare/v0.0.1...HEAD
-[0.0.1]: https://github.com/zhuSilence/worktree-manager/releases/tag/v0.0.1
+[Unreleased]: https://github.com/zhuSilence/git-worktree-manager/compare/v0.0.1...HEAD
+[0.0.1]: https://github.com/zhuSilence/git-worktree-manager/releases/tag/v0.0.1

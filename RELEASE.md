@@ -24,9 +24,9 @@ npm install
 npm run tauri:build
 
 # 产物位置
-# - src-tauri/target/release/bundle/dmg/worktree-manager_0.1.0_aarch64.dmg
-# - src-tauri/target/release/bundle/dmg/worktree-manager_0.1.0_x64.dmg
-# - src-tauri/target/release/bundle/macos/worktree-manager.app
+# - src-tauri/target/release/bundle/dmg/git-worktree-manager_0.1.0_aarch64.dmg
+# - src-tauri/target/release/bundle/dmg/git-worktree-manager_0.1.0_x64.dmg
+# - src-tauri/target/release/bundle/macos/git-worktree-manager.app
 ```
 
 ### Windows
@@ -37,8 +37,8 @@ npm install
 npm run tauri:build
 
 # 产物位置
-# - src-tauri/target/release/bundle/msi/worktree-manager_0.1.0_x64.msi
-# - src-tauri/target/release/bundle/nsis/worktree-manager_0.1.0_x64-setup.exe
+# - src-tauri/target/release/bundle/msi/git-worktree-manager_0.1.0_x64.msi
+# - src-tauri/target/release/bundle/nsis/git-worktree-manager_0.1.0_x64-setup.exe
 ```
 
 ### Linux
@@ -48,8 +48,8 @@ npm install
 npm run tauri:build
 
 # 产物位置
-# - src-tauri/target/release/bundle/deb/worktree-manager_0.1.0_amd64.deb
-# - src-tauri/target/release/bundle/appimage/worktree-manager_0.1.0_amd64.AppImage
+# - src-tauri/target/release/bundle/deb/git-worktree-manager_0.1.0_amd64.deb
+# - src-tauri/target/release/bundle/appimage/git-worktree-manager_0.1.0_amd64.AppImage
 ```
 
 ---
@@ -73,7 +73,7 @@ GitHub Actions 会自动：
 
 ### 手动发布
 
-1. 进入 [Releases](https://github.com/zhuSilence/worktree-manager/releases)
+1. 进入 [Releases](https://github.com/zhuSilence/git-worktree-manager/releases)
 2. 点击 **Draft a new release**
 3. 填写信息：
    - **Tag**: `v0.1.0`
@@ -88,34 +88,34 @@ GitHub Actions 会自动：
 
 ### 创建 Formula
 
-在 `homebrew-worktree-manager` 仓库创建 Formula：
+在 `homebrew-git-worktree-manager` 仓库创建 Formula：
 
 ```ruby
-# Formula/worktree-manager.rb
-class WorktreeManager < Formula
+# Formula/git-worktree-manager.rb
+class GitWorktreeManager < Formula
   desc "轻量级 Git Worktree 可视化管理器"
-  homepage "https://github.com/zhuSilence/worktree-manager"
+  homepage "https://github.com/zhuSilence/git-worktree-manager"
   version "0.1.0"
   license "MIT"
 
   on_macos do
     on_arm do
-      url "https://github.com/zhuSilence/worktree-manager/releases/download/v#{version}/worktree-manager_#{version}_aarch64.dmg"
+      url "https://github.com/zhuSilence/git-worktree-manager/releases/download/v#{version}/git-worktree-manager_#{version}_aarch64.dmg"
       sha256 "下载后计算"
     end
     on_intel do
-      url "https://github.com/zhuSilence/worktree-manager/releases/download/v#{version}/worktree-manager_#{version}_x64.dmg"
+      url "https://github.com/zhuSilence/git-worktree-manager/releases/download/v#{version}/git-worktree-manager_#{version}_x64.dmg"
       sha256 "下载后计算"
     end
   end
 
   def install
-    prefix.install "worktree-manager.app"
-    bin.install_symlink prefix/"worktree-manager.app/Contents/MacOS/worktree-manager" => "worktree-manager"
+    prefix.install "git-worktree-manager.app"
+    bin.install_symlink prefix/"git-worktree-manager.app/Contents/MacOS/worktree-manager" => "worktree-manager"
   end
 
   test do
-    assert_match "Git Worktree Manager", shell_output("#{bin}/worktree-manager --version")
+    assert_match "Git Worktree Manager", shell_output("#{bin}/git-worktree-manager --version")
   end
 end
 ```
@@ -124,10 +124,10 @@ end
 
 ```bash
 # 添加 Tap
-brew tap zhuSilence/worktree-manager
+brew tap zhuSilence/git-worktree-manager
 
 # 安装
-brew install worktree-manager
+brew install git-worktree-manager
 ```
 
 ---
@@ -144,10 +144,10 @@ security find-identity -v -p codesigning
 codesign --deep --force --verify --verbose \
   --sign "Developer ID Application: Your Name (XXXXXXXXXX)" \
   --options runtime \
-  src-tauri/target/release/bundle/macos/worktree-manager.app
+  src-tauri/target/release/bundle/macos/git-worktree-manager.app
 
 # 公证
-xcrun notarytool submit worktree-manager.dmg \
+xcrun notarytool submit git-worktree-manager.dmg \
   --apple-id "your@email.com" \
   --password "@keychain:AC_PASSWORD" \
   --team-id "XXXXXXXXXX" \
@@ -158,12 +158,12 @@ xcrun notarytool submit worktree-manager.dmg \
 
 ```bash
 # 下载 DMG
-curl -LO https://github.com/zhuSilence/worktree-manager/releases/download/v0.1.0/worktree-manager_0.1.0_aarch64.dmg
+curl -LO https://github.com/zhuSilence/git-worktree-manager/releases/download/v0.1.0/git-worktree-manager_0.1.0_aarch64.dmg
 
 # 挂载并安装
-hdiutil attach worktree-manager_0.1.0_aarch64.dmg
-cp -R /Volumes/worktree-manager/worktree-manager.app /Applications/
-hdiutil detach /Volumes/worktree-manager
+hdiutil attach git-worktree-manager_0.1.0_aarch64.dmg
+cp -R /Volumes/git-worktree-manager/git-worktree-manager.app /Applications/
+hdiutil detach /Volumes/git-worktree-manager
 ```
 
 ---
@@ -174,8 +174,8 @@ hdiutil detach /Volumes/worktree-manager
 
 ```bash
 # 克隆仓库
-git clone https://github.com/zhuSilence/worktree-manager.git
-cd worktree-manager/code
+git clone https://github.com/zhuSilence/git-worktree-manager.git
+cd git-worktree-manager/code
 
 # 安装依赖
 npm install
@@ -224,11 +224,11 @@ npm run tauri:build
 
 ## 📦 安装
 
-- [macOS (Apple Silicon)](https://github.com/zhuSilence/worktree-manager/releases/download/v0.1.0/worktree-manager_0.1.0_aarch64.dmg)
-- [macOS (Intel)](https://github.com/zhuSilence/worktree-manager/releases/download/v0.1.0/worktree-manager_0.1.0_x64.dmg)
-- [Windows](https://github.com/zhuSilence/worktree-manager/releases/download/v0.1.0/worktree-manager_0.1.0_x64.msi)
-- [Linux (deb)](https://github.com/zhuSilence/worktree-manager/releases/download/v0.1.0/worktree-manager_0.1.0_amd64.deb)
-- [Linux (AppImage)](https://github.com/zhuSilence/worktree-manager/releases/download/v0.1.0/worktree-manager_0.1.0_amd64.AppImage)
+- [macOS (Apple Silicon)](https://github.com/zhuSilence/git-worktree-manager/releases/download/v0.1.0/git-worktree-manager_0.1.0_aarch64.dmg)
+- [macOS (Intel)](https://github.com/zhuSilence/git-worktree-manager/releases/download/v0.1.0/git-worktree-manager_0.1.0_x64.dmg)
+- [Windows](https://github.com/zhuSilence/git-worktree-manager/releases/download/v0.1.0/git-worktree-manager_0.1.0_x64.msi)
+- [Linux (deb)](https://github.com/zhuSilence/git-worktree-manager/releases/download/v0.1.0/git-worktree-manager_0.1.0_amd64.deb)
+- [Linux (AppImage)](https://github.com/zhuSilence/git-worktree-manager/releases/download/v0.1.0/git-worktree-manager_0.1.0_amd64.AppImage)
 ```
 
 ---

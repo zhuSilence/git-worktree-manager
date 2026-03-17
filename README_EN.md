@@ -72,8 +72,8 @@ Making Git worktree as easy as slicing a cake 🍰
 
 ```bash
 # Clone the repository
-git clone https://github.com/zhuSilence/worktree-manager.git
-cd worktree-manager/code
+git clone https://github.com/zhuSilence/git-worktree-manager.git
+cd git-git-worktree-manager/code
 
 # Install frontend dependencies
 npm install
@@ -163,7 +163,7 @@ Click the **warning icon** in the toolbar to view:
 ## 📁 Project Structure
 
 ```
-worktree-manager/
+git-worktree-manager/
 ├── code/
 │   ├── src/                    # Frontend source
 │   │   ├── components/         # React components

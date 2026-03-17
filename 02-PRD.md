@@ -297,9 +297,9 @@ Git worktree 是 Git 2.5+ 引入的功能，允许同一仓库拥有多个工作
 | 渠道 | 方式 |
 |------|------|
 | GitHub Releases | dmg / exe / AppImage / deb |
-| Homebrew (macOS) | brew install worktree-manager |
-| Scoop (Windows) | scoop install worktree-manager |
-| AUR (Arch Linux) | yay -S worktree-manager |
+| Homebrew (macOS) | brew install git-worktree-manager |
+| Scoop (Windows) | scoop install git-worktree-manager |
+| AUR (Arch Linux) | yay -S git-worktree-manager |
 
 ---
 

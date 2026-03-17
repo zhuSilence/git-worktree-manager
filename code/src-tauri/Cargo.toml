@@ -1,12 +1,12 @@
 [package]
-name = "worktree-manager"
+name = "git-worktree-manager"
 version = "0.0.1"
 description = "A lightweight Git Worktree visual manager"
 authors = ["you"]
 edition = "2021"
 
 [lib]
-name = "worktree_manager_lib"
+name = "git_worktree_manager_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

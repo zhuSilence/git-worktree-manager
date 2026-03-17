@@ -185,7 +185,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          name: Worktree Manager ${{ github.ref_name }}
+          name: Git Worktree Manager ${{ github.ref_name }}
           body: |
             ## 📦 Download
             
@@ -201,7 +201,7 @@ jobs:
             - Universal: Download `.AppImage` file
             
             ## 📝 Changelog
-            See [CHANGELOG.md](https://github.com/zhuSilence/worktree-manager/blob/main/CHANGELOG.md)
+            See [CHANGELOG.md](https://github.com/zhuSilence/git-worktree-manager/blob/main/CHANGELOG.md)
           draft: true
           prerelease: false
           files: |
