@@ -1,4 +1,4 @@
-# PRD - Git Worktree Manager
+# PRD - Worktree Manager
 
 > 产品需求文档 (Product Requirements Document)
 > 版本: v1.0.0
@@ -45,7 +45,7 @@ Git worktree 是 Git 2.5+ 引入的功能，允许同一仓库拥有多个工作
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Git Worktree Manager                      │
+│                    Worktree Manager                      │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
 │  │  仓库管理    │  │ Worktree    │  │  分支管理    │          │

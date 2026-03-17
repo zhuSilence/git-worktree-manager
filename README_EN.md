@@ -1,4 +1,4 @@
-# Git Worktree Manager
+# Worktree Manager
 
 <div align="center">
 
