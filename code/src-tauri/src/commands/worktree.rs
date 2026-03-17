@@ -44,8 +44,8 @@ pub async fn prune_worktrees(repo_path: String) -> Result<(), String> {
 
 /// 在终端中打开
 #[command]
-pub async fn open_in_terminal(worktree_path: String) -> Result<(), String> {
-    git_service::open_in_terminal(&worktree_path).map_err(|e| e.to_string())
+pub async fn open_in_terminal(worktree_path: String, terminal: Option<String>) -> Result<(), String> {
+    git_service::open_in_terminal(&worktree_path, terminal).map_err(|e| e.to_string())
 }
 
 /// 在编辑器中打开

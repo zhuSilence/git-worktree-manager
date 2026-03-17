@@ -17,6 +17,19 @@ pub enum WorktreeStatus {
     Unknown,
 }
 
+/// 最后提交信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LastCommit {
+    /// 提交 hash (短)
+    pub hash: String,
+    /// 提交消息 (第一行)
+    pub message: String,
+    /// 作者
+    pub author: String,
+    /// 相对时间
+    pub relative_time: String,
+}
+
 /// Worktree 信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Worktree {
@@ -30,6 +43,8 @@ pub struct Worktree {
     pub path: String,
     /// 状态
     pub status: WorktreeStatus,
+    /// 最后提交信息
+    pub last_commit: LastCommit,
     /// 最后活跃时间
     pub last_active_at: Option<String>,
     /// 是否为主 worktree

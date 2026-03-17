@@ -6,6 +6,7 @@ import type {
   WorktreeResult,
   BranchListResponse,
 } from '@/types/worktree'
+import type { IdeType, TerminalType } from '@/stores/settingsStore'
 
 /**
  * Git 服务 - 封装 Tauri 命令调用
@@ -87,14 +88,14 @@ export const gitService = {
   /**
    * 切换到 Worktree 目录（在终端中）
    */
-  async openInTerminal(worktreePath: string): Promise<void> {
-    return invoke('open_in_terminal', { worktreePath })
+  async openInTerminal(worktreePath: string, terminal?: TerminalType): Promise<void> {
+    return invoke('open_in_terminal', { worktreePath, terminal })
   },
 
   /**
    * 在编辑器中打开 Worktree
    */
-  async openInEditor(worktreePath: string, editor?: string): Promise<void> {
+  async openInEditor(worktreePath: string, editor?: IdeType): Promise<void> {
     return invoke('open_in_editor', { worktreePath, editor })
   },
 }

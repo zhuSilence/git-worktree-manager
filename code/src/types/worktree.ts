@@ -17,6 +17,20 @@ export enum WorktreeStatus {
 }
 
 /**
+ * 最后提交信息
+ */
+export interface LastCommit {
+  /** 提交 hash (短) */
+  hash: string
+  /** 提交消息 (第一行) */
+  message: string
+  /** 作者 */
+  author: string
+  /** 相对时间 */
+  relativeTime: string
+}
+
+/**
  * Worktree 信息
  */
 export interface Worktree {
@@ -30,6 +44,8 @@ export interface Worktree {
   path: string
   /** 当前状态 */
   status: WorktreeStatus
+  /** 最后提交信息 */
+  lastCommit: LastCommit
   /** 最后活跃时间 */
   lastActiveAt: string | null
   /** 是否为主 Worktree */

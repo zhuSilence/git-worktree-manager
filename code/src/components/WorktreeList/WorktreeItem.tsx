@@ -4,6 +4,7 @@ import { StatusBadge } from './StatusBadge'
 import { Folder, ExternalLink, Terminal, Trash2 } from 'lucide-react'
 import { gitService } from '@/services/git'
 import { useWorktreeStore } from '@/stores/worktreeStore'
+import { settingsStore } from '@/stores/settingsStore'
 
 interface WorktreeItemProps {
   worktree: Worktree
@@ -11,12 +12,13 @@ interface WorktreeItemProps {
 
 export function WorktreeItem({ worktree }: WorktreeItemProps) {
   const { deleteWorktree } = useWorktreeStore()
+  const { defaultIde, defaultTerminal } = settingsStore()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
   const handleOpenInTerminal = async () => {
     try {
-      await gitService.openInTerminal(worktree.path)
+      await gitService.openInTerminal(worktree.path, defaultTerminal)
     } catch (error) {
       console.error('Failed to open in terminal:', error)
     }
@@ -24,7 +26,7 @@ export function WorktreeItem({ worktree }: WorktreeItemProps) {
 
   const handleOpenInEditor = async () => {
     try {
-      await gitService.openInEditor(worktree.path)
+      await gitService.openInEditor(worktree.path, defaultIde)
     } catch (error) {
       console.error('Failed to open in editor:', error)
     }
@@ -87,6 +89,19 @@ export function WorktreeItem({ worktree }: WorktreeItemProps) {
                 {worktree.path}
               </span>
             </div>
+
+            {/* 最后提交信息 */}
+            {worktree.lastCommit && (
+              <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                <span className="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded mr-2">
+                  {worktree.lastCommit.hash}
+                </span>
+                <span className="truncate">{worktree.lastCommit.message}</span>
+                <span className="text-gray-400 dark:text-gray-500 ml-2">
+                  • {worktree.lastCommit.relativeTime}
+                </span>
+              </div>
+            )}
 
             {worktree.lastActiveAt && (
               <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">

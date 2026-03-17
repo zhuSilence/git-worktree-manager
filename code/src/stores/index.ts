@@ -1,2 +1,3 @@
 export { useWorktreeStore } from './worktreeStore'
-export { useSettingsStore } from './settingsStore'
+export { settingsStore } from './settingsStore'
+export type { IdeType, TerminalType, AppSettings } from './settingsStore'
