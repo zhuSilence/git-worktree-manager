@@ -123,3 +123,63 @@ pub struct DiffResponse {
     /// 变更文件数
     pub files_changed: usize,
 }
+
+/// Diff 行
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiffLine {
+    /// 行类型: "context" | "addition" | "deletion" | "header"
+    pub line_type: String,
+    /// 旧文件行号 (删除行和上下文行)
+    pub old_line: Option<usize>,
+    /// 新文件行号 (新增行和上下文行)
+    pub new_line: Option<usize>,
+    /// 行内容
+    pub content: String,
+}
+
+/// Diff Hunk (代码块)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiffHunk {
+    /// 旧文件起始行
+    pub old_start: usize,
+    /// 旧文件行数
+    pub old_lines: usize,
+    /// 新文件起始行
+    pub new_start: usize,
+    /// 新文件行数
+    pub new_lines: usize,
+    /// 行内容
+    pub lines: Vec<DiffLine>,
+}
+
+/// 文件详细 Diff
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileDiff {
+    /// 文件路径
+    pub path: String,
+    /// 旧文件路径 (重命名时)
+    pub old_path: Option<String>,
+    /// 状态
+    pub status: String,
+    /// Hunks
+    pub hunks: Vec<DiffHunk>,
+    /// 新增行数
+    pub additions: usize,
+    /// 删除行数
+    pub deletions: usize,
+}
+
+/// 详细 Diff 响应
+#[derive(Debug, Serialize)]
+pub struct DetailedDiffResponse {
+    /// 源分支
+    pub source_branch: String,
+    /// 目标分支
+    pub target_branch: String,
+    /// 文件列表
+    pub files: Vec<FileDiff>,
+    /// 总新增行数
+    pub total_additions: usize,
+    /// 总删除行数
+    pub total_deletions: usize,
+}

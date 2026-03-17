@@ -151,3 +151,67 @@ export interface DiffResponse {
   /** 变更文件数 */
   filesChanged: number
 }
+
+/**
+ * Diff 行
+ */
+export interface DiffLine {
+  /** 行类型: "context" | "addition" | "deletion" */
+  lineType: string
+  /** 旧文件行号 */
+  oldLine: number | null
+  /** 新文件行号 */
+  newLine: number | null
+  /** 行内容 */
+  content: string
+}
+
+/**
+ * Diff Hunk (代码块)
+ */
+export interface DiffHunk {
+  /** 旧文件起始行 */
+  oldStart: number
+  /** 旧文件行数 */
+  oldLines: number
+  /** 新文件起始行 */
+  newStart: number
+  /** 新文件行数 */
+  newLines: number
+  /** 行内容 */
+  lines: DiffLine[]
+}
+
+/**
+ * 文件详细 Diff
+ */
+export interface FileDiff {
+  /** 文件路径 */
+  path: string
+  /** 旧文件路径 (重命名时) */
+  oldPath: string | null
+  /** 状态 */
+  status: string
+  /** Hunks */
+  hunks: DiffHunk[]
+  /** 新增行数 */
+  additions: number
+  /** 删除行数 */
+  deletions: number
+}
+
+/**
+ * 详细 Diff 响应
+ */
+export interface DetailedDiffResponse {
+  /** 源分支 */
+  sourceBranch: string
+  /** 目标分支 */
+  targetBranch: string
+  /** 文件列表 */
+  files: FileDiff[]
+  /** 总新增行数 */
+  totalAdditions: number
+  /** 总删除行数 */
+  totalDeletions: number
+}

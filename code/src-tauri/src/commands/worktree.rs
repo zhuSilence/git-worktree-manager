@@ -77,3 +77,9 @@ pub async fn open_worktree(worktree_path: String) -> Result<(), String> {
 pub async fn get_diff(worktree_path: String, target_branch: String) -> Result<crate::models::DiffResponse, String> {
     git_service::get_diff(&worktree_path, &target_branch).map_err(|e| e.to_string())
 }
+
+/// 获取详细的 diff 内容（包含代码行）
+#[command]
+pub async fn get_detailed_diff(worktree_path: String, target_branch: String) -> Result<crate::models::DetailedDiffResponse, String> {
+    git_service::get_detailed_diff(&worktree_path, &target_branch).map_err(|e| e.to_string())
+}

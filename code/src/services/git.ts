@@ -6,6 +6,7 @@ import type {
   WorktreeResult,
   BranchListResponse,
   DiffResponse,
+  DetailedDiffResponse,
 } from '@/types/worktree'
 import type { IdeType, TerminalType } from '@/stores/settingsStore'
 
@@ -105,5 +106,12 @@ export const gitService = {
    */
   async getDiff(worktreePath: string, targetBranch: string): Promise<DiffResponse> {
     return invoke<DiffResponse>('get_diff', { worktreePath, targetBranch })
+  },
+
+  /**
+   * 获取详细的 diff 内容（包含代码行）
+   */
+  async getDetailedDiff(worktreePath: string, targetBranch: string): Promise<DetailedDiffResponse> {
+    return invoke<DetailedDiffResponse>('get_detailed_diff', { worktreePath, targetBranch })
   },
 }

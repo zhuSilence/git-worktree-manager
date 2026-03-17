@@ -1,4 +1,4 @@
-use crate::models::{CreateWorktreeParams, Worktree, WorktreeListResponse, WorktreeResult, WorktreeStatus, Branch, BranchListResponse, LastCommit, DiffStats, DiffResponse};
+use crate::models::{CreateWorktreeParams, Worktree, WorktreeListResponse, WorktreeResult, WorktreeStatus, Branch, BranchListResponse, LastCommit, DiffStats, DiffResponse, DiffLine, DiffHunk, FileDiff, DetailedDiffResponse};
 use crate::utils::validation::{sanitize_branch_name, validate_path};
 use git2::Repository;
 use std::path::Path;
@@ -537,5 +537,193 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
         total_additions,
         total_deletions,
         files,
+    })
+}
+
+/// 获取详细的 diff 内容（包含代码行）
+pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<DetailedDiffResponse> {
+    let repo = Repository::open(worktree_path)?;
+    
+    // 获取当前分支名
+    let head = repo.head()?;
+    let source_branch = head.shorthand().unwrap_or("HEAD").to_string();
+    
+    // 查找目标分支的 commit
+    let target_commit = if target_branch == "main" || target_branch == "master" {
+        repo.find_reference("refs/heads/main")
+            .and_then(|r| r.peel_to_commit())
+            .or_else(|_| {
+                repo.find_reference("refs/heads/master")
+                    .and_then(|r| r.peel_to_commit())
+            })
+            .map_err(|_| anyhow::anyhow!("Neither 'main' nor 'master' branch found"))?
+    } else {
+        let branch_ref = format!("refs/heads/{}", target_branch);
+        repo.find_reference(&branch_ref)?
+            .peel_to_commit()?
+    };
+    
+    let source_commit = head.peel_to_commit()?;
+    
+    // 执行 diff
+    let mut diff = repo.diff_tree_to_tree(
+        Some(&target_commit.as_object().peel_to_tree()?),
+        Some(&source_commit.as_object().peel_to_tree()?),
+        None,
+    )?;
+    
+    let mut files: Vec<FileDiff> = Vec::new();
+    let mut total_additions = 0;
+    let mut total_deletions = 0;
+    let mut current_file_idx: Option<usize> = None;
+    let mut current_hunk_lines: Vec<DiffLine> = Vec::new();
+    
+    // 使用 git diff 命令获取更可靠的结果
+    let output = Command::new("git")
+        .args(["diff", &format!("{}...{}", target_branch, source_branch)])
+        .current_dir(worktree_path)
+        .output()?;
+    
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut current_file: Option<FileDiff> = None;
+        let mut current_hunk: Option<DiffHunk> = None;
+        
+        for line in stdout.lines() {
+            // 文件头
+            if line.starts_with("diff --git ") {
+                // 保存上一个文件
+                if let Some(mut file) = current_file.take() {
+                    if let Some(hunk) = current_hunk.take() {
+                        file.hunks.push(hunk);
+                    }
+                    files.push(file);
+                }
+                
+                // 解析新文件
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 4 {
+                    let path = parts[3].strip_prefix("b/").unwrap_or(parts[3]).to_string();
+                    current_file = Some(FileDiff {
+                        path,
+                        old_path: None,
+                        status: "modified".to_string(),
+                        hunks: Vec::new(),
+                        additions: 0,
+                        deletions: 0,
+                    });
+                }
+                current_hunk = None;
+            }
+            // 新文件标记
+            else if line.starts_with("new file mode ") {
+                if let Some(ref mut file) = current_file {
+                    file.status = "added".to_string();
+                }
+            }
+            // 删除文件标记
+            else if line.starts_with("deleted file mode ") {
+                if let Some(ref mut file) = current_file {
+                    file.status = "deleted".to_string();
+                }
+            }
+            // 重命名
+            else if line.starts_with("rename from ") {
+                if let Some(ref mut file) = current_file {
+                    file.old_path = Some(line.strip_prefix("rename from ").unwrap_or("").to_string());
+                    file.status = "renamed".to_string();
+                }
+            }
+            // Hunk 头
+            else if line.starts_with("@@ ") {
+                // 保存上一个 hunk
+                if let Some(ref mut file) = current_file {
+                    if let Some(hunk) = current_hunk.take() {
+                        file.hunks.push(hunk);
+                    }
+                }
+                
+                // 解析 hunk 信息
+                // @@ -old_start,old_lines +new_start,new_lines @@
+                let re = regex::Regex::new(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@").unwrap();
+                if let Some(caps) = re.captures(line) {
+                    let old_start = caps[1].parse::<usize>().unwrap_or(1);
+                    let old_lines = caps.get(2).map(|m| m.as_str().parse::<usize>().unwrap_or(1)).unwrap_or(1);
+                    let new_start = caps[3].parse::<usize>().unwrap_or(1);
+                    let new_lines = caps.get(4).map(|m| m.as_str().parse::<usize>().unwrap_or(1)).unwrap_or(1);
+                    
+                    current_hunk = Some(DiffHunk {
+                        old_start,
+                        old_lines,
+                        new_start,
+                        new_lines,
+                        lines: Vec::new(),
+                    });
+                }
+            }
+            // Diff 行
+            else if line.starts_with('+') && !line.starts_with("+++") {
+                if let Some(ref mut file) = current_file {
+                    if let Some(ref mut hunk) = current_hunk {
+                        hunk.lines.push(DiffLine {
+                            line_type: "addition".to_string(),
+                            old_line: None,
+                            new_line: Some(hunk.new_start + hunk.lines.iter().filter(|l| l.line_type == "addition" || l.line_type == "context").count()),
+                            content: line[1..].to_string(),
+                        });
+                        file.additions += 1;
+                        total_additions += 1;
+                    }
+                }
+            }
+            else if line.starts_with('-') && !line.starts_with("---") {
+                if let Some(ref mut file) = current_file {
+                    if let Some(ref mut hunk) = current_hunk {
+                        hunk.lines.push(DiffLine {
+                            line_type: "deletion".to_string(),
+                            old_line: Some(hunk.old_start + hunk.lines.iter().filter(|l| l.line_type == "deletion" || l.line_type == "context").count()),
+                            new_line: None,
+                            content: line[1..].to_string(),
+                        });
+                        file.deletions += 1;
+                        total_deletions += 1;
+                    }
+                }
+            }
+            else if line.starts_with(' ') {
+                if let Some(ref mut file) = current_file {
+                    if let Some(ref mut hunk) = current_hunk {
+                        let ctx_count = hunk.lines.iter().filter(|l| l.line_type == "context").count();
+                        let add_count = hunk.lines.iter().filter(|l| l.line_type == "addition").count();
+                        let del_count = hunk.lines.iter().filter(|l| l.line_type == "deletion").count();
+                        hunk.lines.push(DiffLine {
+                            line_type: "context".to_string(),
+                            old_line: Some(hunk.old_start + ctx_count + del_count),
+                            new_line: Some(hunk.new_start + ctx_count + add_count),
+                            content: line[1..].to_string(),
+                        });
+                    }
+                }
+            }
+        }
+        
+        // 保存最后一个文件
+        if let Some(mut file) = current_file {
+            if let Some(hunk) = current_hunk {
+                file.hunks.push(hunk);
+            }
+            files.push(file);
+        }
+    }
+    
+    // 过滤掉没有内容的文件
+    files.retain(|f| !f.hunks.is_empty() || f.status == "added" || f.status == "deleted");
+    
+    Ok(DetailedDiffResponse {
+        source_branch,
+        target_branch: target_branch.to_string(),
+        files,
+        total_additions,
+        total_deletions,
     })
 }
