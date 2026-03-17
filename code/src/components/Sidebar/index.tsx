@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { GitBranch, Plus, Trash2, RefreshCw, ChevronRight, FolderOpen } from 'lucide-react'
+import { GitBranch, Plus, Trash2, RefreshCw, ChevronRight, ChevronLeft, FolderOpen } from 'lucide-react'
 import { useRepositoryStore } from '@/stores/repositoryStore'
 import type { RepositoryInfo } from '@/types/worktree'
 import { clsx } from 'clsx'
 import { open } from '@tauri-apps/plugin-dialog'
+
+const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed'
 
 interface SidebarProps {
   onRepoSelect: (repo: RepositoryInfo) => void
@@ -12,6 +14,15 @@ interface SidebarProps {
 export function Sidebar({ onRepoSelect }: SidebarProps) {
   const { repositories, activeRepoId, addRepository, removeRepository, refreshRepositories, isLoading } = useRepositoryStore()
   const [isAdding, setIsAdding] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true')
+
+  const toggleCollapsed = () => {
+    setCollapsed(prev => {
+      const next = !prev
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next))
+      return next
+    })
+  }
 
   const handleAddRepo = async () => {
     try {
@@ -21,7 +32,7 @@ export function Sidebar({ onRepoSelect }: SidebarProps) {
         multiple: false,
         title: '选择 Git 仓库',
       })
-      
+
       if (selected && typeof selected === 'string') {
         const repo = await addRepository(selected)
         if (repo) {
@@ -44,8 +55,54 @@ export function Sidebar({ onRepoSelect }: SidebarProps) {
     await refreshRepositories()
   }
 
+  // ─── 收缩态 ─────────────────────────────────────────────────────
+  if (collapsed) {
+    return (
+      <aside className="w-12 h-full bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center py-2 transition-all duration-200">
+        {/* 展开按钮 */}
+        <button
+          onClick={toggleCollapsed}
+          className="p-1.5 mb-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors"
+          title="展开仓库列表"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+
+        {/* 仓库图标列表 */}
+        <div className="flex-1 overflow-y-auto flex flex-col items-center gap-1.5 w-full px-1">
+          {repositories.map((repo) => (
+            <button
+              key={repo.id}
+              onClick={() => onRepoSelect(repo)}
+              className={clsx(
+                'w-8 h-8 rounded-md flex items-center justify-center text-xs font-bold transition-colors flex-shrink-0',
+                activeRepoId === repo.id
+                  ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 ring-1 ring-green-300 dark:ring-green-700'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+              )}
+              title={repo.name}
+            >
+              {repo.name.charAt(0).toUpperCase()}
+            </button>
+          ))}
+        </div>
+
+        {/* 添加按钮 */}
+        <button
+          onClick={handleAddRepo}
+          disabled={isAdding}
+          className="mt-2 p-1.5 text-gray-400 hover:text-green-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50"
+          title="添加仓库"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+      </aside>
+    )
+  }
+
+  // ─── 展开态 ─────────────────────────────────────────────────────
   return (
-    <aside className="w-64 h-full bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+    <aside className="w-64 h-full bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-200">
       {/* 头部 */}
       <div className="p-3 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between mb-2">
@@ -69,6 +126,13 @@ export function Sidebar({ onRepoSelect }: SidebarProps) {
               title="添加仓库"
             >
               <Plus className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={toggleCollapsed}
+              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded"
+              title="收起仓库列表"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
@@ -127,7 +191,7 @@ export function Sidebar({ onRepoSelect }: SidebarProps) {
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                
+
                 {/* 展开指示器 */}
                 {activeRepoId === repo.id && (
                   <div className="mt-2 flex items-center text-xs text-green-600 dark:text-green-400">

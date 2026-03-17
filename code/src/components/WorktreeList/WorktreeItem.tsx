@@ -75,7 +75,7 @@ export function WorktreeItem({ worktree, branches, onShowDiff }: WorktreeItemPro
 
   return (
     <>
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors overflow-hidden">
         <div className="flex items-start justify-between">
           {/* 左侧：分支信息 */}
           <div className="flex-1 min-w-0">
@@ -100,20 +100,20 @@ export function WorktreeItem({ worktree, branches, onShowDiff }: WorktreeItemPro
 
             {/* 最后提交信息 */}
             {worktree.lastCommit && (
-              <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                <span className="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded mr-2">
+              <div className="mt-2 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 min-w-0" title={`${worktree.lastCommit.author} • ${worktree.lastCommit.hash}`}>
+                <span className="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded flex-shrink-0">
                   {worktree.lastCommit.hash}
                 </span>
-                <span className="truncate">{worktree.lastCommit.message}</span>
-                <span className="text-gray-400 dark:text-gray-500 ml-2">
-                  • {worktree.lastCommit.relativeTime}
+                <span className="truncate block min-w-0 flex-1">{worktree.lastCommit.message}</span>
+                <span className="text-gray-400 dark:text-gray-500 flex-shrink-0 text-xs" title={worktree.lastCommit.relativeTime}>
+                  {worktree.lastCommit.relativeTime}
                 </span>
               </div>
             )}
 
             {worktree.lastActiveAt && (
-              <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                Last active: {worktree.lastActiveAt}
+              <div className="text-xs text-gray-400 dark:text-gray-500 mt-1" title={worktree.lastActiveAt}>
+                最后活跃: {worktree.lastActiveAt}
               </div>
             )}
           </div>
@@ -171,7 +171,7 @@ export function WorktreeItem({ worktree, branches, onShowDiff }: WorktreeItemPro
       {/* 删除确认对话框 */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div 
+          <div
             className="absolute inset-0 bg-black/50"
             onClick={() => setShowDeleteConfirm(false)}
           />

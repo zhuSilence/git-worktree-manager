@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { WorktreeItem } from './WorktreeItem'
 import { useWorktreeStore } from '@/stores/worktreeStore'
-import { GitBranch, Plus, Search, ArrowUpDown, AlertTriangle, Trash2 } from 'lucide-react'
+import { GitBranch, Plus, Search, ArrowUpDown, AlertTriangle, Trash2, PanelLeftClose } from 'lucide-react'
 import { Button } from '@/components/common'
 import type { Worktree } from '@/types/worktree'
 import { WorktreeStatus } from '@/types/worktree'
@@ -14,9 +14,10 @@ type SortOrder = 'asc' | 'desc'
 interface WorktreeListProps {
   onCreateWorktree?: () => void
   onShowDiff?: (path: string, name: string) => void
+  onCollapse?: () => void
 }
 
-export function WorktreeList({ onCreateWorktree, onShowDiff }: WorktreeListProps) {
+export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse }: WorktreeListProps) {
   const { worktrees, isLoading, currentRepo } = useWorktreeStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [sortField, setSortField] = useState<SortField>('name')
@@ -34,7 +35,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff }: WorktreeListProps
     // 搜索过滤
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
-      result = result.filter((wt: Worktree) => 
+      result = result.filter((wt: Worktree) =>
         wt.name.toLowerCase().includes(query) ||
         wt.branch.toLowerCase().includes(query) ||
         wt.path.toLowerCase().includes(query)
@@ -44,7 +45,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff }: WorktreeListProps
     // 排序
     result.sort((a: Worktree, b: Worktree) => {
       let comparison = 0
-      
+
       switch (sortField) {
         case 'name':
           comparison = a.name.localeCompare(b.name)
@@ -125,7 +126,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff }: WorktreeListProps
               className="pl-9 pr-4 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500 w-64"
             />
           </div>
-          
+
           {/* 排序按钮 */}
           <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
             <ArrowUpDown className="w-4 h-4" />
@@ -163,22 +164,33 @@ export function WorktreeList({ onCreateWorktree, onShowDiff }: WorktreeListProps
             </button>
           )}
         </div>
-        
-        <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">
-          共 {filteredAndSortedWorktrees.length} 个 Worktree
-          {searchQuery && worktrees.length !== filteredAndSortedWorktrees.length && (
-            <span className="text-gray-400 ml-1">(筛选自 {worktrees.length} 个)</span>
+
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+            共 {filteredAndSortedWorktrees.length} 个 Worktree
+            {searchQuery && worktrees.length !== filteredAndSortedWorktrees.length && (
+              <span className="text-gray-400 ml-1">(筛选自 {worktrees.length} 个)</span>
+            )}
+          </h2>
+          {onCollapse && (
+            <button
+              onClick={onCollapse}
+              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+              title="收起 Worktree 列表"
+            >
+              <PanelLeftClose className="w-4 h-4" />
+            </button>
           )}
-        </h2>
+        </div>
       </div>
-      
+
       {/* 列表 */}
       <div className="space-y-2">
         {filteredAndSortedWorktrees.map((worktree) => (
           <WorktreeItem key={worktree.id} worktree={worktree} branches={branches} onShowDiff={onShowDiff} />
         ))}
       </div>
-      
+
       {/* 无搜索结果 */}
       {searchQuery && filteredAndSortedWorktrees.length === 0 && (
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">

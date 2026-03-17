@@ -38,13 +38,13 @@ export const useWorktreeStore = create<WorktreeState>((set, get) => ({
   // 加载仓库
   loadRepository: async (path: string) => {
     set({ isLoading: true, error: null })
-    
+
     try {
       // 检查是否是 Git 仓库
       const isRepo = await gitService.isGitRepo(path)
       if (!isRepo) {
-        set({ 
-          error: '选择的目录不是 Git 仓库', 
+        set({
+          error: '选择的目录不是 Git 仓库',
           isLoading: false,
           currentRepo: null,
           worktrees: []
@@ -54,7 +54,7 @@ export const useWorktreeStore = create<WorktreeState>((set, get) => ({
 
       // 获取 worktrees
       const response: WorktreeListResponse = await gitService.listWorktrees(path)
-      
+
       // 获取分支列表
       let branches: { name: string; isCurrent: boolean }[] = []
       try {
@@ -80,65 +80,65 @@ export const useWorktreeStore = create<WorktreeState>((set, get) => ({
         branches,
         defaultBranch
       }
-      
-      set({ 
-        currentRepo: repo, 
+
+      set({
+        currentRepo: repo,
         currentRepoPath: path,
         worktrees: response.worktrees,
-        isLoading: false 
+        isLoading: false
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : '加载仓库失败'
-      set({ 
-        error: message, 
+      set({
+        error: message,
         isLoading: false,
         currentRepo: null,
         worktrees: []
       })
     }
   },
-  
+
   // 刷新 worktrees
   refreshWorktrees: async () => {
     const { currentRepoPath } = get()
     if (!currentRepoPath) return
-    
+
     set({ isLoading: true })
-    
+
     try {
       const response: WorktreeListResponse = await gitService.listWorktrees(currentRepoPath)
-      
-      set({ 
-        worktrees: response.worktrees, 
+
+      set({
+        worktrees: response.worktrees,
         isLoading: false,
         error: null
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : '刷新失败'
-      set({ 
-        error: message, 
-        isLoading: false 
+      set({
+        error: message,
+        isLoading: false
       })
     }
   },
-  
+
   // 创建 worktree
   createWorktree: async (params: CreateWorktreeParams) => {
     const { currentRepoPath } = get()
     if (!currentRepoPath) {
       return { success: false, message: '未选择仓库' }
     }
-    
+
     set({ isLoading: true, error: null })
-    
+
     try {
       const result = await gitService.createWorktree(currentRepoPath, params)
-      
+
       if (result.success) {
         // 刷新列表
         await get().refreshWorktrees()
       }
-      
+
       set({ isLoading: false })
       return result
     } catch (error) {
@@ -147,24 +147,24 @@ export const useWorktreeStore = create<WorktreeState>((set, get) => ({
       return { success: false, message }
     }
   },
-  
+
   // 删除 worktree
   deleteWorktree: async (worktreePath: string, force = false) => {
     const { currentRepoPath } = get()
     if (!currentRepoPath) {
       return { success: false, message: '未选择仓库' }
     }
-    
+
     set({ isLoading: true, error: null })
-    
+
     try {
       const result = await gitService.deleteWorktree(currentRepoPath, worktreePath, force)
-      
+
       if (result.success) {
         // 刷新列表
         await get().refreshWorktrees()
       }
-      
+
       set({ isLoading: false })
       return result
     } catch (error) {
