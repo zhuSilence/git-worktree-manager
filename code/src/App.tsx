@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Header } from './components/layout'
 import { Main } from './components/layout'
 import { WorktreeList } from './components/WorktreeList'
@@ -8,11 +8,13 @@ import { Sidebar } from './components/Sidebar'
 import { DiffSidebar } from './components/DiffSidebar'
 import { useWorktreeStore } from './stores/worktreeStore'
 import { useRepositoryStore } from './stores/repositoryStore'
+import { settingsStore } from './stores/settingsStore'
 import type { RepositoryInfo } from './types/worktree'
 
 function App() {
-  const { currentRepo, isLoading, error, loadRepository } = useWorktreeStore()
+  const { currentRepo, isLoading, error, loadRepository, refreshWorktrees } = useWorktreeStore()
   const { repositories, activeRepoId } = useRepositoryStore()
+  const { autoRefreshInterval } = settingsStore()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [diffWorktree, setDiffWorktree] = useState<{ path: string; name: string } | null>(null)
@@ -23,6 +25,15 @@ function App() {
       loadRepository(activeRepoId)
     }
   }, [activeRepoId, loadRepository])
+
+  // 自动刷新
+  useEffect(() => {
+    if (autoRefreshInterval <= 0 || !currentRepo) return
+    const timer = setInterval(() => {
+      refreshWorktrees()
+    }, autoRefreshInterval * 1000)
+    return () => clearInterval(timer)
+  }, [autoRefreshInterval, currentRepo, refreshWorktrees])
 
   const handleRepoSelect = (repo: RepositoryInfo) => {
     loadRepository(repo.path)
@@ -89,6 +100,8 @@ function App() {
             onClose={() => setDiffWorktree(null)}
             worktreePath={diffWorktree.path}
             worktreeName={diffWorktree.name}
+            branches={currentRepo?.branches.map(b => b.name) || []}
+            defaultBranch={currentRepo?.defaultBranch || 'main'}
           />
         )}
       </div>

@@ -1,5 +1,15 @@
 use regex::Regex;
 use std::path::{Component, PathBuf};
+use std::sync::LazyLock;
+
+static BRANCH_NAME_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^[a-zA-Z0-9_\-/.]+$").unwrap()
+});
+
+#[allow(dead_code)]
+static REPO_NAME_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^[a-zA-Z0-9_\-]+$").unwrap()
+});
 
 /// 验证分支名是否安全
 /// 
@@ -38,8 +48,7 @@ pub fn sanitize_branch_name(name: &str) -> Result<String, String> {
     }
     
     // 只允许字母、数字、-、_、/、.
-    let re = Regex::new(r"^[a-zA-Z0-9_\-/.]+$").unwrap();
-    if !re.is_match(name) {
+    if !BRANCH_NAME_RE.is_match(name) {
         return Err("Branch name contains invalid characters. Only letters, numbers, '-', '_', '/', and '.' are allowed".to_string());
     }
     
@@ -90,6 +99,8 @@ pub fn validate_path(path: &str) -> Result<PathBuf, String> {
 }
 
 /// 验证仓库名称是否安全
+/// 仍用于 worktree 名称验证等场景
+#[allow(dead_code)]
 pub fn sanitize_repo_name(name: &str) -> Result<String, String> {
     if name.is_empty() {
         return Err("Repository name cannot be empty".to_string());
@@ -100,8 +111,7 @@ pub fn sanitize_repo_name(name: &str) -> Result<String, String> {
     }
     
     // 只允许字母、数字、-、_
-    let re = Regex::new(r"^[a-zA-Z0-9_\-]+$").unwrap();
-    if !re.is_match(name) {
+    if !REPO_NAME_RE.is_match(name) {
         return Err("Repository name contains invalid characters. Only letters, numbers, '-', and '_' are allowed".to_string());
     }
     

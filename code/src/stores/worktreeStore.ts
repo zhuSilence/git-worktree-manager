@@ -8,6 +8,7 @@ interface Repository {
   mainWorktreePath: string
   worktrees: Worktree[]
   branches: { name: string; isCurrent: boolean }[]
+  defaultBranch: string
 }
 
 interface WorktreeState {
@@ -66,12 +67,18 @@ export const useWorktreeStore = create<WorktreeState>((set, get) => ({
         // 分支列表获取失败不影响主流程
       }
 
+      // 推断默认分支名
+      const defaultBranch = branches.find(b => b.name === 'main')?.name
+        || branches.find(b => b.name === 'master')?.name
+        || 'main'
+
       const repo: Repository = {
         id: path,
         name: path.split('/').pop() || path,
         mainWorktreePath: path,
         worktrees: response.worktrees,
-        branches
+        branches,
+        defaultBranch
       }
       
       set({ 

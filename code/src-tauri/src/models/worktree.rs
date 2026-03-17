@@ -19,6 +19,7 @@ pub enum WorktreeStatus {
 
 /// 最后提交信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LastCommit {
     /// 提交 hash (短)
     pub hash: String,
@@ -32,6 +33,7 @@ pub struct LastCommit {
 
 /// Worktree 信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Worktree {
     /// 唯一标识符
     pub id: String,
@@ -55,6 +57,7 @@ pub struct Worktree {
 
 /// 创建 Worktree 参数
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateWorktreeParams {
     pub name: String,
     pub base_branch: String,
@@ -72,6 +75,7 @@ pub struct WorktreeResult {
 
 /// Worktree 列表响应
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WorktreeListResponse {
     pub worktrees: Vec<Worktree>,
     pub repo_path: String,
@@ -80,6 +84,7 @@ pub struct WorktreeListResponse {
 
 /// 分支信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Branch {
     /// 分支名
     pub name: String,
@@ -89,6 +94,7 @@ pub struct Branch {
 
 /// 分支列表响应
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BranchListResponse {
     pub branches: Vec<Branch>,
     pub current_branch: String,
@@ -109,6 +115,7 @@ pub struct DiffStats {
 
 /// Diff 响应
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DiffResponse {
     /// 源分支
     pub source_branch: String,
@@ -126,6 +133,7 @@ pub struct DiffResponse {
 
 /// Diff 行
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DiffLine {
     /// 行类型: "context" | "addition" | "deletion" | "header"
     pub line_type: String,
@@ -139,6 +147,7 @@ pub struct DiffLine {
 
 /// Diff Hunk (代码块)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DiffHunk {
     /// 旧文件起始行
     pub old_start: usize,
@@ -154,6 +163,7 @@ pub struct DiffHunk {
 
 /// 文件详细 Diff
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FileDiff {
     /// 文件路径
     pub path: String,
@@ -171,6 +181,7 @@ pub struct FileDiff {
 
 /// 详细 Diff 响应
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DetailedDiffResponse {
     /// 源分支
     pub source_branch: String,
@@ -186,6 +197,7 @@ pub struct DetailedDiffResponse {
 
 /// 仓库信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RepositoryInfo {
     /// 仓库 ID (路径)
     pub id: String,
@@ -210,6 +222,7 @@ pub struct SwitchBranchResult {
 
 /// 批量删除结果
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BatchDeleteResult {
     pub success_count: usize,
     pub failed_count: usize,
@@ -218,6 +231,7 @@ pub struct BatchDeleteResult {
 
 /// Worktree 提示信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WorktreeHint {
     /// Worktree ID
     pub worktree_id: String,

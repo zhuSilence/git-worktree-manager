@@ -9,6 +9,8 @@ interface DiffSidebarProps {
   onClose: () => void
   worktreePath: string
   worktreeName: string
+  branches?: string[]
+  defaultBranch?: string
 }
 
 type ViewMode = 'unified' | 'split'
@@ -17,11 +19,11 @@ const MIN_WIDTH = 400
 const MAX_WIDTH = 1000
 const DEFAULT_WIDTH = 600
 
-export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName }: DiffSidebarProps) {
+export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branches = [], defaultBranch = 'main' }: DiffSidebarProps) {
   const [diff, setDiff] = useState<DetailedDiffResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [targetBranch, setTargetBranch] = useState('main')
+  const [targetBranch, setTargetBranch] = useState(defaultBranch)
   const [viewMode, setViewMode] = useState<ViewMode>('unified')
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set())
   const [selectedLine, setSelectedLine] = useState<string | null>(null)
@@ -272,11 +274,19 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName }: Dif
           <select
             value={targetBranch}
             onChange={(e) => setTargetBranch(e.target.value)}
-            className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white max-w-[120px]"
           >
-            <option value="main">main</option>
-            <option value="master">master</option>
-            <option value="develop">develop</option>
+            {branches.length > 0 ? (
+              branches.map(b => (
+                <option key={b} value={b}>{b}</option>
+              ))
+            ) : (
+              <>
+                <option value="main">main</option>
+                <option value="master">master</option>
+                <option value="develop">develop</option>
+              </>
+            )}
           </select>
           <button
             onClick={fetchDiff}
@@ -403,7 +413,7 @@ function UnifiedDiffView({ hunks, fileIdx, selectedLine }: { hunks: DiffHunk[], 
       {hunks.map((hunk: DiffHunk, hunkIdx: number) => (
         <div key={hunkIdx}>
           {/* Hunk header */}
-          <div className="px-3 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-y border-blue-200 dark:border-blue-800 text-xs">
+          <div className="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-y border-blue-200 dark:border-blue-800 text-xs font-mono">
             @@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
           </div>
           {/* Lines */}
@@ -424,10 +434,16 @@ function UnifiedDiffView({ hunks, fileIdx, selectedLine }: { hunks: DiffHunk[], 
                   isChange && 'hover:bg-opacity-80',
                 )}
               >
-                <span className="w-10 px-1 py-0 text-right text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 select-none text-[10px]">
+                <span className={clsx(
+                  'w-12 px-1 py-0 text-right text-[11px] select-none border-r border-gray-200 dark:border-gray-700 font-mono',
+                  line.lineType === 'deletion' ? 'bg-red-100 dark:bg-red-900/30 text-red-400' : 'bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500',
+                )}>
                   {line.oldLine ?? ''}
                 </span>
-                <span className="w-10 px-1 py-0 text-right text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 select-none text-[10px]">
+                <span className={clsx(
+                  'w-12 px-1 py-0 text-right text-[11px] select-none border-r border-gray-200 dark:border-gray-700 font-mono',
+                  line.lineType === 'addition' ? 'bg-green-100 dark:bg-green-900/30 text-green-400' : 'bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500',
+                )}>
                   {line.newLine ?? ''}
                 </span>
                 <span
@@ -439,7 +455,7 @@ function UnifiedDiffView({ hunks, fileIdx, selectedLine }: { hunks: DiffHunk[], 
                 >
                   {line.lineType === 'addition' ? '+' : line.lineType === 'deletion' ? '-' : ' '}
                 </span>
-                <span className="flex-1 px-2 py-0 whitespace-pre overflow-x-auto text-[11px]">
+                <span className="flex-1 px-2 py-0 whitespace-pre overflow-x-auto text-[11px] leading-5">
                   <HighlightedLine content={line.content} lineType={line.lineType} />
                 </span>
               </div>
@@ -478,13 +494,13 @@ function SplitDiffView({ hunks, fileIdx, selectedLine }: { hunks: DiffHunk[], fi
         return (
           <div key={hunkIdx}>
             {/* Hunk header */}
-            <div className="px-3 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-y border-blue-200 dark:border-blue-800 text-xs">
+            <div className="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-y border-blue-200 dark:border-blue-800 text-xs font-mono">
               @@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
             </div>
             {/* Split view */}
             <div className="flex">
               {/* Left side (old) */}
-              <div className="flex-1 border-r border-gray-200 dark:border-gray-700">
+              <div className="flex-1 border-r border-gray-300 dark:border-gray-600">
                 {leftLines.map((line, idx) => {
                   const id = `diff-${fileIdx}-${hunkIdx}-L${idx}`
                   const isSelected = selectedLine === id
@@ -500,7 +516,10 @@ function SplitDiffView({ hunks, fileIdx, selectedLine }: { hunks: DiffHunk[], fi
                         isSelected && 'ring-2 ring-purple-500 ring-inset',
                       )}
                     >
-                      <span className="w-10 px-1 py-0 text-right text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 select-none text-[10px]">
+                      <span className={clsx(
+                        'w-10 px-1 py-0 text-right text-[11px] select-none border-r border-gray-200 dark:border-gray-700 font-mono',
+                        line?.lineType === 'deletion' ? 'bg-red-100 dark:bg-red-900/30 text-red-400' : 'bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500',
+                      )}>
                         {line?.oldLine ?? ''}
                       </span>
                       <span
@@ -511,7 +530,7 @@ function SplitDiffView({ hunks, fileIdx, selectedLine }: { hunks: DiffHunk[], fi
                       >
                         {line?.lineType === 'deletion' ? '-' : ' '}
                       </span>
-                      <span className="flex-1 px-1 py-0 whitespace-pre overflow-x-auto text-[11px]">
+                      <span className="flex-1 px-1 py-0 whitespace-pre overflow-x-auto text-[11px] leading-5">
                         {line ? <HighlightedLine content={line.content} lineType={line.lineType} /> : ''}
                       </span>
                     </div>
@@ -535,7 +554,10 @@ function SplitDiffView({ hunks, fileIdx, selectedLine }: { hunks: DiffHunk[], fi
                         isSelected && 'ring-2 ring-purple-500 ring-inset',
                       )}
                     >
-                      <span className="w-10 px-1 py-0 text-right text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 select-none text-[10px]">
+                      <span className={clsx(
+                        'w-10 px-1 py-0 text-right text-[11px] select-none border-r border-gray-200 dark:border-gray-700 font-mono',
+                        line?.lineType === 'addition' ? 'bg-green-100 dark:bg-green-900/30 text-green-400' : 'bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500',
+                      )}>
                         {line?.newLine ?? ''}
                       </span>
                       <span
@@ -546,7 +568,7 @@ function SplitDiffView({ hunks, fileIdx, selectedLine }: { hunks: DiffHunk[], fi
                       >
                         {line?.lineType === 'addition' ? '+' : ' '}
                       </span>
-                      <span className="flex-1 px-1 py-0 whitespace-pre overflow-x-auto text-[11px]">
+                      <span className="flex-1 px-1 py-0 whitespace-pre overflow-x-auto text-[11px] leading-5">
                         {line ? <HighlightedLine content={line.content} lineType={line.lineType} /> : ''}
                       </span>
                     </div>
@@ -561,9 +583,27 @@ function SplitDiffView({ hunks, fileIdx, selectedLine }: { hunks: DiffHunk[], fi
   )
 }
 
-// 高亮行组件 - 用于标记具体的差异字符
-function HighlightedLine({ content }: { content: string, lineType: string }) {
-  // 简单实现：返回原始内容
-  // 可以扩展为字符级别的差异高亮
-  return <>{content}</>
+// 高亮行组件 - 对变更行的内容做关键字符高亮
+function HighlightedLine({ content, lineType }: { content: string, lineType: string }) {
+  if (lineType === 'context') {
+    return <span className="text-gray-700 dark:text-gray-300">{content}</span>
+  }
+
+  if (lineType === 'addition') {
+    return (
+      <span className="text-green-800 dark:text-green-300">
+        {content}
+      </span>
+    )
+  }
+
+  if (lineType === 'deletion') {
+    return (
+      <span className="text-red-800 dark:text-red-300">
+        {content}
+      </span>
+    )
+  }
+
+  return <span>{content}</span>
 }

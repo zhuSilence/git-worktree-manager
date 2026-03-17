@@ -85,13 +85,6 @@ export const gitService = {
   },
 
   /**
-   * 获取 Worktree 状态
-   */
-  async getWorktreeStatus(repoPath: string, worktreePath: string): Promise<string> {
-    return invoke<string>('get_worktree_status', { repoPath, worktreePath })
-  },
-
-  /**
    * 切换到 Worktree 目录（在终端中）
    */
   async openInTerminal(worktreePath: string, terminal?: TerminalType): Promise<void> {

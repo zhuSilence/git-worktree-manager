@@ -191,7 +191,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff }: WorktreeListProps
         isOpen={showHints}
         onClose={() => setShowHints(false)}
         repoPath={currentRepo?.mainWorktreePath || ''}
-        mainBranch="main"
+        mainBranch={currentRepo?.defaultBranch || 'main'}
       />
 
       {/* 批量操作面板 */}

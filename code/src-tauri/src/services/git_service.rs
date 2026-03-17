@@ -3,6 +3,12 @@ use crate::utils::validation::{sanitize_branch_name, validate_path};
 use git2::Repository;
 use std::path::Path;
 use std::process::Command;
+use std::sync::LazyLock;
+use regex::Regex;
+
+static HUNK_HEADER_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@").unwrap()
+});
 
 /// 获取 Worktree 列表
 pub fn list_worktrees(repo_path: &str) -> anyhow::Result<WorktreeListResponse> {
@@ -151,6 +157,28 @@ fn get_worktree_status(repo: &Repository) -> anyhow::Result<WorktreeStatus> {
     
     if has_changes {
         return Ok(WorktreeStatus::Dirty);
+    }
+    
+    // 检查是否有未推送的提交
+    if let Ok(head) = repo.head() {
+        if let Some(branch_name) = head.shorthand() {
+            let upstream_name = format!("origin/{}", branch_name);
+            if let Ok(upstream_ref) = repo.find_reference(&format!("refs/remotes/{}", upstream_name)) {
+                if let (Ok(local_commit), Ok(upstream_commit)) = (
+                    head.peel_to_commit(),
+                    upstream_ref.peel_to_commit(),
+                ) {
+                    if local_commit.id() != upstream_commit.id() {
+                        // 检查本地是否领先远程
+                        if let Ok((ahead, _)) = repo.graph_ahead_behind(local_commit.id(), upstream_commit.id()) {
+                            if ahead > 0 {
+                                return Ok(WorktreeStatus::Unpushed);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     
     Ok(WorktreeStatus::Clean)
@@ -410,8 +438,7 @@ pub fn open_in_file_manager(path: &str) -> anyhow::Result<()> {
 
 /// 检查是否为 Git 仓库
 pub fn is_git_repo(path: &str) -> anyhow::Result<bool> {
-    let full_path = Path::new(path).join(".git");
-    Ok(full_path.exists())
+    Ok(Repository::open(path).is_ok())
 }
 
 /// 获取分支列表
@@ -449,6 +476,22 @@ pub fn list_branches(repo_path: &str) -> anyhow::Result<BranchListResponse> {
     })
 }
 
+/// 查找目标分支的 commit
+fn find_target_commit<'a>(repo: &'a Repository, target_branch: &str) -> anyhow::Result<git2::Commit<'a>> {
+    if target_branch == "main" || target_branch == "master" {
+        repo.find_reference("refs/heads/main")
+            .and_then(|r| r.peel_to_commit())
+            .or_else(|_| {
+                repo.find_reference("refs/heads/master")
+                    .and_then(|r| r.peel_to_commit())
+            })
+            .map_err(|_| anyhow::anyhow!("Neither 'main' nor 'master' branch found"))
+    } else {
+        let branch_ref = format!("refs/heads/{}", target_branch);
+        Ok(repo.find_reference(&branch_ref)?.peel_to_commit()?)
+    }
+}
+
 /// 获取 worktree 与目标分支的 diff
 pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<DiffResponse> {
     let repo = Repository::open(worktree_path)?;
@@ -458,26 +501,13 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
     let source_branch = head.shorthand().unwrap_or("HEAD").to_string();
     
     // 查找目标分支的 commit
-    let target_commit = if target_branch == "main" || target_branch == "master" {
-        // 尝试 main 和 master
-        repo.find_reference("refs/heads/main")
-            .and_then(|r| r.peel_to_commit())
-            .or_else(|_| {
-                repo.find_reference("refs/heads/master")
-                    .and_then(|r| r.peel_to_commit())
-            })
-            .map_err(|_| anyhow::anyhow!("Neither 'main' nor 'master' branch found"))?
-    } else {
-        let branch_ref = format!("refs/heads/{}", target_branch);
-        repo.find_reference(&branch_ref)?
-            .peel_to_commit()?
-    };
+    let target_commit = find_target_commit(&repo, target_branch)?;
     
     // 获取当前 HEAD commit
     let source_commit = head.peel_to_commit()?;
     
     // 执行 diff
-    let diff = repo.diff_tree_to_tree(
+    let _diff = repo.diff_tree_to_tree(
         Some(&target_commit.as_object().peel_to_tree()?),
         Some(&source_commit.as_object().peel_to_tree()?),
         None,
@@ -549,24 +579,12 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
     let source_branch = head.shorthand().unwrap_or("HEAD").to_string();
     
     // 查找目标分支的 commit
-    let target_commit = if target_branch == "main" || target_branch == "master" {
-        repo.find_reference("refs/heads/main")
-            .and_then(|r| r.peel_to_commit())
-            .or_else(|_| {
-                repo.find_reference("refs/heads/master")
-                    .and_then(|r| r.peel_to_commit())
-            })
-            .map_err(|_| anyhow::anyhow!("Neither 'main' nor 'master' branch found"))?
-    } else {
-        let branch_ref = format!("refs/heads/{}", target_branch);
-        repo.find_reference(&branch_ref)?
-            .peel_to_commit()?
-    };
+    let target_commit = find_target_commit(&repo, target_branch)?;
     
     let source_commit = head.peel_to_commit()?;
     
     // 执行 diff
-    let mut diff = repo.diff_tree_to_tree(
+    let _diff = repo.diff_tree_to_tree(
         Some(&target_commit.as_object().peel_to_tree()?),
         Some(&source_commit.as_object().peel_to_tree()?),
         None,
@@ -575,8 +593,6 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
     let mut files: Vec<FileDiff> = Vec::new();
     let mut total_additions = 0;
     let mut total_deletions = 0;
-    let mut current_file_idx: Option<usize> = None;
-    let mut current_hunk_lines: Vec<DiffLine> = Vec::new();
     
     // 使用 git diff 命令获取更可靠的结果
     let output = Command::new("git")
@@ -645,7 +661,7 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
                 
                 // 解析 hunk 信息
                 // @@ -old_start,old_lines +new_start,new_lines @@
-                let re = regex::Regex::new(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@").unwrap();
+                let re = &*HUNK_HEADER_RE;
                 if let Some(caps) = re.captures(line) {
                     let old_start = caps[1].parse::<usize>().unwrap_or(1);
                     let old_lines = caps.get(2).map(|m| m.as_str().parse::<usize>().unwrap_or(1)).unwrap_or(1);
@@ -691,7 +707,7 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
                 }
             }
             else if line.starts_with(' ') {
-                if let Some(ref mut file) = current_file {
+                if let Some(ref mut _file) = current_file {
                     if let Some(ref mut hunk) = current_hunk {
                         let ctx_count = hunk.lines.iter().filter(|l| l.line_type == "context").count();
                         let add_count = hunk.lines.iter().filter(|l| l.line_type == "addition").count();
@@ -931,7 +947,7 @@ pub fn get_merged_hints(repo_path: &str, main_branch: &str) -> anyhow::Result<Ve
 
 /// 获取陈旧 worktree 提示
 pub fn get_stale_hints(repo_path: &str, days: i64) -> anyhow::Result<Vec<WorktreeHint>> {
-    let repo = Repository::open(repo_path)?;
+    let _repo = Repository::open(repo_path)?;
     let mut hints = Vec::new();
     
     let now = std::time::SystemTime::now()

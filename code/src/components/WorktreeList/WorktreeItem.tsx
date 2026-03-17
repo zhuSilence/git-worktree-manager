@@ -18,6 +18,7 @@ export function WorktreeItem({ worktree, branches, onShowDiff }: WorktreeItemPro
   const { defaultIde, defaultTerminal } = settingsStore()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [showBranchManager, setShowBranchManager] = useState(false)
 
   const handleOpenInTerminal = async () => {
@@ -47,25 +48,28 @@ export function WorktreeItem({ worktree, branches, onShowDiff }: WorktreeItemPro
 
   const handleDelete = async () => {
     setIsDeleting(true)
+    setDeleteError(null)
     try {
       const result = await deleteWorktree(worktree.path, false)
       if (!result.success) {
-        // 如果有未提交更改，询问是否强制删除
+        // 如果有未提交更改，尝试强制删除
         if (result.message.includes('uncommitted changes')) {
-          // 可以在这里添加二次确认
           const forceResult = await deleteWorktree(worktree.path, true)
           if (!forceResult.success) {
-            alert(forceResult.message)
+            setDeleteError(forceResult.message)
+          } else {
+            setShowDeleteConfirm(false)
           }
         } else {
-          alert(result.message)
+          setDeleteError(result.message)
         }
+      } else {
+        setShowDeleteConfirm(false)
       }
     } catch (error) {
-      console.error('Failed to delete worktree:', error)
+      setDeleteError(error instanceof Error ? error.message : '删除失败')
     } finally {
       setIsDeleting(false)
-      setShowDeleteConfirm(false)
     }
   }
 
@@ -178,9 +182,14 @@ export function WorktreeItem({ worktree, branches, onShowDiff }: WorktreeItemPro
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               确定要删除 worktree <span className="font-medium">{worktree.branch}</span> 吗？
             </p>
+            {deleteError && (
+              <div className="mb-4 p-3 text-sm bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-md">
+                {deleteError}
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => setShowDeleteConfirm(false)}
+                onClick={() => { setShowDeleteConfirm(false); setDeleteError(null) }}
                 className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
               >
                 取消
