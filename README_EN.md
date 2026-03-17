@@ -1,4 +1,4 @@
-# Worktree Manager
+# Git Worktree Manager
 
 <div align="center">
 
@@ -263,6 +263,6 @@ Using [Conventional Commits](https://www.conventionalcommits.org/):
 
 <div align="center">
 
-**Made with ❤️ by the Worktree Manager Team**
+**Made with ❤️ by the Git Worktree Manager Team**
 
 </div>

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Worktree Manager is a lightweight, cross-platform desktop application for visually managing Git worktrees. It's built with Tauri 2.0 (Rust backend) and React 18 (TypeScript frontend).
+Git Worktree Manager is a lightweight, cross-platform desktop application for visually managing Git worktrees. It's built with Tauri 2.0 (Rust backend) and React 18 (TypeScript frontend).
 
 ## Development Commands
 

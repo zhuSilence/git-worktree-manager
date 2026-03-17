@@ -1,6 +1,6 @@
 # Release 发布指南
 
-本文档描述如何发布 Worktree Manager 的新版本。
+本文档描述如何发布 Git Worktree Manager 的新版本。
 
 ## 版本号规范
 
@@ -115,7 +115,7 @@ class WorktreeManager < Formula
   end
 
   test do
-    assert_match "Worktree Manager", shell_output("#{bin}/worktree-manager --version")
+    assert_match "Git Worktree Manager", shell_output("#{bin}/worktree-manager --version")
   end
 end
 ```
