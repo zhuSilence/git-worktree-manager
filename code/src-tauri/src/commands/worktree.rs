@@ -44,8 +44,8 @@ pub async fn prune_worktrees(repo_path: String) -> Result<(), String> {
 
 /// 在终端中打开
 #[command]
-pub async fn open_in_terminal(worktree_path: String) -> Result<(), String> {
-    git_service::open_in_terminal(&worktree_path).map_err(|e| e.to_string())
+pub async fn open_in_terminal(worktree_path: String, terminal: Option<String>) -> Result<(), String> {
+    git_service::open_in_terminal(&worktree_path, terminal).map_err(|e| e.to_string())
 }
 
 /// 在编辑器中打开
@@ -70,4 +70,10 @@ pub async fn list_branches(repo_path: String) -> Result<crate::models::BranchLis
 #[command]
 pub async fn open_worktree(worktree_path: String) -> Result<(), String> {
     git_service::open_in_file_manager(&worktree_path).map_err(|e| e.to_string())
+}
+
+/// 获取 worktree 与目标分支的 diff
+#[command]
+pub async fn get_diff(worktree_path: String, target_branch: String) -> Result<crate::models::DiffResponse, String> {
+    git_service::get_diff(&worktree_path, &target_branch).map_err(|e| e.to_string())
 }

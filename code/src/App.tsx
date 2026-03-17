@@ -3,15 +3,20 @@ import { Header } from './components/layout'
 import { Main } from './components/layout'
 import { WorktreeList } from './components/WorktreeList'
 import { CreateWorktreeDialog } from './components/CreateWorktreeDialog'
+import { SettingsPanel } from './components/SettingsPanel'
 import { useWorktreeStore } from './stores/worktreeStore'
 
 function App() {
   const { currentRepo, isLoading, error } = useWorktreeStore()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Header onCreateWorktree={() => setShowCreateDialog(true)} />
+      <Header 
+        onCreateWorktree={() => setShowCreateDialog(true)} 
+        onOpenSettings={() => setShowSettings(true)}
+      />
       <Main>
         {isLoading && (
           <div className="flex items-center justify-center h-64">
@@ -44,6 +49,12 @@ function App() {
       <CreateWorktreeDialog 
         isOpen={showCreateDialog} 
         onClose={() => setShowCreateDialog(false)} 
+      />
+      
+      {/* 设置面板 */}
+      <SettingsPanel 
+        isOpen={showSettings} 
+        onClose={() => setShowSettings(false)} 
       />
     </div>
   )

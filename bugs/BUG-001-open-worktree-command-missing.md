@@ -16,64 +16,25 @@
 ### 简要描述
 前端调用了不存在的后端命令 `open_worktree`
 
-### 详细描述
-在 `src/services/git.ts` 中定义了 `openWorktree` 方法，该方法调用 Tauri 命令 `open_worktree`：
+### 修复验证
 
-```typescript
-async openWorktree(worktree: Worktree): Promise<void> {
-  return invoke('open_worktree', { worktreePath: worktree.path })
-}
-```
+**修复内容：**
+1. 在 `lib.rs` 的 `invoke_handler` 中注册了 `open_worktree` 命令
+2. 在 `commands/worktree.rs` 中实现了 `open_worktree` 命令
+3. 在 `git_service.rs` 中实现了 `open_in_file_manager` 函数
 
-但在 Rust 后端 (`src-tauri/src/lib.rs`) 的 `invoke_handler` 中没有注册此命令。
+**验证结果：** ✅ 通过
+- 编译通过
+- 命令已正确注册
 
-### 复现步骤
-1. 打开应用
-2. 选择一个 Git 仓库
-3. 点击 Worktree 列表项中的 "在 Finder 中打开" 按钮
+## 回归测试
 
-### 预期结果
-Finder 应该打开对应的 Worktree 目录
-
-### 实际结果
-命令调用失败，因为后端没有实现该命令
-
-## 影响范围
-
-| 影响项 | 说明 |
+| 测试项 | 结果 |
 |--------|------|
-| 功能 | 快捷操作 - 打开目录 |
-| 用例 | TC-AC-005, TC-AC-006 |
-
-## 根本原因
-
-后端缺少 `open_worktree` 命令的实现。应该复用已有的 `open_in_terminal` 或创建专门的文件管理器打开命令。
-
-## 建议修复
-
-### 方案 1: 添加缺失的命令
-
-在 `src-tauri/src/commands/worktree.rs` 中添加：
-
-```rust
-#[command]
-pub async fn open_worktree(worktree_path: String) -> Result<(), String> {
-    git_service::open_in_file_manager(&worktree_path).map_err(|e| e.to_string())
-}
-```
-
-并在 `git_service.rs` 中添加 `open_in_file_manager` 函数（或复用现有逻辑）。
-
-### 方案 2: 修改前端调用
-
-在 `WorktreeItem.tsx` 中直接使用已有的功能，或者调用系统命令打开目录。
-
-## 附件
-
-- 相关文件: `src/services/git.ts`
-- 相关文件: `src/components/WorktreeList/WorktreeItem.tsx`
-- 相关文件: `src-tauri/src/lib.rs`
+| 前端编译 | ✅ 通过 |
+| 后端编译 | ✅ 通过 |
+| 命令注册检查 | ✅ 通过 |
 
 ---
 
-*创建时间: 2026-03-17 09:10*
+*修复验证时间: 2026-03-17 09:38*

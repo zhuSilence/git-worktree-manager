@@ -17,6 +17,20 @@ export enum WorktreeStatus {
 }
 
 /**
+ * 最后提交信息
+ */
+export interface LastCommit {
+  /** 提交 hash (短) */
+  hash: string
+  /** 提交消息 (第一行) */
+  message: string
+  /** 作者 */
+  author: string
+  /** 相对时间 */
+  relativeTime: string
+}
+
+/**
  * Worktree 信息
  */
 export interface Worktree {
@@ -30,6 +44,8 @@ export interface Worktree {
   path: string
   /** 当前状态 */
   status: WorktreeStatus
+  /** 最后提交信息 */
+  lastCommit: LastCommit
   /** 最后活跃时间 */
   lastActiveAt: string | null
   /** 是否为主 Worktree */
@@ -102,4 +118,36 @@ export interface BranchListResponse {
   branches: Branch[]
   /** 当前分支名 */
   currentBranch: string
+}
+
+/**
+ * Diff 统计信息
+ */
+export interface DiffStats {
+  /** 文件路径 */
+  path: string
+  /** 新增行数 */
+  additions: number
+  /** 删除行数 */
+  deletions: number
+  /** 状态 (added, modified, deleted, renamed) */
+  status: string
+}
+
+/**
+ * Diff 响应
+ */
+export interface DiffResponse {
+  /** 源分支 */
+  sourceBranch: string
+  /** 目标分支 */
+  targetBranch: string
+  /** 文件变更统计 */
+  files: DiffStats[]
+  /** 总新增行数 */
+  totalAdditions: number
+  /** 总删除行数 */
+  totalDeletions: number
+  /** 变更文件数 */
+  filesChanged: number
 }

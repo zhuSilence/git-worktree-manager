@@ -1,4 +1,4 @@
-use crate::models::{CreateWorktreeParams, Worktree, WorktreeListResponse, WorktreeResult, WorktreeStatus, Branch, BranchListResponse};
+use crate::models::{CreateWorktreeParams, Worktree, WorktreeListResponse, WorktreeResult, WorktreeStatus, Branch, BranchListResponse, LastCommit, DiffStats, DiffResponse};
 use crate::utils::validation::{sanitize_branch_name, validate_path};
 use git2::Repository;
 use std::path::Path;
@@ -41,6 +41,7 @@ fn get_main_worktree(repo: &Repository) -> anyhow::Result<Worktree> {
     let branch = head.shorthand().map(String::from).unwrap_or_default();
     let commit = head.peel_to_commit()?;
     let status = get_worktree_status(repo)?;
+    let last_commit = get_last_commit(&commit)?;
     
     Ok(Worktree {
         id: commit.id().to_string(),
@@ -48,6 +49,7 @@ fn get_main_worktree(repo: &Repository) -> anyhow::Result<Worktree> {
         branch,
         path: path.to_string_lossy().to_string(),
         status,
+        last_commit,
         last_active_at: None,
         is_main: true,
         remote: None,
@@ -65,6 +67,7 @@ fn get_linked_worktree(repo: &Repository, name: &str) -> anyhow::Result<Option<W
     let branch = head.shorthand().map(String::from).unwrap_or_else(|| name.to_string());
     let commit = head.peel_to_commit()?;
     let status = get_worktree_status(&wt_repo)?;
+    let last_commit = get_last_commit(&commit)?;
     
     Ok(Some(Worktree {
         id: commit.id().to_string(),
@@ -72,10 +75,55 @@ fn get_linked_worktree(repo: &Repository, name: &str) -> anyhow::Result<Option<W
         branch,
         path,
         status,
+        last_commit,
         last_active_at: None,
         is_main: false,
         remote: None,
     }))
+}
+
+/// 获取最后提交信息
+fn get_last_commit(commit: &git2::Commit) -> anyhow::Result<LastCommit> {
+    let time = commit.time();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+    
+    let relative_time = format_relative_time(now, time.seconds());
+    
+    Ok(LastCommit {
+        hash: commit.id().to_string()[..7.min(commit.id().to_string().len())].to_string(),
+        message: commit.summary()
+            .unwrap_or("No message")
+            .to_string(),
+        author: commit.author().name()
+            .unwrap_or("Unknown")
+            .to_string(),
+        relative_time,
+    })
+}
+
+/// 格式化相对时间
+fn format_relative_time(now: i64, commit_time: i64) -> String {
+    let diff = now - commit_time;
+    
+    if diff < 0 {
+        "in the future".to_string()
+    } else if diff < 60 {
+        "just now".to_string()
+    } else if diff < 3600 {
+        format!("{} 分钟前", diff / 60)
+    } else if diff < 86400 {
+        format!("{} 小时前", diff / 3600)
+    } else if diff < 604800 {
+        format!("{} 天前", diff / 86400)
+    } else if diff < 2592000 {
+        format!("{} 周前", diff / 604800)
+    } else if diff < 31536000 {
+        format!("{} 月前", diff / 2592000)
+    } else {
+        format!("{} 年前", diff / 31536000)
+    }
 }
 
 /// 获取 worktree 状态
@@ -238,26 +286,68 @@ pub fn prune_worktrees(repo_path: &str) -> anyhow::Result<()> {
 }
 
 /// 在终端中打开
-pub fn open_in_terminal(path: &str) -> anyhow::Result<()> {
+pub fn open_in_terminal(path: &str, terminal: Option<String>) -> anyhow::Result<()> {
+    let terminal_type = terminal.unwrap_or_else(|| "terminal".to_string());
+    
     #[cfg(target_os = "macos")]
     {
-        Command::new("open")
-            .args(["-a", "Terminal", path])
-            .spawn()?;
+        match terminal_type.as_str() {
+            "iterm2" => {
+                Command::new("open")
+                    .args(["-a", "iTerm", path])
+                    .spawn()?;
+            }
+            "warp" => {
+                Command::new("open")
+                    .args(["-a", "Warp", path])
+                    .spawn()?;
+            }
+            _ => {
+                // 默认 Terminal
+                Command::new("open")
+                    .args(["-a", "Terminal", path])
+                    .spawn()?;
+            }
+        }
     }
     
     #[cfg(target_os = "windows")]
     {
-        Command::new("cmd")
-            .args(["/C", "start", "cmd", "/K", &format!("cd {}", path)])
-            .spawn()?;
+        match terminal_type.as_str() {
+            "powershell" => {
+                Command::new("powershell")
+                    .args(["-Command", &format!("Start-Process powershell -ArgumentList '-NoExit', '-Command', \"cd '{}'\"", path)])
+                    .spawn()?;
+            }
+            "wt" => {
+                Command::new("wt")
+                    .args(["-d", path])
+                    .spawn()?;
+            }
+            _ => {
+                // 默认 CMD
+                Command::new("cmd")
+                    .args(["/C", "start", "cmd", "/K", &format!("cd {}", path)])
+                    .spawn()?;
+            }
+        }
     }
     
     #[cfg(target_os = "linux")]
     {
-        Command::new("gnome-terminal")
-            .args(["--working-directory", path])
-            .spawn()?;
+        match terminal_type.as_str() {
+            "alacritty" => {
+                Command::new("alacritty")
+                    .args(["--working-directory", path])
+                    .spawn()?;
+            }
+            _ => {
+                // 默认 gnome-terminal
+                Command::new("gnome-terminal")
+                    .args(["--working-directory", path])
+                    .spawn()?;
+            }
+        }
     }
     
     Ok(())
@@ -267,9 +357,27 @@ pub fn open_in_terminal(path: &str) -> anyhow::Result<()> {
 pub fn open_in_editor(path: &str, editor: Option<String>) -> anyhow::Result<()> {
     let editor_cmd = editor.unwrap_or_else(|| "code".to_string());
     
-    Command::new(&editor_cmd)
-        .arg(path)
-        .spawn()?;
+    match editor_cmd.as_str() {
+        "vscode" => {
+            Command::new("code").arg(path).spawn()?;
+        }
+        "vscode-insiders" => {
+            Command::new("code-insiders").arg(path).spawn()?;
+        }
+        "cursor" => {
+            Command::new("cursor").arg(path).spawn()?;
+        }
+        "webstorm" => {
+            Command::new("webstorm").arg(path).spawn()?;
+        }
+        "intellij" => {
+            Command::new("idea").arg(path).spawn()?;
+        }
+        _ => {
+            // 自定义编辑器命令
+            Command::new(&editor_cmd).arg(path).spawn()?;
+        }
+    }
     
     Ok(())
 }
@@ -338,5 +446,96 @@ pub fn list_branches(repo_path: &str) -> anyhow::Result<BranchListResponse> {
     Ok(BranchListResponse {
         branches,
         current_branch,
+    })
+}
+
+/// 获取 worktree 与目标分支的 diff
+pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<DiffResponse> {
+    let repo = Repository::open(worktree_path)?;
+    
+    // 获取当前分支名
+    let head = repo.head()?;
+    let source_branch = head.shorthand().unwrap_or("HEAD").to_string();
+    
+    // 查找目标分支的 commit
+    let target_commit = if target_branch == "main" || target_branch == "master" {
+        // 尝试 main 和 master
+        repo.find_reference("refs/heads/main")
+            .and_then(|r| r.peel_to_commit())
+            .or_else(|_| {
+                repo.find_reference("refs/heads/master")
+                    .and_then(|r| r.peel_to_commit())
+            })
+            .map_err(|_| anyhow::anyhow!("Neither 'main' nor 'master' branch found"))?
+    } else {
+        let branch_ref = format!("refs/heads/{}", target_branch);
+        repo.find_reference(&branch_ref)?
+            .peel_to_commit()?
+    };
+    
+    // 获取当前 HEAD commit
+    let source_commit = head.peel_to_commit()?;
+    
+    // 执行 diff
+    let diff = repo.diff_tree_to_tree(
+        Some(&target_commit.as_object().peel_to_tree()?),
+        Some(&source_commit.as_object().peel_to_tree()?),
+        None,
+    )?;
+    
+    // 统计文件变更
+    let mut files: Vec<DiffStats> = Vec::new();
+    let mut total_additions = 0;
+    let mut total_deletions = 0;
+    
+    // 使用 git diff 命令获取更详细的统计
+    let output = Command::new("git")
+        .args(["diff", "--numstat", &format!("{}...{}", target_branch, source_branch)])
+        .current_dir(worktree_path)
+        .output()?;
+    
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 3 {
+                let additions = parts[0].parse::<usize>().unwrap_or(0);
+                let deletions = parts[1].parse::<usize>().unwrap_or(0);
+                let path = parts[2].to_string();
+                
+                // 判断文件状态
+                let status = if additions > 0 && deletions == 0 {
+                    "added"
+                } else if additions == 0 && deletions > 0 {
+                    "deleted"
+                } else {
+                    "modified"
+                };
+                
+                files.push(DiffStats {
+                    path,
+                    additions,
+                    deletions,
+                    status: status.to_string(),
+                });
+                
+                total_additions += additions;
+                total_deletions += deletions;
+            }
+        }
+    }
+    
+    // 按变更量排序
+    files.sort_by(|a, b| {
+        (b.additions + b.deletions).cmp(&(a.additions + a.deletions))
+    });
+    
+    Ok(DiffResponse {
+        source_branch,
+        target_branch: target_branch.to_string(),
+        files_changed: files.len(),
+        total_additions,
+        total_deletions,
+        files,
     })
 }
