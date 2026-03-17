@@ -1,6 +1,7 @@
 mod commands;
 mod models;
 mod services;
+mod utils;
 
 use tauri::Manager;
 
@@ -24,6 +25,7 @@ pub fn run() {
             commands::worktree::prune_worktrees,
             commands::worktree::open_in_terminal,
             commands::worktree::open_in_editor,
+            commands::worktree::open_worktree,
             commands::worktree::is_git_repo,
             commands::worktree::list_branches,
         ])

@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Worktree, WorktreeStatus } from '@/types/worktree'
+import { Worktree } from '@/types/worktree'
 import { StatusBadge } from './StatusBadge'
-import { Folder, ExternalLink, Terminal, Trash2, X } from 'lucide-react'
+import { Folder, ExternalLink, Terminal, Trash2 } from 'lucide-react'
 import { gitService } from '@/services/git'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 
@@ -10,7 +10,7 @@ interface WorktreeItemProps {
 }
 
 export function WorktreeItem({ worktree }: WorktreeItemProps) {
-  const { deleteWorktree, currentRepoPath } = useWorktreeStore()
+  const { deleteWorktree } = useWorktreeStore()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 

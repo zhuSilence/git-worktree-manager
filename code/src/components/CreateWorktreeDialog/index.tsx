@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, GitBranch, FolderOpen } from 'lucide-react'
+import { X, FolderOpen } from 'lucide-react'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 
 interface CreateWorktreeDialogProps {

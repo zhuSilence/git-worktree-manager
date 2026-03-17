@@ -10,6 +10,8 @@ export enum WorktreeStatus {
   Unpushed = 'unpushed',
   /** 有冲突 */
   Conflicted = 'conflicted',
+  /** Detached HEAD 状态 */
+  Detached = 'detached',
   /** 未知状态 */
   Unknown = 'unknown',
 }

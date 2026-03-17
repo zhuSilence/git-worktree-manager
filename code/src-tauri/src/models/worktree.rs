@@ -11,6 +11,8 @@ pub enum WorktreeStatus {
     Unpushed,
     #[serde(rename = "conflicted")]
     Conflicted,
+    #[serde(rename = "detached")]
+    Detached,
     #[serde(rename = "unknown")]
     Unknown,
 }

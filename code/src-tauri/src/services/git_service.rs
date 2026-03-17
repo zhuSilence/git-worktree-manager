@@ -1,4 +1,5 @@
 use crate::models::{CreateWorktreeParams, Worktree, WorktreeListResponse, WorktreeResult, WorktreeStatus, Branch, BranchListResponse};
+use crate::utils::validation::{sanitize_branch_name, validate_path};
 use git2::Repository;
 use std::path::Path;
 use std::process::Command;
@@ -79,6 +80,11 @@ fn get_linked_worktree(repo: &Repository, name: &str) -> anyhow::Result<Option<W
 
 /// 获取 worktree 状态
 fn get_worktree_status(repo: &Repository) -> anyhow::Result<WorktreeStatus> {
+    // 检查是否为 detached HEAD 状态
+    if repo.head_detached()? {
+        return Ok(WorktreeStatus::Detached);
+    }
+    
     let statuses = repo.statuses(None)?;
     
     // 检查冲突
@@ -107,13 +113,31 @@ pub fn create_worktree(
     repo_path: &str,
     params: CreateWorktreeParams,
 ) -> anyhow::Result<WorktreeResult> {
+    // 验证分支名
+    let branch_name = sanitize_branch_name(&params.name)
+        .map_err(|e| anyhow::anyhow!("Invalid branch name: {}", e))?;
+    
+    // 如果提供了新分支名，也要验证
+    if let Some(ref new_branch) = params.new_branch {
+        sanitize_branch_name(new_branch)
+            .map_err(|e| anyhow::anyhow!("Invalid new branch name: {}", e))?;
+    }
+    
+    // 验证 base_branch
+    sanitize_branch_name(&params.base_branch)
+        .map_err(|e| anyhow::anyhow!("Invalid base branch name: {}", e))?;
+    
     // 确定目标路径
-    let target_path = params.custom_path.unwrap_or_else(|| {
+    let target_path = params.custom_path.clone().unwrap_or_else(|| {
         format!("{}/{}", repo_path, params.name)
     });
     
+    // 验证路径
+    let validated_path = validate_path(&target_path)
+        .map_err(|e| anyhow::anyhow!("Invalid path: {}", e))?;
+    
     // 检查路径是否存在
-    if Path::new(&target_path).exists() {
+    if validated_path.exists() {
         return Ok(WorktreeResult {
             success: false,
             message: format!("Path already exists: {}", target_path),
@@ -122,7 +146,7 @@ pub fn create_worktree(
     }
     
     // 创建 worktree
-    let branch_name = params.new_branch.unwrap_or(params.name.clone());
+    let branch_name = params.new_branch.clone().unwrap_or(branch_name);
     
     // 使用 git worktree add 命令（更可靠）
     let output = Command::new("git")
@@ -246,6 +270,32 @@ pub fn open_in_editor(path: &str, editor: Option<String>) -> anyhow::Result<()> 
     Command::new(&editor_cmd)
         .arg(path)
         .spawn()?;
+    
+    Ok(())
+}
+
+/// 在文件管理器中打开
+pub fn open_in_file_manager(path: &str) -> anyhow::Result<()> {
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .args(["-R", path])
+            .spawn()?;
+    }
+    
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("explorer")
+            .args(["/select,", path])
+            .spawn()?;
+    }
+    
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("xdg-open")
+            .arg(path)
+            .spawn()?;
+    }
     
     Ok(())
 }

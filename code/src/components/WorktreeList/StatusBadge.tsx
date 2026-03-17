@@ -23,6 +23,10 @@ const statusConfig = {
     color: 'bg-red-500',
     label: 'Conflicted',
   },
+  [WorktreeStatus.Detached]: {
+    color: 'bg-gray-400',
+    label: 'Detached',
+  },
   [WorktreeStatus.Unknown]: {
     color: 'bg-gray-500',
     label: 'Unknown',

@@ -1,4 +1,4 @@
-use crate::models::{CreateWorktreeParams, Worktree, WorktreeListResponse, WorktreeResult};
+use crate::models::{CreateWorktreeParams, WorktreeListResponse, WorktreeResult};
 use crate::services::git_service;
 use tauri::command;
 
@@ -64,4 +64,10 @@ pub async fn is_git_repo(path: String) -> Result<bool, String> {
 #[command]
 pub async fn list_branches(repo_path: String) -> Result<crate::models::BranchListResponse, String> {
     git_service::list_branches(&repo_path).map_err(|e| e.to_string())
+}
+
+/// 在文件管理器中打开 Worktree 目录
+#[command]
+pub async fn open_worktree(worktree_path: String) -> Result<(), String> {
+    git_service::open_in_file_manager(&worktree_path).map_err(|e| e.to_string())
 }
