@@ -328,9 +328,9 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
   return (
     <div
       ref={sidebarRef}
-      className="h-full bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col relative"
+      className="h-full bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col relative overflow-hidden"
       style={fillWidth
-        ? { flex: '1 0 auto', minWidth: `${MIN_WIDTH}px` }
+        ? { flex: '1 1 0%', minWidth: `${MIN_WIDTH}px` }
         : { width: `${width}px`, minWidth: `${MIN_WIDTH}px`, maxWidth: `${MAX_WIDTH}px` }
       }
     >
@@ -349,14 +349,14 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
       </div>
 
       {/* 头部 */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 gap-3">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <GitCompare className="w-4 h-4 text-purple-500 flex-shrink-0" />
           <span className="font-medium text-gray-900 dark:text-white truncate text-sm">
             {worktreeName} vs {targetBranch}
           </span>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-1 flex-shrink-0">
           {/* 导航按钮 */}
           <div className="flex items-center gap-1">
             <button
@@ -545,7 +545,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
 
                     {/* 文件内容 */}
                     {expandedFiles.has(file.path) && (
-                      <div className="overflow-x-auto">
+                      <div className="overflow-hidden">
                         {viewMode === 'unified' ? (
                           <UnifiedDiffView hunks={file.hunks} fileIdx={fileIdx} selectedLine={selectedLine} />
                         ) : (
@@ -567,7 +567,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
 // 统一视图组件 — memo 避免其他文件展开/收起时重渲
 const UnifiedDiffView = memo(function UnifiedDiffView({ hunks, fileIdx, selectedLine }: { hunks: DiffHunk[], fileIdx: number, selectedLine: string | null }) {
   return (
-    <div className="font-mono text-xs">
+    <div className="font-mono text-xs overflow-x-auto">
       {hunks.map((hunk: DiffHunk, hunkIdx: number) => {
         const charMap = pairHunkLines(hunk.lines)
         return (
@@ -588,7 +588,7 @@ const UnifiedDiffView = memo(function UnifiedDiffView({ hunks, fileIdx, selected
                   id={id}
                   key={lineIdx}
                   className={clsx(
-                    'flex group/line',
+                    'flex items-center group/line h-[22px] overflow-y-clip',
                     line.lineType === 'addition' && 'bg-green-50 dark:bg-green-900/20',
                     line.lineType === 'deletion' && 'bg-red-50 dark:bg-red-900/20',
                     isSelected && 'ring-2 ring-purple-500 ring-inset',
@@ -596,27 +596,27 @@ const UnifiedDiffView = memo(function UnifiedDiffView({ hunks, fileIdx, selected
                   )}
                 >
                   <span className={clsx(
-                    'w-12 px-1 py-0 text-right text-[11px] select-none border-r border-gray-200 dark:border-gray-700 font-mono',
+                    'w-12 px-1 text-right text-[11px] leading-[22px] select-none border-r border-gray-200 dark:border-gray-700 font-mono',
                     line.lineType === 'deletion' ? 'bg-red-100 dark:bg-red-900/30 text-red-400' : 'bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500',
                   )}>
                     {line.oldLine ?? ''}
                   </span>
                   <span className={clsx(
-                    'w-12 px-1 py-0 text-right text-[11px] select-none border-r border-gray-200 dark:border-gray-700 font-mono',
+                    'w-12 px-1 text-right text-[11px] leading-[22px] select-none border-r border-gray-200 dark:border-gray-700 font-mono',
                     line.lineType === 'addition' ? 'bg-green-100 dark:bg-green-900/30 text-green-400' : 'bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500',
                   )}>
                     {line.newLine ?? ''}
                   </span>
                   <span
                     className={clsx(
-                      'w-5 px-0.5 py-0 text-center select-none text-[10px]',
+                      'w-5 px-0.5 text-center select-none text-[10px] leading-[22px]',
                       line.lineType === 'addition' && 'text-green-500 font-bold',
                       line.lineType === 'deletion' && 'text-red-500 font-bold',
                     )}
                   >
                     {line.lineType === 'addition' ? '+' : line.lineType === 'deletion' ? '-' : ' '}
                   </span>
-                  <span className="flex-1 px-2 py-0 whitespace-pre overflow-x-auto text-[11px] leading-5 relative">
+                  <span className="flex-1 px-2 whitespace-pre text-[11px] leading-[22px] relative">
                     <HighlightedLine content={line.content} lineType={line.lineType} charSegments={segments} />
                     <CopyButton text={line.content} />
                   </span>
@@ -630,10 +630,31 @@ const UnifiedDiffView = memo(function UnifiedDiffView({ hunks, fileIdx, selected
   )
 })
 
-// 拆分视图组件 — memo 避免其他文件展开/收起时重渲
+// 拆分视图组件 — memo 避免其他文件展开/收起时重渲，支持左右同步滚动
 const SplitDiffView = memo(function SplitDiffView({ hunks, fileIdx, selectedLine }: { hunks: DiffHunk[], fileIdx: number, selectedLine: string | null }) {
+  const leftRef = useRef<HTMLDivElement>(null)
+  const rightRef = useRef<HTMLDivElement>(null)
+  const isScrolling = useRef(false)
+
+  // 同步滚动处理
+  const handleScroll = useCallback((source: 'left' | 'right') => {
+    if (isScrolling.current) return
+    isScrolling.current = true
+
+    const sourceRef = source === 'left' ? leftRef : rightRef
+    const targetRef = source === 'left' ? rightRef : leftRef
+
+    if (sourceRef.current && targetRef.current) {
+      targetRef.current.scrollLeft = sourceRef.current.scrollLeft
+    }
+
+    requestAnimationFrame(() => {
+      isScrolling.current = false
+    })
+  }, [])
+
   return (
-    <div className="font-mono text-xs">
+    <div className="font-mono text-xs flex flex-col">
       {hunks.map((hunk: DiffHunk, hunkIdx: number) => {
         // 先计算 char-level diff
         const charMap = pairHunkLines(hunk.lines)
@@ -663,9 +684,13 @@ const SplitDiffView = memo(function SplitDiffView({ hunks, fileIdx, selectedLine
               @@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
             </div>
             {/* Split view */}
-            <div className="flex">
+            <div className="flex min-w-0">
               {/* Left side (old) */}
-              <div className="flex-1 border-r border-gray-300 dark:border-gray-600">
+              <div
+                ref={leftRef}
+                className="w-1/2 overflow-x-auto"
+                onScroll={() => handleScroll('left')}
+              >
                 {leftLines.map(({ line, origIdx }, idx) => {
                   const id = `diff-${fileIdx}-${hunkIdx}-L${idx}`
                   const isSelected = selectedLine === id
@@ -676,27 +701,27 @@ const SplitDiffView = memo(function SplitDiffView({ hunks, fileIdx, selectedLine
                       id={id}
                       key={`left-${idx}`}
                       className={clsx(
-                        'flex group/line',
+                        'flex items-center group/line h-[22px] overflow-y-clip',
                         line?.lineType === 'deletion' && 'bg-red-50 dark:bg-red-900/20',
                         line === null && 'bg-gray-100 dark:bg-gray-800/50',
                         isSelected && 'ring-2 ring-purple-500 ring-inset',
                       )}
                     >
                       <span className={clsx(
-                        'w-10 px-1 py-0 text-right text-[11px] select-none border-r border-gray-200 dark:border-gray-700 font-mono',
+                        'w-10 px-1 text-right text-[11px] leading-[22px] select-none border-r border-gray-200 dark:border-gray-700 font-mono',
                         line?.lineType === 'deletion' ? 'bg-red-100 dark:bg-red-900/30 text-red-400' : 'bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500',
                       )}>
                         {line?.oldLine ?? ''}
                       </span>
                       <span
                         className={clsx(
-                          'w-5 px-0.5 py-0 text-center select-none text-[10px]',
+                          'w-5 px-0.5 text-center select-none text-[10px] leading-[22px]',
                           line?.lineType === 'deletion' && 'text-red-500 font-bold',
                         )}
                       >
                         {line?.lineType === 'deletion' ? '-' : ' '}
                       </span>
-                      <span className="flex-1 px-1 py-0 whitespace-pre overflow-x-auto text-[11px] leading-5 relative">
+                      <span className="flex-1 px-1 whitespace-pre text-[11px] leading-[22px] relative">
                         {line ? <HighlightedLine content={line.content} lineType={line.lineType} charSegments={segments} /> : ''}
                         {line && <CopyButton text={line.content} />}
                       </span>
@@ -704,8 +729,14 @@ const SplitDiffView = memo(function SplitDiffView({ hunks, fileIdx, selectedLine
                   )
                 })}
               </div>
+              {/* Divider */}
+              <div className="w-[3px] flex-shrink-0 bg-gradient-to-b from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-600 dark:to-gray-700" />
               {/* Right side (new) */}
-              <div className="flex-1">
+              <div
+                ref={rightRef}
+                className="w-1/2 overflow-x-auto"
+                onScroll={() => handleScroll('right')}
+              >
                 {rightLines.map(({ line, origIdx }, idx) => {
                   const id = `diff-${fileIdx}-${hunkIdx}-R${idx}`
                   const isSelected = selectedLine === id
@@ -716,27 +747,27 @@ const SplitDiffView = memo(function SplitDiffView({ hunks, fileIdx, selectedLine
                       id={id}
                       key={`right-${idx}`}
                       className={clsx(
-                        'flex group/line',
+                        'flex items-center group/line h-[22px] overflow-y-clip',
                         line?.lineType === 'addition' && 'bg-green-50 dark:bg-green-900/20',
                         line === null && 'bg-gray-100 dark:bg-gray-800/50',
                         isSelected && 'ring-2 ring-purple-500 ring-inset',
                       )}
                     >
                       <span className={clsx(
-                        'w-10 px-1 py-0 text-right text-[11px] select-none border-r border-gray-200 dark:border-gray-700 font-mono',
+                        'w-10 px-1 text-right text-[11px] leading-[22px] select-none border-r border-gray-200 dark:border-gray-700 font-mono',
                         line?.lineType === 'addition' ? 'bg-green-100 dark:bg-green-900/30 text-green-400' : 'bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500',
                       )}>
                         {line?.newLine ?? ''}
                       </span>
                       <span
                         className={clsx(
-                          'w-5 px-0.5 py-0 text-center select-none text-[10px]',
+                          'w-5 px-0.5 text-center select-none text-[10px] leading-[22px]',
                           line?.lineType === 'addition' && 'text-green-500 font-bold',
                         )}
                       >
                         {line?.lineType === 'addition' ? '+' : ' '}
                       </span>
-                      <span className="flex-1 px-1 py-0 whitespace-pre overflow-x-auto text-[11px] leading-5 relative">
+                      <span className="flex-1 px-1 whitespace-pre text-[11px] leading-[22px] relative">
                         {line ? <HighlightedLine content={line.content} lineType={line.lineType} charSegments={segments} /> : ''}
                         {line && <CopyButton text={line.content} />}
                       </span>

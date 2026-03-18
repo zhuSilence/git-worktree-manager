@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { GitBranch, Plus, Trash2, RefreshCw, ChevronRight, ChevronLeft, FolderOpen } from 'lucide-react'
 import { useRepositoryStore } from '@/stores/repositoryStore'
+import { useWorktreeStore } from '@/stores/worktreeStore'
 import type { RepositoryInfo } from '@/types/worktree'
 import { clsx } from 'clsx'
 import { open } from '@tauri-apps/plugin-dialog'
@@ -13,6 +14,7 @@ interface SidebarProps {
 
 export function Sidebar({ onRepoSelect }: SidebarProps) {
   const { repositories, activeRepoId, addRepository, removeRepository, refreshRepositories, isLoading } = useRepositoryStore()
+  const { refreshWorktrees } = useWorktreeStore()
   const [isAdding, setIsAdding] = useState(false)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true')
 
@@ -52,7 +54,10 @@ export function Sidebar({ onRepoSelect }: SidebarProps) {
   }
 
   const handleRefresh = async () => {
-    await refreshRepositories()
+    await Promise.all([
+      refreshRepositories(),
+      refreshWorktrees(),
+    ])
   }
 
   // ─── 收缩态 ─────────────────────────────────────────────────────

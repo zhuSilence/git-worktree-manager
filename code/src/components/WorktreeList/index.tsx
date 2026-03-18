@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { WorktreeItem } from './WorktreeItem'
 import { useWorktreeStore } from '@/stores/worktreeStore'
-import { GitBranch, Plus, Search, ArrowUpDown, AlertTriangle, Trash2, PanelLeftClose } from 'lucide-react'
+import { GitBranch, Plus, Search, ArrowUpDown, AlertTriangle, Trash2, PanelLeftClose, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/common'
 import type { Worktree } from '@/types/worktree'
 import { WorktreeStatus } from '@/types/worktree'
@@ -18,7 +18,7 @@ interface WorktreeListProps {
 }
 
 export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse }: WorktreeListProps) {
-  const { worktrees, isLoading, currentRepo } = useWorktreeStore()
+  const { worktrees, isLoading, currentRepo, refreshWorktrees } = useWorktreeStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
@@ -113,17 +113,17 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse }: Workt
   return (
     <div className="p-4">
       {/* 工具栏 */}
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           {/* 搜索框 */}
-          <div className="relative">
+          <div className="relative flex-shrink min-w-[120px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
               placeholder="搜索分支名、路径..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-4 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500 w-64"
+              className="pl-9 pr-4 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500 w-full"
             />
           </div>
 
@@ -153,6 +153,16 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse }: Workt
             <AlertTriangle className="w-4 h-4" />
           </button>
 
+          {/* 刷新按钮 */}
+          <button
+            onClick={() => refreshWorktrees()}
+            disabled={isLoading}
+            className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+            title="刷新 Worktree 列表"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+
           {/* 批量删除按钮 */}
           {worktrees.filter(w => !w.isMain).length > 1 && (
             <button
@@ -165,13 +175,13 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse }: Workt
           )}
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">
-            共 {filteredAndSortedWorktrees.length} 个 Worktree
-            {searchQuery && worktrees.length !== filteredAndSortedWorktrees.length && (
-              <span className="text-gray-400 ml-1">(筛选自 {worktrees.length} 个)</span>
-            )}
-          </h2>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
+            {filteredAndSortedWorktrees.length}
+            {searchQuery && worktrees.length !== filteredAndSortedWorktrees.length
+              ? `/${worktrees.length}`
+              : ''}
+          </span>
           {onCollapse && (
             <button
               onClick={onCollapse}

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { X, GitBranch, Plus, Download, RefreshCw } from 'lucide-react'
+import { useState, useRef, useEffect, useMemo } from 'react'
+import { X, GitBranch, Plus, Download, RefreshCw, Search, ChevronDown } from 'lucide-react'
 import { gitService } from '@/services/git'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 import { clsx } from 'clsx'
@@ -10,6 +10,105 @@ interface BranchManagerProps {
   worktreePath: string
   worktreeBranch: string
   branches: { name: string; isCurrent: boolean }[]
+}
+
+// ─── 可搜索的分支下拉组件 ─────────────────────────────────────────
+interface BranchComboBoxProps {
+  value: string
+  onChange: (value: string) => void
+  branches: { name: string; isCurrent: boolean }[]
+  placeholder?: string
+  excludeCurrent?: boolean
+}
+
+function BranchComboBox({ value, onChange, branches, placeholder = '输入或选择分支...', excludeCurrent = false }: BranchComboBoxProps) {
+  const [query, setQuery] = useState(value)
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // 同步外部 value
+  useEffect(() => { setQuery(value) }, [value])
+
+  // 点击外部关闭
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const filtered = useMemo(() => {
+    let list = excludeCurrent ? branches.filter(b => !b.isCurrent) : branches
+    if (query.trim()) {
+      const q = query.toLowerCase()
+      list = list.filter(b => b.name.toLowerCase().includes(q))
+    }
+    return list
+  }, [branches, query, excludeCurrent])
+
+  const handleSelect = (name: string) => {
+    setQuery(name)
+    onChange(name)
+    setIsOpen(false)
+  }
+
+  const handleInputChange = (text: string) => {
+    setQuery(text)
+    onChange(text)
+    setIsOpen(true)
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={(e) => handleInputChange(e.target.value)}
+          onFocus={() => setIsOpen(true)}
+          placeholder={placeholder}
+          className="w-full pl-9 pr-8 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+        />
+        <button
+          type="button"
+          onClick={() => { setIsOpen(!isOpen); inputRef.current?.focus() }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+        >
+          <ChevronDown className={clsx('w-4 h-4 transition-transform', isOpen && 'rotate-180')} />
+        </button>
+      </div>
+      {isOpen && (
+        <div className="absolute z-20 w-full mt-1 max-h-48 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+          {filtered.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-gray-400 dark:text-gray-500">无匹配分支</div>
+          ) : (
+            filtered.map((b) => (
+              <button
+                key={b.name}
+                type="button"
+                onClick={() => handleSelect(b.name)}
+                className={clsx(
+                  'w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors truncate',
+                  b.name === value
+                    ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                    : 'text-gray-700 dark:text-gray-300'
+                )}
+              >
+                {b.name}
+                {b.isCurrent && <span className="ml-2 text-xs text-gray-400">(当前)</span>}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, branches }: BranchManagerProps) {
@@ -106,8 +205,8 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
             onClick={() => setMode('switch')}
             className={clsx(
               'flex-1 py-2 text-sm font-medium transition-colors',
-              mode === 'switch' 
-                ? 'text-green-600 dark:text-green-400 border-b-2 border-green-500' 
+              mode === 'switch'
+                ? 'text-green-600 dark:text-green-400 border-b-2 border-green-500'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             )}
           >
@@ -117,8 +216,8 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
             onClick={() => setMode('create')}
             className={clsx(
               'flex-1 py-2 text-sm font-medium transition-colors',
-              mode === 'create' 
-                ? 'text-green-600 dark:text-green-400 border-b-2 border-green-500' 
+              mode === 'create'
+                ? 'text-green-600 dark:text-green-400 border-b-2 border-green-500'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             )}
           >
@@ -128,8 +227,8 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
             onClick={() => setMode('fetch')}
             className={clsx(
               'flex-1 py-2 text-sm font-medium transition-colors',
-              mode === 'fetch' 
-                ? 'text-green-600 dark:text-green-400 border-b-2 border-green-500' 
+              mode === 'fetch'
+                ? 'text-green-600 dark:text-green-400 border-b-2 border-green-500'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             )}
           >
@@ -145,16 +244,13 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   选择分支
                 </label>
-                <select
+                <BranchComboBox
                   value={selectedBranch}
-                  onChange={(e) => setSelectedBranch(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                >
-                  <option value="">选择一个分支...</option>
-                  {branches.filter(b => !b.isCurrent).map((b) => (
-                    <option key={b.name} value={b.name}>{b.name}</option>
-                  ))}
-                </select>
+                  onChange={setSelectedBranch}
+                  branches={branches}
+                  excludeCurrent
+                  placeholder="输入或选择分支..."
+                />
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   当前分支: {worktreeBranch}
                 </p>
@@ -188,16 +284,12 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   基于分支 (可选)
                 </label>
-                <select
+                <BranchComboBox
                   value={baseBranch}
-                  onChange={(e) => setBaseBranch(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                >
-                  <option value="">当前分支 ({worktreeBranch})</option>
-                  {branches.filter(b => !b.isCurrent).map((b) => (
-                    <option key={b.name} value={b.name}>{b.name}</option>
-                  ))}
-                </select>
+                  onChange={setBaseBranch}
+                  branches={branches}
+                  placeholder={`默认: ${worktreeBranch}`}
+                />
               </div>
               <button
                 onClick={handleCreateBranch}

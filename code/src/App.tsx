@@ -74,11 +74,11 @@ function App() {
               <PanelLeftOpen className="w-4 h-4" />
             </button>
             {/* 垂直标签 */}
-            <div className="flex-1 flex items-center">
-              <span className="text-xs text-gray-400 dark:text-gray-500 font-medium whitespace-nowrap" style={{ writingMode: 'vertical-rl' }}>
-                <GitBranch className="w-3 h-3 inline mb-1" />
-                {' '}Worktrees{currentRepo ? ` (${worktrees.length})` : ''}
-              </span>
+            <div className="flex-1 flex flex-col items-center justify-center gap-2">
+              <GitBranch className="w-4 h-4 text-gray-400" />
+              {currentRepo && (
+                <span className="text-xs text-gray-400 font-medium">{worktrees.length}</span>
+              )}
             </div>
           </div>
         ) : (
