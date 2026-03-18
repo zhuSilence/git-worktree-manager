@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Worktree } from '@/types/worktree'
 import { StatusBadge } from './StatusBadge'
-import { Folder, ExternalLink, Terminal, Trash2, GitCompare, GitBranch } from 'lucide-react'
+import { Folder, ExternalLink, Terminal, Trash2, GitCompare, GitBranch, ArrowUp, ArrowDown, Check } from 'lucide-react'
 import { gitService } from '@/services/git'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 import { settingsStore } from '@/stores/settingsStore'
@@ -88,6 +88,50 @@ export function WorktreeItem({ worktree, branches, onShowDiff }: WorktreeItemPro
                 <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
                   Main
                 </span>
+              )}
+              {/* 同步状态 */}
+              {worktree.syncStatus && worktree.syncStatus.hasRemote && (
+                <div className="flex items-center gap-1 text-xs">
+                  {worktree.syncStatus.ahead > 0 && (
+                    <span
+                      className="flex items-center gap-0.5 text-green-600 dark:text-green-400 cursor-pointer hover:underline"
+                      title={`${worktree.syncStatus.ahead} 个提交未推送`}
+                      onClick={async () => {
+                        try {
+                          // TODO: 实现 push 功能
+                          console.log('Push', worktree.syncStatus?.ahead, 'commits')
+                        } catch (error) {
+                          console.error('Push failed:', error)
+                        }
+                      }}
+                    >
+                      <ArrowUp className="w-3 h-3" />
+                      {worktree.syncStatus.ahead}
+                    </span>
+                  )}
+                  {worktree.syncStatus.behind > 0 && (
+                    <span
+                      className="flex items-center gap-0.5 text-orange-600 dark:text-orange-400 cursor-pointer hover:underline"
+                      title={`${worktree.syncStatus.behind} 个提交未拉取`}
+                      onClick={async () => {
+                        try {
+                          // TODO: 实现 pull 功能
+                          console.log('Pull', worktree.syncStatus?.behind, 'commits')
+                        } catch (error) {
+                          console.error('Pull failed:', error)
+                        }
+                      }}
+                    >
+                      <ArrowDown className="w-3 h-3" />
+                      {worktree.syncStatus.behind}
+                    </span>
+                  )}
+                  {worktree.syncStatus.ahead === 0 && worktree.syncStatus.behind === 0 && (
+                    <span className="flex items-center gap-0.5 text-gray-400 dark:text-gray-500" title="与远程同步">
+                      <Check className="w-3 h-3" />
+                    </span>
+                  )}
+                </div>
               )}
             </div>
 
