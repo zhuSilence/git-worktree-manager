@@ -51,7 +51,7 @@ jobs:
             code/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
 
   build-macos-x64:
-    runs-on: macos-13  # Intel runner
+    runs-on: macos-13-xlarge  # Intel runner
     
     steps:
       - name: Checkout repository
@@ -171,7 +171,7 @@ jobs:
   release:
     needs: [build-macos-arm64, build-macos-x64, build-linux, build-windows]
     runs-on: ubuntu-latest
-    if: success()
+    if: always() && (needs.build-macos-arm64.result == 'success' || needs.build-macos-x64.result == 'success' || needs.build-linux.result == 'success' || needs.build-windows.result == 'success')
     
     steps:
       - name: Download all artifacts
