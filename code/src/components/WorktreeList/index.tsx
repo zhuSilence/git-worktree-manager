@@ -15,9 +15,10 @@ interface WorktreeListProps {
   onCreateWorktree?: () => void
   onShowDiff?: (path: string, name: string) => void
   onCollapse?: () => void
+  searchInputRef?: React.RefObject<HTMLInputElement>
 }
 
-export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse }: WorktreeListProps) {
+export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchInputRef }: WorktreeListProps) {
   const { worktrees, isLoading, currentRepo, refreshWorktrees } = useWorktreeStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [sortField, setSortField] = useState<SortField>('name')
@@ -119,6 +120,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse }: Workt
           <div className="relative flex-shrink min-w-[120px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
+              ref={searchInputRef}
               type="text"
               placeholder="搜索分支名、路径..."
               value={searchQuery}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { PanelLeftOpen, GitBranch } from 'lucide-react'
 import { Header } from './components/layout'
 import { Main } from './components/layout'
@@ -10,6 +10,7 @@ import { DiffSidebar } from './components/DiffSidebar'
 import { useWorktreeStore } from './stores/worktreeStore'
 import { useRepositoryStore } from './stores/repositoryStore'
 import { settingsStore } from './stores/settingsStore'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import type { RepositoryInfo } from './types/worktree'
 
 function App() {
@@ -20,6 +21,35 @@ function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [diffWorktree, setDiffWorktree] = useState<{ path: string; name: string } | null>(null)
   const [mainCollapsed, setMainCollapsed] = useState(() => localStorage.getItem('main-panel-collapsed') === 'true')
+  
+  // 搜索框 ref
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  
+  // 聚焦搜索框
+  const focusSearch = useCallback(() => {
+    searchInputRef.current?.focus()
+  }, [])
+  
+  // 关闭所有对话框
+  const closeAllDialogs = useCallback(() => {
+    if (showCreateDialog) {
+      setShowCreateDialog(false)
+    } else if (showSettings) {
+      setShowSettings(false)
+    } else if (diffWorktree) {
+      setDiffWorktree(null)
+    }
+  }, [showCreateDialog, showSettings, diffWorktree])
+
+  // 注册快捷键
+  useKeyboardShortcuts({
+    onCreateWorktree: () => setShowCreateDialog(true),
+    onRefresh: refreshWorktrees,
+    onOpenSettings: () => setShowSettings(true),
+    onFocusSearch: focusSearch,
+    onCloseDialog: closeAllDialogs,
+    enabled: !mainCollapsed && !!currentRepo,
+  })
 
   const toggleMainCollapsed = () => {
     setMainCollapsed(prev => {
@@ -101,6 +131,7 @@ function App() {
               onCreateWorktree={() => setShowCreateDialog(true)}
               onShowDiff={(path, name) => setDiffWorktree({ path, name })}
               onCollapse={toggleMainCollapsed}
+              searchInputRef={searchInputRef}
             />
           )}
 
