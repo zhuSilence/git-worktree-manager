@@ -1,0 +1,182 @@
+name: Labeler
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issues:
+    types: [opened]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  label:
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply PR size label
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pullRequest = context.payload.pull_request;
+            if (!pullRequest) {
+              return;
+            }
+
+            const sizeLabels = ["size: XS", "size: S", "size: M", "size: L", "size: XL"];
+            const labelColor = "b76e79";
+
+            // Ensure size labels exist
+            for (const label of sizeLabels) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label,
+                });
+              } catch (error) {
+                if (error?.status !== 404) {
+                  throw error;
+                }
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label,
+                  color: labelColor,
+                });
+              }
+            }
+
+            // Get changed files
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pullRequest.number,
+              per_page: 100,
+            });
+
+            // Calculate total changed lines (exclude lockfiles)
+            const excludedLockfiles = new Set(["pnpm-lock.yaml", "package-lock.json", "yarn.lock", "Cargo.lock"]);
+            const totalChangedLines = files.reduce((total, file) => {
+              const path = file.filename ?? "";
+              if (excludedLockfiles.has(path)) {
+                return total;
+              }
+              return total + (file.additions ?? 0) + (file.deletions ?? 0);
+            }, 0);
+
+            // Determine size label
+            let targetSizeLabel = "size: XL";
+            if (totalChangedLines < 50) {
+              targetSizeLabel = "size: XS";
+            } else if (totalChangedLines < 200) {
+              targetSizeLabel = "size: S";
+            } else if (totalChangedLines < 500) {
+              targetSizeLabel = "size: M";
+            } else if (totalChangedLines < 1000) {
+              targetSizeLabel = "size: L";
+            }
+
+            // Remove old size labels
+            const currentLabels = await github.paginate(github.rest.issues.listLabelsOnIssue, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pullRequest.number,
+              per_page: 100,
+            });
+
+            for (const label of currentLabels) {
+              const name = label.name ?? "";
+              if (sizeLabels.includes(name) && name !== targetSizeLabel) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pullRequest.number,
+                  name,
+                });
+              }
+            }
+
+            // Add new size label
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pullRequest.number,
+              labels: [targetSizeLabel],
+            });
+
+            console.log(`Added ${targetSizeLabel} (${totalChangedLines} lines changed)`);
+
+      - name: Apply path-based labels
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pullRequest = context.payload.pull_request;
+            if (!pullRequest) {
+              return;
+            }
+
+            // Define label rules based on file paths
+            const labelRules = [
+              { pattern: /^src-tauri\//, label: "rust", color: "dea584" },
+              { pattern: /^src\//, label: "frontend", color: "3178c6" },
+              { pattern: /\.github\//, label: "ci", color: "2088ff" },
+              { pattern: /^docs\//, label: "documentation", color: "0075ca" },
+              { pattern: /README\.md|CHANGELOG\.md/, label: "documentation", color: "0075ca" },
+            ];
+
+            // Get changed files
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pullRequest.number,
+              per_page: 100,
+            });
+
+            const labelsToAdd = new Set();
+            for (const file of files) {
+              const path = file.filename ?? "";
+              for (const rule of labelRules) {
+                if (rule.pattern.test(path)) {
+                  labelsToAdd.add(rule.label);
+                }
+              }
+            }
+
+            // Create labels if they don't exist
+            for (const labelName of labelsToAdd) {
+              const rule = labelRules.find(r => r.label === labelName);
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: labelName,
+                });
+              } catch (error) {
+                if (error?.status !== 404) {
+                  throw error;
+                }
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: labelName,
+                  color: rule?.color ?? "cccccc",
+                });
+              }
+            }
+
+            // Add labels
+            if (labelsToAdd.size > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pullRequest.number,
+                labels: Array.from(labelsToAdd),
+              });
+              console.log(`Added labels: ${Array.from(labelsToAdd).join(", ")}`);
+            }
