@@ -37,7 +37,7 @@ function Download-File {
 function Install-Windows {
     param($Version, $Arch)
     
-    $downloadUrl = "https://github.com/$Repo/releases/download/v$Version/${BinaryName}_${Version}_x64-setup.exe"
+    $downloadUrl = "https://github.com/$Repo/releases/download/v$Version/Git.Worktree.Manager_${Version}_x64-setup.exe"
     $tempFile = "$env:TEMP\${BinaryName}-setup.exe"
     
     # Download

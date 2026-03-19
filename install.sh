@@ -73,7 +73,7 @@ install_macos() {
     local tmp_dir=$(mktemp -d)
     local dmg_file="$tmp_dir/$BINARY_NAME.dmg"
     
-    local download_url="https://github.com/$REPO/releases/download/v$version/${BINARY_NAME}_${version}_${arch}.dmg"
+    local download_url="https://github.com/$REPO/releases/download/v$version/Git.Worktree.Manager_${version}_${arch}.dmg"
     
     # Download DMG
     download_file "$download_url" "$dmg_file"
