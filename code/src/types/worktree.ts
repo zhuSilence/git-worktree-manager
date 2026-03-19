@@ -17,6 +17,18 @@ export enum WorktreeStatus {
 }
 
 /**
+ * 远程同步状态
+ */
+export interface SyncStatus {
+  /** 领先远程的提交数 */
+  ahead: number
+  /** 落后远程的提交数 */
+  behind: number
+  /** 是否有远程分支 */
+  hasRemote: boolean
+}
+
+/**
  * 最后提交信息
  */
 export interface LastCommit {
@@ -54,6 +66,8 @@ export interface Worktree {
   remote?: string
   /** 额外元数据 */
   metadata?: Record<string, unknown>
+  /** 远程同步状态 */
+  syncStatus: SyncStatus
 }
 
 /**

@@ -1,4 +1,4 @@
-use crate::models::{CreateWorktreeParams, Worktree, WorktreeListResponse, WorktreeResult, WorktreeStatus, Branch, BranchListResponse, LastCommit, DiffStats, DiffResponse, DiffLine, DiffHunk, FileDiff, DetailedDiffResponse, RepositoryInfo, SwitchBranchResult, BatchDeleteResult, WorktreeHint};
+use crate::models::{CreateWorktreeParams, Worktree, WorktreeListResponse, WorktreeResult, WorktreeStatus, Branch, BranchListResponse, LastCommit, DiffStats, DiffResponse, DiffLine, DiffHunk, FileDiff, DetailedDiffResponse, RepositoryInfo, SwitchBranchResult, BatchDeleteResult, WorktreeHint, SyncStatus};
 use crate::utils::validation::{sanitize_branch_name, validate_path};
 use git2::Repository;
 use std::path::Path;
@@ -48,6 +48,7 @@ fn get_main_worktree(repo: &Repository) -> anyhow::Result<Worktree> {
     let commit = head.peel_to_commit()?;
     let status = get_worktree_status(repo)?;
     let last_commit = get_last_commit(&commit)?;
+    let sync_status = get_sync_status(repo, &branch)?;
 
     Ok(Worktree {
         id: commit.id().to_string(),
@@ -59,6 +60,7 @@ fn get_main_worktree(repo: &Repository) -> anyhow::Result<Worktree> {
         last_active_at: None,
         is_main: true,
         remote: None,
+        sync_status,
     })
 }
 
@@ -74,6 +76,7 @@ fn get_linked_worktree(repo: &Repository, name: &str) -> anyhow::Result<Option<W
     let commit = head.peel_to_commit()?;
     let status = get_worktree_status(&wt_repo)?;
     let last_commit = get_last_commit(&commit)?;
+    let sync_status = get_sync_status(&wt_repo, &branch)?;
 
     Ok(Some(Worktree {
         id: commit.id().to_string(),
@@ -85,6 +88,7 @@ fn get_linked_worktree(repo: &Repository, name: &str) -> anyhow::Result<Option<W
         last_active_at: None,
         is_main: false,
         remote: None,
+        sync_status,
     }))
 }
 
@@ -129,6 +133,40 @@ fn format_relative_time(now: i64, commit_time: i64) -> String {
         format!("{} 月前", diff / 2592000)
     } else {
         format!("{} 年前", diff / 31536000)
+    }
+}
+
+/// 获取 worktree 与远程分支的同步状态
+fn get_sync_status(repo: &Repository, branch_name: &str) -> anyhow::Result<SyncStatus> {
+    // 获取本地分支的 HEAD
+    let head = repo.head()?;
+    let local_commit = head.peel_to_commit()?;
+
+    // 查找远程分支
+    let remote_branch_name = format!("origin/{}", branch_name);
+    let remote_ref_name = format!("refs/remotes/{}", remote_branch_name);
+
+    match repo.find_reference(&remote_ref_name) {
+        Ok(remote_ref) => {
+            let remote_commit = remote_ref.peel_to_commit()?;
+
+            // 计算 ahead/behind
+            let (ahead, behind) = repo.graph_ahead_behind(local_commit.id(), remote_commit.id())?;
+
+            Ok(SyncStatus {
+                ahead,
+                behind,
+                has_remote: true,
+            })
+        }
+        Err(_) => {
+            // 没有远程分支
+            Ok(SyncStatus {
+                ahead: 0,
+                behind: 0,
+                has_remote: false,
+            })
+        }
     }
 }
 

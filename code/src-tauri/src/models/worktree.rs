@@ -17,6 +17,28 @@ pub enum WorktreeStatus {
     Unknown,
 }
 
+/// 远程同步状态
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncStatus {
+    /// 领先远程的提交数
+    pub ahead: usize,
+    /// 落后远程的提交数
+    pub behind: usize,
+    /// 是否有远程分支
+    pub has_remote: bool,
+}
+
+impl Default for SyncStatus {
+    fn default() -> Self {
+        SyncStatus {
+            ahead: 0,
+            behind: 0,
+            has_remote: false,
+        }
+    }
+}
+
 /// 最后提交信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -53,6 +75,8 @@ pub struct Worktree {
     pub is_main: bool,
     /// 关联的远程仓库
     pub remote: Option<String>,
+    /// 远程同步状态
+    pub sync_status: SyncStatus,
 }
 
 /// 创建 Worktree 参数
