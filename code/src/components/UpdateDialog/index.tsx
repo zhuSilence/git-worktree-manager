@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Download, RefreshCw, Check, AlertCircle } from 'lucide-react'
+import { X, Download, RefreshCw, AlertCircle } from 'lucide-react'
 import { updateStore } from '@/stores/updateStore'
 
 interface UpdateDialogProps {
@@ -9,9 +9,7 @@ interface UpdateDialogProps {
 
 export function UpdateDialog({ isOpen, onClose }: UpdateDialogProps) {
   const {
-    isChecking,
     isDownloading,
-    isUpdateAvailable,
     updateInfo,
     downloadProgress,
     error,

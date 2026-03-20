@@ -13,7 +13,7 @@ const APP_VERSION = __APP_VERSION__
 
 export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const { defaultIde, defaultTerminal, setDefaultIde, setDefaultTerminal } = settingsStore()
-  const { isUpdateAvailable, updateInfo, isChecking, checkForUpdate } = updateStore()
+  const { isUpdateAvailable, updateInfo } = updateStore()
   const [localIde, setLocalIde] = useState<IdeType>(defaultIde)
   const [localTerminal, setLocalTerminal] = useState<TerminalType>(defaultTerminal)
   const [showUpdateDialog, setShowUpdateDialog] = useState(false)
