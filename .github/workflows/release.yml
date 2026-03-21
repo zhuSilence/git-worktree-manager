@@ -57,7 +57,7 @@ jobs:
             code/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg.sig
 
   build-macos-x64:
-    runs-on: macos-12  # Intel runner (deprecated but may still work)
+    runs-on: macos-15-intel  # Intel runner (deprecated but may still work)
     
     steps:
       - name: Checkout repository
