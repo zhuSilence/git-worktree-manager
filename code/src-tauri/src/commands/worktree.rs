@@ -125,3 +125,9 @@ pub async fn get_merged_hints(repo_path: String, main_branch: String) -> Result<
 pub async fn get_stale_hints(repo_path: String, days: i64) -> Result<Vec<crate::models::WorktreeHint>, String> {
     git_service::get_stale_hints(&repo_path, days).map_err(|e| e.to_string())
 }
+
+/// 获取时间线数据
+#[command]
+pub async fn get_timeline(repo_path: String, since: Option<i64>, until: Option<i64>) -> Result<crate::models::TimelineResponse, String> {
+    git_service::get_timeline(&repo_path, since, until).map_err(|e| e.to_string())
+}

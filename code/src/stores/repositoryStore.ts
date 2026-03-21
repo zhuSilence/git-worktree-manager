@@ -15,6 +15,8 @@ interface RepositoryState {
   removeRepository: (id: string) => void
   setActiveRepository: (id: string) => void
   refreshRepositories: () => Promise<void>
+  validateRepositories: () => Promise<void>
+  removeInvalidRepositories: () => void
   clearError: () => void
 }
 
@@ -96,31 +98,69 @@ export const useRepositoryStore = create<RepositoryState>()(
       refreshRepositories: async () => {
         const { repositories } = get()
         if (repositories.length === 0) return
-        
+
         set({ isLoading: true })
-        
+
         try {
           const refreshedRepos = await Promise.all(
             repositories.map(async (repo) => {
               try {
+                const isRepo = await gitService.isGitRepo(repo.path)
+                if (!isRepo) {
+                  return { ...repo, isPathValid: false }
+                }
                 const info = await gitService.getRepositoryInfo(repo.path)
-                return info
+                return { ...info, isPathValid: true }
               } catch {
-                return repo // 保持原信息
+                return { ...repo, isPathValid: false }
               }
             })
           )
-          
-          set({ 
+
+          set({
             repositories: refreshedRepos,
-            isLoading: false 
+            isLoading: false
           })
         } catch (error) {
-          set({ 
+          set({
             error: error instanceof Error ? error.message : '刷新失败',
-            isLoading: false 
+            isLoading: false
           })
         }
+      },
+
+      // 验证所有仓库路径
+      validateRepositories: async () => {
+        const { repositories } = get()
+        if (repositories.length === 0) return
+
+        const validatedRepos = await Promise.all(
+          repositories.map(async (repo) => {
+            try {
+              const isRepo = await gitService.isGitRepo(repo.path)
+              return { ...repo, isPathValid: isRepo }
+            } catch {
+              return { ...repo, isPathValid: false }
+            }
+          })
+        )
+
+        set({ repositories: validatedRepos })
+      },
+
+      // 移除所有无效仓库
+      removeInvalidRepositories: () => {
+        set(state => {
+          const validRepos = state.repositories.filter(r => r.isPathValid !== false)
+          const newActiveId = state.activeRepoId && !validRepos.find(r => r.id === state.activeRepoId)
+            ? (validRepos[0]?.id ?? null)
+            : state.activeRepoId
+
+          return {
+            repositories: validRepos,
+            activeRepoId: newActiveId
+          }
+        })
       },
 
       clearError: () => {

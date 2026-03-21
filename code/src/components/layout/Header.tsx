@@ -1,13 +1,14 @@
-import { GitBranch, Settings, RefreshCw, Plus } from 'lucide-react'
+import { GitBranch, Settings, RefreshCw, Plus, Clock } from 'lucide-react'
 import { Button } from '@/components/common'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 
 interface HeaderProps {
   onCreateWorktree?: () => void
   onOpenSettings?: () => void
+  onOpenTimeline?: () => void
 }
 
-export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings }) => {
+export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings, onOpenTimeline }) => {
   const { currentRepo, refreshWorktrees, isLoading } = useWorktreeStore()
 
   const handleRefresh = async () => {
@@ -42,7 +43,16 @@ export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings
                 <Plus className="h-4 w-4" />
                 创建
               </Button>
-              
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onOpenTimeline}
+                title="时间线"
+              >
+                <Clock className="h-4 w-4" />
+              </Button>
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -53,7 +63,7 @@ export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings
               </Button>
             </>
           )}
-          
+
           <Button variant="ghost" size="icon" onClick={onOpenSettings}>
             <Settings className="h-4 w-4" />
           </Button>

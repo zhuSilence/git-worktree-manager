@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Worktree } from '@/types/worktree'
 import { StatusBadge } from './StatusBadge'
-import { Folder, ExternalLink, Terminal, Trash2, GitCompare, GitBranch, ArrowUp, ArrowDown, Check } from 'lucide-react'
+import { Folder, ExternalLink, Terminal, Trash2, GitCompare, GitBranch, ArrowUp, ArrowDown, Check, GitMerge } from 'lucide-react'
 import { gitService } from '@/services/git'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 import { settingsStore } from '@/stores/settingsStore'
@@ -11,9 +11,10 @@ interface WorktreeItemProps {
   worktree: Worktree
   branches: { name: string; isCurrent: boolean }[]
   onShowDiff?: (path: string, name: string) => void
+  isMerged?: boolean
 }
 
-export function WorktreeItem({ worktree, branches, onShowDiff }: WorktreeItemProps) {
+export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false }: WorktreeItemProps) {
   const { deleteWorktree } = useWorktreeStore()
   const { defaultIde, defaultTerminal } = settingsStore()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -76,6 +77,14 @@ export function WorktreeItem({ worktree, branches, onShowDiff }: WorktreeItemPro
   return (
     <>
       <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors overflow-hidden">
+        {/* 已合并提醒横幅 */}
+        {isMerged && !worktree.isMain && (
+          <div className="flex items-center gap-2 mb-2 px-2 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs rounded-md">
+            <GitMerge className="w-3.5 h-3.5" />
+            <span>分支已合并到主分支，可以删除</span>
+          </div>
+        )}
+
         <div className="flex items-start justify-between">
           {/* 左侧：分支信息 */}
           <div className="flex-1 min-w-0">
@@ -87,6 +96,12 @@ export function WorktreeItem({ worktree, branches, onShowDiff }: WorktreeItemPro
               {worktree.isMain && (
                 <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
                   Main
+                </span>
+              )}
+              {isMerged && !worktree.isMain && (
+                <span className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2 py-0.5 rounded flex items-center gap-1">
+                  <GitMerge className="w-3 h-3" />
+                  已合并
                 </span>
               )}
               {/* 同步状态 */}

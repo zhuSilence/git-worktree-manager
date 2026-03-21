@@ -246,6 +246,8 @@ export interface RepositoryInfo {
   worktreeCount: number
   /** 最后活跃时间 */
   lastActive: string | null
+  /** 路径是否有效 */
+  isPathValid?: boolean
 }
 
 /**
@@ -281,4 +283,34 @@ export interface WorktreeHint {
   isMerged: boolean
   /** 最后活跃天数 */
   inactiveDays: number | null
+}
+
+/**
+ * 提交信息
+ */
+export interface CommitInfo {
+  /** 提交 hash */
+  hash: string
+  /** 提交消息 */
+  message: string
+  /** 作者 */
+  author: string
+  /** 提交时间 (ISO 8601) */
+  date: string
+  /** 相对时间 */
+  relativeTime: string
+  /** Worktree 名称 */
+  worktreeName: string
+  /** 分支名 */
+  branch: string
+}
+
+/**
+ * 时间线响应
+ */
+export interface TimelineResponse {
+  /** 提交列表 */
+  commits: CommitInfo[]
+  /** 总数 */
+  totalCount: number
 }

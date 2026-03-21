@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Download, RefreshCw, AlertCircle } from 'lucide-react'
+import { X, Download, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react'
 import { updateStore } from '@/stores/updateStore'
 
 interface UpdateDialogProps {
@@ -18,7 +18,7 @@ export function UpdateDialog({ isOpen, onClose }: UpdateDialogProps) {
     reset,
   } = updateStore()
 
-  const [step, setStep] = useState<'checking' | 'available' | 'downloading' | 'error'>('checking')
+  const [step, setStep] = useState<'checking' | 'available' | 'downloading' | 'no-update' | 'error'>('checking')
 
   useEffect(() => {
     if (isOpen) {
@@ -26,9 +26,9 @@ export function UpdateDialog({ isOpen, onClose }: UpdateDialogProps) {
       checkForUpdate().then((hasUpdate) => {
         if (hasUpdate) {
           setStep('available')
-        } else {
-          // 没有更新，关闭对话框
-          setTimeout(() => onClose(), 1500)
+        } else if (!error) {
+          // 没有更新，显示提示
+          setStep('no-update')
         }
       })
     }
@@ -126,6 +126,23 @@ export function UpdateDialog({ isOpen, onClose }: UpdateDialogProps) {
                   立即更新
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* 无新版本 */}
+          {step === 'no-update' && (
+            <div className="space-y-4">
+              <div className="flex flex-col items-center justify-center py-8">
+                <CheckCircle className="w-12 h-12 text-green-500 mb-4" />
+                <p className="text-gray-900 dark:text-white font-medium mb-1">当前已是最新版本</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">v{__APP_VERSION__}</p>
+              </div>
+              <button
+                onClick={handleClose}
+                className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600"
+              >
+                关闭
+              </button>
             </div>
           )}
 

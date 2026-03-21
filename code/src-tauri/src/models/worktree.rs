@@ -270,3 +270,33 @@ pub struct WorktreeHint {
     /// 最后活跃天数
     pub inactive_days: Option<i64>,
 }
+
+/// 提交信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitInfo {
+    /// 提交 hash
+    pub hash: String,
+    /// 提交消息
+    pub message: String,
+    /// 作者
+    pub author: String,
+    /// 提交时间 (ISO 8601)
+    pub date: String,
+    /// 相对时间
+    pub relative_time: String,
+    /// Worktree 名称
+    pub worktree_name: String,
+    /// 分支名
+    pub branch: String,
+}
+
+/// 时间线响应
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TimelineResponse {
+    /// 提交列表
+    pub commits: Vec<CommitInfo>,
+    /// 总数
+    pub total_count: usize,
+}

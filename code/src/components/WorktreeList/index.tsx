@@ -1,12 +1,13 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { WorktreeItem } from './WorktreeItem'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 import { GitBranch, Plus, Search, ArrowUpDown, AlertTriangle, Trash2, PanelLeftClose, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/common'
-import type { Worktree } from '@/types/worktree'
+import type { Worktree, WorktreeHint } from '@/types/worktree'
 import { WorktreeStatus } from '@/types/worktree'
 import { HintsPanel } from '@/components/HintsPanel'
 import { BatchActions } from '@/components/BatchActions'
+import { gitService } from '@/services/git'
 
 type SortField = 'name' | 'status' | 'time'
 type SortOrder = 'asc' | 'desc'
@@ -25,9 +26,34 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
   const [showHints, setShowHints] = useState(false)
   const [showBatchActions, setShowBatchActions] = useState(false)
+  const [mergedHints, setMergedHints] = useState<WorktreeHint[]>([])
 
   // 获取分支列表
   const branches = currentRepo?.branches || []
+
+  // 获取已合并提示
+  useEffect(() => {
+    const fetchMergedHints = async () => {
+      if (currentRepo?.mainWorktreePath) {
+        try {
+          const hints = await gitService.getMergedHints(
+            currentRepo.mainWorktreePath,
+            currentRepo.defaultBranch || 'main'
+          )
+          setMergedHints(hints)
+        } catch (err) {
+          console.error('Failed to fetch merged hints:', err)
+        }
+      }
+    }
+
+    fetchMergedHints()
+  }, [currentRepo?.mainWorktreePath, currentRepo?.defaultBranch, worktrees])
+
+  // 创建已合并分支的 Set 用于快速查找
+  const mergedBranches = useMemo(() => {
+    return new Set(mergedHints.map(h => h.branch))
+  }, [mergedHints])
 
   // 过滤和排序
   const filteredAndSortedWorktrees = useMemo(() => {
@@ -199,7 +225,13 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
       {/* 列表 */}
       <div className="space-y-2">
         {filteredAndSortedWorktrees.map((worktree) => (
-          <WorktreeItem key={worktree.id} worktree={worktree} branches={branches} onShowDiff={onShowDiff} />
+          <WorktreeItem
+            key={worktree.id}
+            worktree={worktree}
+            branches={branches}
+            onShowDiff={onShowDiff}
+            isMerged={mergedBranches.has(worktree.branch)}
+          />
         ))}
       </div>
 
