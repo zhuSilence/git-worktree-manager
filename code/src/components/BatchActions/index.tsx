@@ -14,32 +14,32 @@ interface BatchActionsProps {
 
 export function BatchActions({ isOpen, onClose, worktrees, repoPath }: BatchActionsProps) {
   const { refreshWorktrees } = useWorktreeStore()
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<{ successCount: number; failedCount: number } | null>(null)
 
-  const toggleSelect = (id: string) => {
-    const newSelected = new Set(selectedIds)
-    if (newSelected.has(id)) {
-      newSelected.delete(id)
+  const toggleSelect = (path: string) => {
+    const newSelected = new Set(selectedPaths)
+    if (newSelected.has(path)) {
+      newSelected.delete(path)
     } else {
-      newSelected.add(id)
+      newSelected.add(path)
     }
-    setSelectedIds(newSelected)
+    setSelectedPaths(newSelected)
   }
 
   const selectAll = () => {
     // 只选择非主 worktree
-    const allIds = worktrees.filter(w => !w.isMain).map(w => w.id)
-    setSelectedIds(new Set(allIds))
+    const allPaths = worktrees.filter(w => !w.isMain).map(w => w.path)
+    setSelectedPaths(new Set(allPaths))
   }
 
   const deselectAll = () => {
-    setSelectedIds(new Set())
+    setSelectedPaths(new Set())
   }
 
   const handleBatchDelete = async (force: boolean) => {
-    const selectedWorktrees = worktrees.filter(w => selectedIds.has(w.id))
+    const selectedWorktrees = worktrees.filter(w => selectedPaths.has(w.path))
     if (selectedWorktrees.length === 0) return
 
     const confirmMsg = force
@@ -55,10 +55,10 @@ export function BatchActions({ isOpen, onClose, worktrees, repoPath }: BatchActi
       const paths = selectedWorktrees.map(w => w.path)
       const batchResult = await gitService.batchDeleteWorktrees(repoPath, paths, force)
       setResult({ successCount: batchResult.successCount, failedCount: batchResult.failedCount })
-      
+
       if (batchResult.successCount > 0) {
         await refreshWorktrees()
-        setSelectedIds(new Set())
+        setSelectedPaths(new Set())
       }
     } catch (err) {
       console.error('Batch delete failed:', err)
@@ -98,7 +98,7 @@ export function BatchActions({ isOpen, onClose, worktrees, repoPath }: BatchActi
             </button>
           </div>
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            已选择 {selectedIds.size} 个
+            已选择 {selectedPaths.size} 个
           </span>
         </div>
 
@@ -114,16 +114,16 @@ export function BatchActions({ isOpen, onClose, worktrees, repoPath }: BatchActi
             <div className="space-y-2">
               {nonMainWorktrees.map((worktree) => (
                 <div
-                  key={worktree.id}
-                  onClick={() => toggleSelect(worktree.id)}
+                  key={worktree.path}
+                  onClick={() => toggleSelect(worktree.path)}
                   className={clsx(
                     'flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors',
-                    selectedIds.has(worktree.id)
+                    selectedPaths.has(worktree.path)
                       ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
                       : 'bg-gray-50 dark:bg-gray-900 border border-transparent hover:bg-gray-100 dark:hover:bg-gray-800'
                   )}
                 >
-                  {selectedIds.has(worktree.id) ? (
+                  {selectedPaths.has(worktree.path) ? (
                     <CheckSquare className="w-5 h-5 text-red-500" />
                   ) : (
                     <Square className="w-5 h-5 text-gray-400" />
@@ -154,7 +154,7 @@ export function BatchActions({ isOpen, onClose, worktrees, repoPath }: BatchActi
         <div className="flex gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={() => handleBatchDelete(false)}
-            disabled={selectedIds.size === 0 || isLoading}
+            disabled={selectedPaths.size === 0 || isLoading}
             className="flex-1 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {isLoading ? (
@@ -166,7 +166,7 @@ export function BatchActions({ isOpen, onClose, worktrees, repoPath }: BatchActi
           </button>
           <button
             onClick={() => handleBatchDelete(true)}
-            disabled={selectedIds.size === 0 || isLoading}
+            disabled={selectedPaths.size === 0 || isLoading}
             className="flex-1 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             强制删除

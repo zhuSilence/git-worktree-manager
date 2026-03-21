@@ -550,7 +550,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <GitCompare className="w-4 h-4 text-purple-500 flex-shrink-0" />
           <span className="font-medium text-gray-900 dark:text-white truncate text-sm">
-            {worktreeName} vs {targetBranch}
+            {diff?.sourceBranch || worktreeName} vs {targetBranch}
           </span>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">

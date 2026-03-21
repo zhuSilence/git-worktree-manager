@@ -226,7 +226,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
       <div className="space-y-2">
         {filteredAndSortedWorktrees.map((worktree) => (
           <WorktreeItem
-            key={worktree.id}
+            key={worktree.path}
             worktree={worktree}
             branches={branches}
             onShowDiff={onShowDiff}
