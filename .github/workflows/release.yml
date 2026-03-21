@@ -57,7 +57,7 @@ jobs:
             code/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg.sig
 
   build-macos-x64:
-    runs-on: macos-15-intel  # Intel runner
+    runs-on: macos-15-intel  # Intel runner (deprecated but may still work)
     
     steps:
       - name: Checkout repository
@@ -73,6 +73,9 @@ jobs:
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
+
+      - name: Install create-dmg
+        run: brew install create-dmg
 
       - name: Install frontend dependencies
         run: |
