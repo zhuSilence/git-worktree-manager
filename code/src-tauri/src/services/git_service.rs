@@ -1,4 +1,4 @@
-use crate::models::{CreateWorktreeParams, Worktree, WorktreeListResponse, WorktreeResult, WorktreeStatus, Branch, BranchListResponse, LastCommit, DiffStats, DiffResponse, DiffLine, DiffHunk, FileDiff, DetailedDiffResponse, RepositoryInfo, SwitchBranchResult, BatchDeleteResult, WorktreeHint, SyncStatus};
+use crate::models::{CreateWorktreeParams, Worktree, WorktreeListResponse, WorktreeResult, WorktreeStatus, Branch, BranchListResponse, LastCommit, DiffStats, DiffResponse, DiffLine, DiffHunk, FileDiff, DetailedDiffResponse, RepositoryInfo, SwitchBranchResult, BatchDeleteResult, WorktreeHint, SyncStatus, CommitInfo, TimelineResponse};
 use crate::utils::validation::{sanitize_branch_name, validate_path};
 use git2::Repository;
 use std::path::Path;
@@ -1016,4 +1016,81 @@ pub fn get_stale_hints(repo_path: &str, days: i64) -> anyhow::Result<Vec<Worktre
     }
 
     Ok(hints)
+}
+
+/// 获取时间线数据（所有 worktree 的提交历史）
+pub fn get_timeline(repo_path: &str, since: Option<i64>, until: Option<i64>) -> anyhow::Result<TimelineResponse> {
+    let _repo = Repository::open(repo_path)?;
+    let mut commits: Vec<CommitInfo> = Vec::new();
+
+    // 获取所有 worktree
+    let worktrees_response = list_worktrees(repo_path)?;
+
+    for worktree in worktrees_response.worktrees {
+        // 打开每个 worktree 的仓库
+        if let Ok(wt_repo) = Repository::open(&worktree.path) {
+            // 获取提交历史
+            if let Ok(revwalk) = get_commit_revwalk(&wt_repo, since, until) {
+                for commit_result in revwalk {
+                    if let Ok(oid) = commit_result {
+                        if let Ok(commit) = wt_repo.find_commit(oid) {
+                            let time = commit.time();
+                            let commit_time = time.seconds();
+
+                            // 时间范围过滤
+                            if let Some(s) = since {
+                                if commit_time < s {
+                                    continue;
+                                }
+                            }
+                            if let Some(u) = until {
+                                if commit_time > u {
+                                    continue;
+                                }
+                            }
+
+                            let now = std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)?
+                                .as_secs() as i64;
+
+                            let relative_time = format_relative_time(now, commit_time);
+
+                            // 格式化 ISO 8601 日期
+                            let datetime = chrono::DateTime::from_timestamp(commit_time, 0)
+                                .unwrap_or_else(|| chrono::Utc::now());
+                            let date = datetime.to_rfc3339();
+
+                            commits.push(CommitInfo {
+                                hash: commit.id().to_string()[..7.min(commit.id().to_string().len())].to_string(),
+                                message: commit.summary().unwrap_or("No message").to_string(),
+                                author: commit.author().name().unwrap_or("Unknown").to_string(),
+                                date,
+                                relative_time,
+                                worktree_name: worktree.name.clone(),
+                                branch: worktree.branch.clone(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 按时间排序（最新的在前）
+    commits.sort_by(|a, b| b.date.cmp(&a.date));
+
+    let total_count = commits.len();
+
+    Ok(TimelineResponse {
+        commits,
+        total_count,
+    })
+}
+
+/// 获取提交的 revwalk
+fn get_commit_revwalk(repo: &Repository, _since: Option<i64>, _until: Option<i64>) -> anyhow::Result<git2::Revwalk<'_>> {
+    let mut revwalk = repo.revwalk()?;
+    revwalk.push_head()?;
+
+    Ok(revwalk)
 }

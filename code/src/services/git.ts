@@ -11,6 +11,7 @@ import type {
   SwitchBranchResult,
   BatchDeleteResult,
   WorktreeHint,
+  TimelineResponse,
 } from '@/types/worktree'
 import type { IdeType, TerminalType } from '@/stores/settingsStore'
 
@@ -159,5 +160,12 @@ export const gitService = {
    */
   async getStaleHints(repoPath: string, days: number): Promise<WorktreeHint[]> {
     return invoke<WorktreeHint[]>('get_stale_hints', { repoPath, days })
+  },
+
+  /**
+   * 获取时间线数据
+   */
+  async getTimeline(repoPath: string, since?: number, until?: number): Promise<TimelineResponse> {
+    return invoke<TimelineResponse>('get_timeline', { repoPath, since, until })
   },
 }

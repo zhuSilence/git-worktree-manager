@@ -7,6 +7,7 @@ import { CreateWorktreeDialog } from './components/CreateWorktreeDialog'
 import { SettingsPanel } from './components/SettingsPanel'
 import { Sidebar } from './components/Sidebar'
 import { DiffSidebar } from './components/DiffSidebar'
+import { Timeline } from './components/Timeline'
 import { useWorktreeStore } from './stores/worktreeStore'
 import { useRepositoryStore } from './stores/repositoryStore'
 import { settingsStore } from './stores/settingsStore'
@@ -19,6 +20,7 @@ function App() {
   const { autoRefreshInterval } = settingsStore()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showTimeline, setShowTimeline] = useState(false)
   const [diffWorktree, setDiffWorktree] = useState<{ path: string; name: string } | null>(null)
   const [mainCollapsed, setMainCollapsed] = useState(() => localStorage.getItem('main-panel-collapsed') === 'true')
   
@@ -90,6 +92,7 @@ function App() {
       <Header
         onCreateWorktree={() => setShowCreateDialog(true)}
         onOpenSettings={() => setShowSettings(true)}
+        onOpenTimeline={() => setShowTimeline(true)}
       />
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧边栏 */}
@@ -186,6 +189,13 @@ function App() {
       <SettingsPanel
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
+      />
+
+      {/* 时间线面板 */}
+      <Timeline
+        isOpen={showTimeline}
+        onClose={() => setShowTimeline(false)}
+        repoPath={currentRepo?.mainWorktreePath || null}
       />
     </div>
   )
