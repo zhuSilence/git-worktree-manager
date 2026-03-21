@@ -549,10 +549,9 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
     let mut total_additions = 0;
     let mut total_deletions = 0;
 
-    // 使用 git diff 命令获取统计
-    // 注意：使用 target_branch 而不是 target_branch...HEAD，这样会包含工作区的未提交修改
+    // 使用 git diff 三点语法，只显示当前分支相对于目标分支的变更（与 GitHub PR 视角一致）
     let output = Command::new("git")
-        .args(["diff", "--numstat", target_branch])
+        .args(["diff", "--numstat", &format!("{}...HEAD", target_branch)])
         .current_dir(worktree_path)
         .output()?;
 
@@ -626,10 +625,9 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
     let mut total_additions = 0;
     let mut total_deletions = 0;
 
-    // 使用 git diff 命令获取更可靠的结果
-    // 注意：使用 target_branch 而不是 target_branch...HEAD，这样会包含工作区的未提交修改
+    // 使用 git diff 三点语法，只显示当前分支相对于目标分支的变更（与 GitHub PR 视角一致）
     let output = Command::new("git")
-        .args(["diff", target_branch])
+        .args(["diff", &format!("{}...HEAD", target_branch)])
         .current_dir(worktree_path)
         .output()?;
 
