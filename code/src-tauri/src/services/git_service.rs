@@ -544,12 +544,12 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
     // 获取当前 HEAD commit
     let _source_commit = head.peel_to_commit()?;
 
-    // 统计文件变更
-    let mut files: Vec<DiffStats> = Vec::new();
+    // 使用 HashMap 合并文件变更
+    let mut files_map: std::collections::HashMap<String, DiffStats> = std::collections::HashMap::new();
     let mut total_additions = 0;
     let mut total_deletions = 0;
 
-    // 使用 git diff 三点语法，只显示当前分支相对于目标分支的变更（与 GitHub PR 视角一致）
+    // 1. 获取分支间的提交差异（三点语法）
     let output = Command::new("git")
         .args(["diff", "--numstat", &format!("{}...HEAD", target_branch)])
         .current_dir(worktree_path)
@@ -564,7 +564,6 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
                 let deletions = parts[1].parse::<usize>().unwrap_or(0);
                 let path = parts[2].to_string();
 
-                // 判断文件状态
                 let status = if additions > 0 && deletions == 0 {
                     "added"
                 } else if additions == 0 && deletions > 0 {
@@ -573,7 +572,7 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
                     "modified"
                 };
 
-                files.push(DiffStats {
+                files_map.insert(path.clone(), DiffStats {
                     path,
                     additions,
                     deletions,
@@ -586,7 +585,50 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
         }
     }
 
-    // 按变更量排序
+    // 2. 获取工作区未提交的变更
+    let worktree_output = Command::new("git")
+        .args(["diff", "--numstat", "HEAD"])
+        .current_dir(worktree_path)
+        .output()?;
+
+    if worktree_output.status.success() {
+        let stdout = String::from_utf8_lossy(&worktree_output.stdout);
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 3 {
+                let additions = parts[0].parse::<usize>().unwrap_or(0);
+                let deletions = parts[1].parse::<usize>().unwrap_or(0);
+                let path = parts[2].to_string();
+
+                // 合并到现有文件或新增
+                if let Some(existing) = files_map.get_mut(&path) {
+                    existing.additions += additions;
+                    existing.deletions += deletions;
+                } else {
+                    let status = if additions > 0 && deletions == 0 {
+                        "added"
+                    } else if additions == 0 && deletions > 0 {
+                        "deleted"
+                    } else {
+                        "modified"
+                    };
+
+                    files_map.insert(path.clone(), DiffStats {
+                        path,
+                        additions,
+                        deletions,
+                        status: status.to_string(),
+                    });
+                }
+
+                total_additions += additions;
+                total_deletions += deletions;
+            }
+        }
+    }
+
+    // 转换为 Vec 并排序
+    let mut files: Vec<DiffStats> = files_map.into_values().collect();
     files.sort_by(|a, b| {
         (b.additions + b.deletions).cmp(&(a.additions + a.deletions))
     });
@@ -610,29 +652,17 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
     let source_branch = head.shorthand().unwrap_or("HEAD").to_string();
 
     // 查找目标分支的 commit
-    let target_commit = find_target_commit(&repo, target_branch)?;
+    let _target_commit = find_target_commit(&repo, target_branch)?;
 
-    let source_commit = head.peel_to_commit()?;
+    let _source_commit = head.peel_to_commit()?;
 
-    // 执行 diff
-    let _diff = repo.diff_tree_to_tree(
-        Some(&target_commit.as_object().peel_to_tree()?),
-        Some(&source_commit.as_object().peel_to_tree()?),
-        None,
-    )?;
-
-    let mut files: Vec<FileDiff> = Vec::new();
+    // 使用 HashMap 合并文件变更
+    let mut files_map: std::collections::HashMap<String, FileDiff> = std::collections::HashMap::new();
     let mut total_additions = 0;
     let mut total_deletions = 0;
 
-    // 使用 git diff 三点语法，只显示当前分支相对于目标分支的变更（与 GitHub PR 视角一致）
-    let output = Command::new("git")
-        .args(["diff", &format!("{}...HEAD", target_branch)])
-        .current_dir(worktree_path)
-        .output()?;
-
-    if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
+    // 辅助函数：解析 diff 输出
+    let parse_diff_output = |stdout: &str, files_map: &mut std::collections::HashMap<String, FileDiff>, total_additions: &mut usize, total_deletions: &mut usize| {
         let mut current_file: Option<FileDiff> = None;
         let mut current_hunk: Option<DiffHunk> = None;
 
@@ -644,7 +674,14 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
                     if let Some(hunk) = current_hunk.take() {
                         file.hunks.push(hunk);
                     }
-                    files.push(file);
+                    // 合并到 files_map
+                    if let Some(existing) = files_map.get_mut(&file.path) {
+                        existing.hunks.extend(file.hunks);
+                        existing.additions += file.additions;
+                        existing.deletions += file.deletions;
+                    } else {
+                        files_map.insert(file.path.clone(), file);
+                    }
                 }
 
                 // 解析新文件
@@ -691,7 +728,6 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
                 }
 
                 // 解析 hunk 信息
-                // @@ -old_start,old_lines +new_start,new_lines @@
                 let re = &*HUNK_HEADER_RE;
                 if let Some(caps) = re.captures(line) {
                     let old_start = caps[1].parse::<usize>().unwrap_or(1);
@@ -719,7 +755,7 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
                             content: line[1..].to_string(),
                         });
                         file.additions += 1;
-                        total_additions += 1;
+                        *total_additions += 1;
                     }
                 }
             }
@@ -733,7 +769,7 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
                             content: line[1..].to_string(),
                         });
                         file.deletions += 1;
-                        total_deletions += 1;
+                        *total_deletions += 1;
                     }
                 }
             }
@@ -759,12 +795,47 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
             if let Some(hunk) = current_hunk {
                 file.hunks.push(hunk);
             }
-            files.push(file);
+            if let Some(existing) = files_map.get_mut(&file.path) {
+                existing.hunks.extend(file.hunks);
+                existing.additions += file.additions;
+                existing.deletions += file.deletions;
+            } else {
+                files_map.insert(file.path.clone(), file);
+            }
         }
+    };
+
+    // 1. 获取分支间的提交差异（三点语法）
+    let output = Command::new("git")
+        .args(["diff", &format!("{}...HEAD", target_branch)])
+        .current_dir(worktree_path)
+        .output()?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        parse_diff_output(&stdout, &mut files_map, &mut total_additions, &mut total_deletions);
     }
 
-    // 过滤掉没有内容的文件
-    files.retain(|f| !f.hunks.is_empty() || f.status == "added" || f.status == "deleted");
+    // 2. 获取工作区未提交的变更
+    let worktree_output = Command::new("git")
+        .args(["diff", "HEAD"])
+        .current_dir(worktree_path)
+        .output()?;
+
+    if worktree_output.status.success() {
+        let stdout = String::from_utf8_lossy(&worktree_output.stdout);
+        parse_diff_output(&stdout, &mut files_map, &mut total_additions, &mut total_deletions);
+    }
+
+    // 转换为 Vec 并过滤
+    let mut files: Vec<FileDiff> = files_map.into_values()
+        .filter(|f| !f.hunks.is_empty() || f.status == "added" || f.status == "deleted")
+        .collect();
+
+    // 按变更量排序
+    files.sort_by(|a, b| {
+        (b.additions + b.deletions).cmp(&(a.additions + a.deletions))
+    });
 
     Ok(DetailedDiffResponse {
         source_branch,
