@@ -741,8 +741,12 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
             {diff.files.length === 0 ? (
               <div className="text-center py-16 text-gray-500 dark:text-gray-400">
                 <GitCompare className="w-12 h-12 mx-auto mb-3 opacity-50 animate-pulse" />
-                <p className="text-sm">没有发现差异</p>
-                <p className="text-xs text-gray-400 mt-1">当前分支与 {targetBranch} 内容相同</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">与 {targetBranch} 内容相同</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {diff.sourceBranch === targetBranch
+                    ? '当前分支即为目标分支'
+                    : '分支尚未有独立提交，可开始开发'}
+                </p>
               </div>
             ) : (
               <div className="divide-y divide-gray-200 dark:divide-gray-700">

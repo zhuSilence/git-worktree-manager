@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Worktree } from '@/types/worktree'
 import { StatusBadge } from './StatusBadge'
-import { Folder, ExternalLink, Terminal, Trash2, GitCompare, GitBranch, ArrowUp, ArrowDown, Check, GitMerge } from 'lucide-react'
+import { Folder, ExternalLink, Terminal, Trash2, GitCompare, GitBranch, ArrowUp, ArrowDown, Check, GitMerge, Download } from 'lucide-react'
 import { gitService } from '@/services/git'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 import { settingsStore } from '@/stores/settingsStore'
@@ -15,16 +15,18 @@ interface WorktreeItemProps {
 }
 
 export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false }: WorktreeItemProps) {
-  const { deleteWorktree } = useWorktreeStore()
-  const { defaultIde, defaultTerminal } = settingsStore()
+  const { deleteWorktree, refreshWorktrees } = useWorktreeStore()
+  const { defaultIde, defaultTerminal, customIdePath, customTerminalPath } = settingsStore()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [showBranchManager, setShowBranchManager] = useState(false)
+  const [isPulling, setIsPulling] = useState(false)
+  const [pullMessage, setPullMessage] = useState<string | null>(null)
 
   const handleOpenInTerminal = async () => {
     try {
-      await gitService.openInTerminal(worktree.path, defaultTerminal)
+      await gitService.openInTerminal(worktree.path, defaultTerminal, customTerminalPath)
     } catch (error) {
       console.error('Failed to open in terminal:', error)
     }
@@ -32,7 +34,7 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false 
 
   const handleOpenInEditor = async () => {
     try {
-      await gitService.openInEditor(worktree.path, defaultIde)
+      await gitService.openInEditor(worktree.path, defaultIde, customIdePath)
     } catch (error) {
       console.error('Failed to open in editor:', error)
     }
@@ -44,6 +46,26 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false 
       await gitService.openWorktree(worktree)
     } catch (error) {
       console.error('Failed to open folder:', error)
+    }
+  }
+
+  const handlePull = async () => {
+    setIsPulling(true)
+    setPullMessage(null)
+    try {
+      const result = await gitService.pullBranch(worktree.path)
+      if (result.success) {
+        await refreshWorktrees()
+        setPullMessage(result.message)
+        // 3秒后清除消息
+        setTimeout(() => setPullMessage(null), 3000)
+      } else {
+        setPullMessage(result.message)
+      }
+    } catch (error) {
+      setPullMessage(error instanceof Error ? error.message : 'Pull 失败')
+    } finally {
+      setIsPulling(false)
     }
   }
 
@@ -77,6 +99,18 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false 
   return (
     <>
       <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors overflow-hidden">
+        {/* Pull 消息提示 */}
+        {pullMessage && (
+          <div className={`mb-2 px-2 py-1.5 text-xs rounded-md flex items-center justify-between ${
+            pullMessage.includes('失败') || pullMessage.includes('冲突')
+              ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+              : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+          }`}>
+            <span>{pullMessage}</span>
+            <button onClick={() => setPullMessage(null)} className="ml-2 hover:opacity-70">×</button>
+          </div>
+        )}
+
         {/* 已合并提醒横幅 */}
         {isMerged && !worktree.isMain && (
           <div className="flex items-center gap-2 mb-2 px-2 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs rounded-md">
@@ -127,15 +161,8 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false 
                   {worktree.syncStatus.behind > 0 && (
                     <span
                       className="flex items-center gap-0.5 text-orange-600 dark:text-orange-400 cursor-pointer hover:underline"
-                      title={`${worktree.syncStatus.behind} 个提交未拉取`}
-                      onClick={async () => {
-                        try {
-                          // TODO: 实现 pull 功能
-                          console.log('Pull', worktree.syncStatus?.behind, 'commits')
-                        } catch (error) {
-                          console.error('Pull failed:', error)
-                        }
-                      }}
+                      title={`${worktree.syncStatus.behind} 个提交未拉取，点击拉取`}
+                      onClick={handlePull}
                     >
                       <ArrowDown className="w-3 h-3" />
                       {worktree.syncStatus.behind}
@@ -179,6 +206,17 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false 
 
           {/* 右侧：操作按钮 */}
           <div className="flex items-center gap-1 ml-4">
+            {/* Pull 按钮：有远程分支时显示 */}
+            {worktree.syncStatus && worktree.syncStatus.hasRemote && (
+              <button
+                onClick={handlePull}
+                disabled={isPulling}
+                className="p-2 text-gray-500 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50"
+                title="拉取远程改动"
+              >
+                <Download className={`w-4 h-4 ${isPulling ? 'animate-pulse' : ''}`} />
+              </button>
+            )}
             <button
               onClick={() => setShowBranchManager(true)}
               className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"

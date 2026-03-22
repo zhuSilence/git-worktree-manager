@@ -88,15 +88,15 @@ export const gitService = {
   /**
    * 切换到 Worktree 目录（在终端中）
    */
-  async openInTerminal(worktreePath: string, terminal?: TerminalType): Promise<void> {
-    return invoke('open_in_terminal', { worktreePath, terminal })
+  async openInTerminal(worktreePath: string, terminal?: TerminalType, customPath?: string): Promise<void> {
+    return invoke('open_in_terminal', { worktreePath, terminal, customPath })
   },
 
   /**
    * 在编辑器中打开 Worktree
    */
-  async openInEditor(worktreePath: string, editor?: IdeType): Promise<void> {
-    return invoke('open_in_editor', { worktreePath, editor })
+  async openInEditor(worktreePath: string, editor?: IdeType, customPath?: string): Promise<void> {
+    return invoke('open_in_editor', { worktreePath, editor, customPath })
   },
 
   /**
@@ -167,5 +167,12 @@ export const gitService = {
    */
   async getTimeline(repoPath: string, since?: number, until?: number): Promise<TimelineResponse> {
     return invoke<TimelineResponse>('get_timeline', { repoPath, since, until })
+  },
+
+  /**
+   * Pull 远程分支改动
+   */
+  async pullBranch(worktreePath: string): Promise<SwitchBranchResult> {
+    return invoke<SwitchBranchResult>('pull_branch', { worktreePath })
   },
 }

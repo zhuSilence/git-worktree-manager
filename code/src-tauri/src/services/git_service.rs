@@ -352,8 +352,24 @@ pub fn prune_worktrees(repo_path: &str) -> anyhow::Result<()> {
 }
 
 /// 在终端中打开
-pub fn open_in_terminal(path: &str, terminal: Option<String>) -> anyhow::Result<()> {
+pub fn open_in_terminal(path: &str, terminal: Option<String>, custom_path: Option<String>) -> anyhow::Result<()> {
     let terminal_type = terminal.unwrap_or_else(|| "terminal".to_string());
+
+    // 如果是 custom 类型，使用自定义路径
+    if terminal_type == "custom" {
+        let cmd = custom_path.unwrap_or_else(|| "terminal".to_string());
+        #[cfg(target_os = "macos")]
+        {
+            Command::new("open")
+                .args(["-a", &cmd, path])
+                .spawn()?;
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            Command::new(&cmd).arg(path).spawn()?;
+        }
+        return Ok(());
+    }
 
     #[cfg(target_os = "macos")]
     {
@@ -420,10 +436,17 @@ pub fn open_in_terminal(path: &str, terminal: Option<String>) -> anyhow::Result<
 }
 
 /// 在编辑器中打开
-pub fn open_in_editor(path: &str, editor: Option<String>) -> anyhow::Result<()> {
-    let editor_cmd = editor.unwrap_or_else(|| "code".to_string());
+pub fn open_in_editor(path: &str, editor: Option<String>, custom_path: Option<String>) -> anyhow::Result<()> {
+    let editor_type = editor.unwrap_or_else(|| "vscode".to_string());
 
-    match editor_cmd.as_str() {
+    // 如果是 custom 类型，使用自定义路径
+    if editor_type == "custom" {
+        let cmd = custom_path.unwrap_or_else(|| "code".to_string());
+        Command::new(&cmd).arg(path).spawn()?;
+        return Ok(());
+    }
+
+    match editor_type.as_str() {
         "vscode" => {
             Command::new("code").arg(path).spawn()?;
         }
@@ -440,8 +463,8 @@ pub fn open_in_editor(path: &str, editor: Option<String>) -> anyhow::Result<()> 
             Command::new("idea").arg(path).spawn()?;
         }
         _ => {
-            // 自定义编辑器命令
-            Command::new(&editor_cmd).arg(path).spawn()?;
+            // 其他情况（兼容旧版本）
+            Command::new(&editor_type).arg(path).spawn()?;
         }
     }
 
@@ -551,7 +574,7 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
 
     // 1. 获取分支间的提交差异（三点语法）
     let output = Command::new("git")
-        .args(["diff", "--numstat", &format!("{}...HEAD", target_branch)])
+        .args(["-c", "core.quotepath=false", "diff", "--numstat", &format!("{}...HEAD", target_branch)])
         .current_dir(worktree_path)
         .output()?;
 
@@ -587,7 +610,7 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
 
     // 2. 获取工作区未提交的变更
     let worktree_output = Command::new("git")
-        .args(["diff", "--numstat", "HEAD"])
+        .args(["-c", "core.quotepath=false", "diff", "--numstat", "HEAD"])
         .current_dir(worktree_path)
         .output()?;
 
@@ -807,7 +830,7 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
 
     // 1. 获取分支间的提交差异（三点语法）
     let output = Command::new("git")
-        .args(["diff", &format!("{}...HEAD", target_branch)])
+        .args(["-c", "core.quotepath=false", "diff", &format!("{}...HEAD", target_branch)])
         .current_dir(worktree_path)
         .output()?;
 
@@ -818,7 +841,7 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
 
     // 2. 获取工作区未提交的变更
     let worktree_output = Command::new("git")
-        .args(["diff", "HEAD"])
+        .args(["-c", "core.quotepath=false", "diff", "HEAD"])
         .current_dir(worktree_path)
         .output()?;
 
@@ -1013,6 +1036,7 @@ pub fn get_merged_hints(repo_path: &str, main_branch: &str) -> anyhow::Result<Ve
         Ok(r) => r.peel_to_commit()?,
         Err(_) => return Ok(hints), // 主分支不存在，返回空
     };
+    let main_commit_id = main_commit.id();
 
     // 检查每个 worktree
     let worktrees_response = list_worktrees(repo_path)?;
@@ -1021,26 +1045,60 @@ pub fn get_merged_hints(repo_path: &str, main_branch: &str) -> anyhow::Result<Ve
             continue;
         }
 
-        // 检查分支是否已合并
-        let branch_ref = format!("refs/heads/{}", worktree.branch);
-        if let Ok(branch_ref_obj) = repo.find_reference(&branch_ref) {
-            if let Ok(branch_commit) = branch_ref_obj.peel_to_commit() {
-                // 检查是否已合并到主分支
-                let is_merged = repo.merge_base(main_commit.id(), branch_commit.id())
-                    .map(|base| base == branch_commit.id())
-                    .unwrap_or(false);
+        // 打开 worktree 的仓库来获取实际的分支 commit 和工作区状态
+        // （worktree 可能有未推送的本地提交或未提交的改动）
+        let (branch_commit_id, has_uncommitted_changes) = match Repository::open(&worktree.path) {
+            Ok(wt_repo) => {
+                // 获取分支 commit
+                let commit_id = match wt_repo.head() {
+                    Ok(head) => match head.peel_to_commit() {
+                        Ok(commit) => commit.id(),
+                        Err(_) => continue,
+                    },
+                    Err(_) => continue,
+                };
 
-                if is_merged {
-                    hints.push(WorktreeHint {
-                        worktree_id: worktree.id.clone(),
-                        branch: worktree.branch.clone(),
-                        hint_type: "merged".to_string(),
-                        message: format!("分支 '{}' 已合并到 {}，可以删除", worktree.branch, main_branch),
-                        is_merged: true,
-                        inactive_days: None,
-                    });
-                }
+                // 检查工作区是否有未提交的改动
+                let has_changes = match wt_repo.statuses(None) {
+                    Ok(statuses) => statuses.iter().any(|s| {
+                        !s.status().is_empty() && !s.status().contains(git2::Status::IGNORED)
+                    }),
+                    Err(_) => false, // 如果无法获取状态，假设没有改动
+                };
+
+                (commit_id, has_changes)
             }
+            Err(_) => continue,
+        };
+
+        // 如果有未提交的改动，不显示"已合并"提示
+        if has_uncommitted_changes {
+            continue;
+        }
+
+        // 检查分支是否有自己的提交（相对于 main）
+        // 如果分支 HEAD 和 main HEAD 相同，说明是新创建的分支，没有自己的提交
+        if branch_commit_id == main_commit_id {
+            // 新创建的分支，与 main 完全相同，不算"已合并"
+            continue;
+        }
+
+        // 检查是否已合并到主分支
+        // branch 已合并意味着 branch_commit 是 main_commit 的祖先
+        // merge_base(branch, main) 如果等于 branch，说明 branch 的所有提交都在 main 中
+        let is_merged = repo.merge_base(branch_commit_id, main_commit_id)
+            .map(|base| base == branch_commit_id)
+            .unwrap_or(false);
+
+        if is_merged {
+            hints.push(WorktreeHint {
+                worktree_id: worktree.id.clone(),
+                branch: worktree.branch.clone(),
+                hint_type: "merged".to_string(),
+                message: format!("分支 '{}' 已合并到 {}，可以删除", worktree.branch, main_branch),
+                is_merged: true,
+                inactive_days: None,
+            });
         }
     }
 
@@ -1162,4 +1220,51 @@ fn get_commit_revwalk(repo: &Repository, _since: Option<i64>, _until: Option<i64
     revwalk.push_head()?;
 
     Ok(revwalk)
+}
+
+/// Pull 远程分支改动
+pub fn pull_branch(worktree_path: &str) -> anyhow::Result<SwitchBranchResult> {
+    // 先 fetch
+    let fetch_output = Command::new("git")
+        .args(["fetch", "origin"])
+        .current_dir(worktree_path)
+        .output()?;
+
+    if !fetch_output.status.success() {
+        return Ok(SwitchBranchResult {
+            success: false,
+            message: format!("Fetch 失败: {}", String::from_utf8_lossy(&fetch_output.stderr)),
+        });
+    }
+
+    // 获取当前分支名
+    let repo = Repository::open(worktree_path)?;
+    let head = repo.head()?;
+    let branch_name = head.shorthand().unwrap_or("HEAD");
+
+    // pull --rebase 更安全
+    let pull_output = Command::new("git")
+        .args(["pull", "--rebase", "origin", branch_name])
+        .current_dir(worktree_path)
+        .output()?;
+
+    if !pull_output.status.success() {
+        let stderr = String::from_utf8_lossy(&pull_output.stderr);
+        // 检查是否有冲突
+        if stderr.contains("CONFLICT") || stderr.contains("conflict") {
+            return Ok(SwitchBranchResult {
+                success: false,
+                message: "Pull 产生冲突，请手动解决".to_string(),
+            });
+        }
+        return Ok(SwitchBranchResult {
+            success: false,
+            message: format!("Pull 失败: {}", stderr),
+        });
+    }
+
+    Ok(SwitchBranchResult {
+        success: true,
+        message: format!("已拉取 '{}' 分支的最新改动", branch_name),
+    })
 }

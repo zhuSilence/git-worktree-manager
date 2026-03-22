@@ -44,14 +44,14 @@ pub async fn prune_worktrees(repo_path: String) -> Result<(), String> {
 
 /// 在终端中打开
 #[command]
-pub async fn open_in_terminal(worktree_path: String, terminal: Option<String>) -> Result<(), String> {
-    git_service::open_in_terminal(&worktree_path, terminal).map_err(|e| e.to_string())
+pub async fn open_in_terminal(worktree_path: String, terminal: Option<String>, custom_path: Option<String>) -> Result<(), String> {
+    git_service::open_in_terminal(&worktree_path, terminal, custom_path).map_err(|e| e.to_string())
 }
 
 /// 在编辑器中打开
 #[command]
-pub async fn open_in_editor(worktree_path: String, editor: Option<String>) -> Result<(), String> {
-    git_service::open_in_editor(&worktree_path, editor).map_err(|e| e.to_string())
+pub async fn open_in_editor(worktree_path: String, editor: Option<String>, custom_path: Option<String>) -> Result<(), String> {
+    git_service::open_in_editor(&worktree_path, editor, custom_path).map_err(|e| e.to_string())
 }
 
 /// 检查是否为 Git 仓库
@@ -130,4 +130,10 @@ pub async fn get_stale_hints(repo_path: String, days: i64) -> Result<Vec<crate::
 #[command]
 pub async fn get_timeline(repo_path: String, since: Option<i64>, until: Option<i64>) -> Result<crate::models::TimelineResponse, String> {
     git_service::get_timeline(&repo_path, since, until).map_err(|e| e.to_string())
+}
+
+/// Pull 远程分支改动
+#[command]
+pub async fn pull_branch(worktree_path: String) -> Result<crate::models::SwitchBranchResult, String> {
+    git_service::pull_branch(&worktree_path).map_err(|e| e.to_string())
 }
