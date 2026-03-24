@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Code, Terminal, Monitor, RefreshCw, Download } from 'lucide-react'
+import { X, Code, Terminal, Monitor, RefreshCw, Download, Clock } from 'lucide-react'
 import { settingsStore, IdeType, TerminalType, updateStore } from '@/stores'
 import { UpdateDialog } from '@/components/UpdateDialog'
 
@@ -12,20 +12,30 @@ interface SettingsPanelProps {
 const APP_VERSION = __APP_VERSION__
 
 export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
-  const { defaultIde, defaultTerminal, setDefaultIde, setDefaultTerminal } = settingsStore()
+  const { 
+    defaultIde, defaultTerminal, setDefaultIde, setDefaultTerminal,
+    enableIdleDetection, setEnableIdleDetection,
+    idleThresholdDays, setIdleThresholdDays
+  } = settingsStore()
   const { isUpdateAvailable, updateInfo } = updateStore()
   const [localIde, setLocalIde] = useState<IdeType>(defaultIde)
   const [localTerminal, setLocalTerminal] = useState<TerminalType>(defaultTerminal)
+  const [localEnableIdle, setLocalEnableIdle] = useState(enableIdleDetection)
+  const [localIdleDays, setLocalIdleDays] = useState(idleThresholdDays)
   const [showUpdateDialog, setShowUpdateDialog] = useState(false)
 
   useEffect(() => {
     setLocalIde(defaultIde)
     setLocalTerminal(defaultTerminal)
-  }, [defaultIde, defaultTerminal])
+    setLocalEnableIdle(enableIdleDetection)
+    setLocalIdleDays(idleThresholdDays)
+  }, [defaultIde, defaultTerminal, enableIdleDetection, idleThresholdDays])
 
   const handleSave = () => {
     setDefaultIde(localIde)
     setDefaultTerminal(localTerminal)
+    setEnableIdleDetection(localEnableIdle)
+    setIdleThresholdDays(localIdleDays)
     onClose()
   }
 
@@ -47,6 +57,13 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     { value: 'terminal', label: 'Terminal (默认)' },
     { value: 'iterm2', label: 'iTerm2' },
     { value: 'warp', label: 'Warp' },
+  ]
+
+  const idleThresholdOptions = [
+    { value: 3, label: '3 天' },
+    { value: 7, label: '7 天' },
+    { value: 14, label: '14 天' },
+    { value: 30, label: '30 天' },
   ]
 
   return (
@@ -143,6 +160,46 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 选择打开 worktree 时使用的终端
               </p>
+            </div>
+
+            {/* 空闲检测设置 */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  空闲检测
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={localEnableIdle}
+                    onChange={(e) => setLocalEnableIdle(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-green-500 focus:ring-green-500"
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">启用</span>
+                </label>
+              </div>
+              {localEnableIdle && (
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    空闲提醒阈值
+                  </label>
+                  <select
+                    value={localIdleDays}
+                    onChange={(e) => setLocalIdleDays(Number(e.target.value))}
+                    className="w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  >
+                    {idleThresholdOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-400">
+                    超过此天数的 worktree 将显示空闲提醒
+                  </p>
+                </div>
+              )}
             </div>
           </div>
           

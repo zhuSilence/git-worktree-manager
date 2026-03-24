@@ -3,13 +3,15 @@ import { Worktree } from '@/types/worktree'
 import { StatusBadge } from './StatusBadge'
 import { TagBadge, getTagDef } from './TagBadge'
 import { TagEditor } from './TagEditor'
-import { Folder, ExternalLink, Terminal, Trash2, GitCompare, GitBranch, ArrowUp, ArrowDown, Check, GitMerge, Tag, MessageSquare } from 'lucide-react'
+import { Folder, ExternalLink, Terminal, Trash2, GitCompare, GitBranch, ArrowUp, ArrowDown, Check, GitMerge, Tag, MessageSquare, Clock, AlertTriangle } from 'lucide-react'
 import { gitService } from '@/services/git'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 import { settingsStore } from '@/stores/settingsStore'
 import { BranchManager } from '@/components/BranchManager'
 import { getAnnotation, saveAnnotation, PRESET_TAGS } from '@/services/annotations'
+import { checkIdleStatus } from '@/utils/idleDetection'
 import type { WorktreeAnnotation, TagDefinition } from '@/types/annotation'
+import { clsx } from 'clsx'
 
 interface WorktreeItemProps {
   worktree: Worktree
@@ -21,7 +23,7 @@ interface WorktreeItemProps {
 
 export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false, onTagsChange }: WorktreeItemProps) {
   const { deleteWorktree } = useWorktreeStore()
-  const { defaultIde, defaultTerminal } = settingsStore()
+  const { defaultIde, defaultTerminal, enableIdleDetection, idleThresholdDays } = settingsStore()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -33,6 +35,11 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false,
   useEffect(() => {
     setAnnotation(getAnnotation(worktree.path))
   }, [worktree.path])
+
+  // 检测空闲状态
+  const idleStatus = enableIdleDetection && !worktree.isMain
+    ? checkIdleStatus(worktree.lastActiveAt, idleThresholdDays)
+    : null
 
   const handleOpenInTerminal = async () => {
     try {
@@ -222,8 +229,25 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false,
             )}
 
             {worktree.lastActiveAt && (
-              <div className="text-xs text-gray-400 dark:text-gray-500 mt-1" title={worktree.lastActiveAt}>
+              <div className="text-xs text-gray-400 dark:text-gray-500 mt-1 flex items-center gap-1" title={worktree.lastActiveAt}>
+                <Clock className="w-3 h-3" />
                 最后活跃: {worktree.lastActiveAt}
+              </div>
+            )}
+
+            {/* 空闲检测提示 */}
+            {idleStatus && idleStatus.level !== 'active' && (
+              <div className={clsx(
+                'mt-2 flex items-center gap-1.5 text-xs px-2 py-1 rounded',
+                idleStatus.level === 'critical' 
+                  ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400' 
+                  : 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400'
+              )}>
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>{idleStatus.message}</span>
+                {idleStatus.isIdle && (
+                  <span className="ml-1 opacity-75">，建议清理</span>
+                )}
               </div>
             )}
           </div>
