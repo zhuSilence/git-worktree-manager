@@ -143,13 +143,20 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false,
                   {worktree.syncStatus.ahead > 0 && (
                     <span
                       className="flex items-center gap-0.5 text-green-600 dark:text-green-400 cursor-pointer hover:underline"
-                      title={`${worktree.syncStatus.ahead} 个提交未推送`}
+                      title={`${worktree.syncStatus.ahead} 个提交未推送，点击推送`}
                       onClick={async () => {
                         try {
-                          // TODO: 实现 push 功能
-                          console.log('Push', worktree.syncStatus?.ahead, 'commits')
+                          const result = await gitService.push(worktree.path, worktree.branch)
+                          if (result.success) {
+                            // 刷新列表
+                            window.location.reload()
+                          } else {
+                            console.error('Push failed:', result.message)
+                            alert(`推送失败: ${result.message}`)
+                          }
                         } catch (error) {
                           console.error('Push failed:', error)
+                          alert(`推送失败: ${error}`)
                         }
                       }}
                     >
@@ -160,13 +167,20 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false,
                   {worktree.syncStatus.behind > 0 && (
                     <span
                       className="flex items-center gap-0.5 text-orange-600 dark:text-orange-400 cursor-pointer hover:underline"
-                      title={`${worktree.syncStatus.behind} 个提交未拉取`}
+                      title={`${worktree.syncStatus.behind} 个提交未拉取，点击拉取`}
                       onClick={async () => {
                         try {
-                          // TODO: 实现 pull 功能
-                          console.log('Pull', worktree.syncStatus?.behind, 'commits')
+                          const result = await gitService.pull(worktree.path, worktree.branch)
+                          if (result.success) {
+                            // 刷新列表
+                            window.location.reload()
+                          } else {
+                            console.error('Pull failed:', result.message)
+                            alert(`拉取失败: ${result.message}`)
+                          }
                         } catch (error) {
                           console.error('Pull failed:', error)
+                          alert(`拉取失败: ${error}`)
                         }
                       }}
                     >
