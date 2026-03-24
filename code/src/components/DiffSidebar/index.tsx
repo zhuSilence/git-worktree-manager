@@ -12,6 +12,7 @@ interface DiffSidebarProps {
   branches?: string[]
   defaultBranch?: string
   fillWidth?: boolean
+  refreshToken?: number
 }
 
 type ViewMode = 'unified' | 'split'
@@ -256,7 +257,7 @@ function countFiles(node: FileTreeNode): number {
   return node.children.reduce((sum, c) => sum + countFiles(c), 0)
 }
 
-export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branches = [], defaultBranch = 'main', fillWidth = false }: DiffSidebarProps) {
+export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branches = [], defaultBranch = 'main', fillWidth = false, refreshToken }: DiffSidebarProps) {
   const [diff, setDiff] = useState<DetailedDiffResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -346,7 +347,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
     if (isOpen) {
       fetchDiff()
     }
-  }, [isOpen, worktreePath, targetBranch])
+  }, [isOpen, worktreePath, targetBranch, refreshToken])
 
   const fetchDiff = async () => {
     setIsLoading(true)

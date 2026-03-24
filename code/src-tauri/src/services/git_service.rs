@@ -1021,6 +1021,18 @@ pub fn get_merged_hints(repo_path: &str, main_branch: &str) -> anyhow::Result<Ve
             continue;
         }
 
+        // 检查 worktree 是否有本地未提交改动
+        if let Ok(wt_repo) = Repository::open(&worktree.path) {
+            let has_local_changes = wt_repo.statuses(None)
+                .map(|statuses| !statuses.is_empty())
+                .unwrap_or(false);
+
+            // 有本地改动时，跳过合并检查
+            if has_local_changes {
+                continue;
+            }
+        }
+
         // 检查分支是否已合并
         let branch_ref = format!("refs/heads/{}", worktree.branch);
         if let Ok(branch_ref_obj) = repo.find_reference(&branch_ref) {

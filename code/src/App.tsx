@@ -16,22 +16,23 @@ import type { RepositoryInfo } from './types/worktree'
 
 function App() {
   const { currentRepo, isLoading, error, loadRepository, refreshWorktrees, worktrees } = useWorktreeStore()
-  const { repositories, activeRepoId, setActiveRepository, validateRepositories } = useRepositoryStore()
+  const { repositories, activeRepoId, setActiveRepository, validateRepositories, refreshRepositories } = useRepositoryStore()
   const { autoRefreshInterval } = settingsStore()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showTimeline, setShowTimeline] = useState(false)
   const [diffWorktree, setDiffWorktree] = useState<{ path: string; name: string } | null>(null)
   const [mainCollapsed, setMainCollapsed] = useState(() => localStorage.getItem('main-panel-collapsed') === 'true')
-  
+  const [diffRefreshSeq, setDiffRefreshSeq] = useState(0)
+
   // 搜索框 ref
   const searchInputRef = useRef<HTMLInputElement>(null)
-  
+
   // 聚焦搜索框
   const focusSearch = useCallback(() => {
     searchInputRef.current?.focus()
   }, [])
-  
+
   // 关闭所有对话框
   const closeAllDialogs = useCallback(() => {
     if (showCreateDialog) {
@@ -93,6 +94,13 @@ function App() {
         onCreateWorktree={() => setShowCreateDialog(true)}
         onOpenSettings={() => setShowSettings(true)}
         onOpenTimeline={() => setShowTimeline(true)}
+        onRefresh={async () => {
+          await Promise.all([
+            refreshRepositories(),
+            refreshWorktrees(),
+          ])
+          setDiffRefreshSeq(seq => seq + 1)
+        }}
       />
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧边栏 */}
@@ -175,6 +183,7 @@ function App() {
             branches={currentRepo?.branches.map(b => b.name) || []}
             defaultBranch={currentRepo?.defaultBranch || 'main'}
             fillWidth={mainCollapsed}
+            refreshToken={diffRefreshSeq}
           />
         )}
       </div>

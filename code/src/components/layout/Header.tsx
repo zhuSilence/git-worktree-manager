@@ -6,13 +6,18 @@ interface HeaderProps {
   onCreateWorktree?: () => void
   onOpenSettings?: () => void
   onOpenTimeline?: () => void
+  onRefresh?: () => void
 }
 
-export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings, onOpenTimeline }) => {
+export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings, onOpenTimeline, onRefresh }) => {
   const { currentRepo, refreshWorktrees, isLoading } = useWorktreeStore()
 
   const handleRefresh = async () => {
-    await refreshWorktrees()
+    if (onRefresh) {
+      await onRefresh()
+    } else {
+      await refreshWorktrees()
+    }
   }
 
   return (
@@ -39,9 +44,11 @@ export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings
                 onClick={onCreateWorktree}
                 disabled={isLoading}
                 className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white"
+                translate="no"
+                aria-label="创建 Worktree"
               >
                 <Plus className="h-4 w-4" />
-                创建
+                <span>创建</span>
               </Button>
 
               <Button
