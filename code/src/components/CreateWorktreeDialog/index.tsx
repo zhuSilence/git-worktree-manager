@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react'
-import { X, FolderOpen } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { X, FolderOpen, Lightbulb, Github } from 'lucide-react'
 import { useWorktreeStore } from '@/stores/worktreeStore'
+import { generateSuggestions, validateBranchName, NamingSuggestion } from '@/utils/namingSuggestion'
+import { clsx } from 'clsx'
 
 interface CreateWorktreeDialogProps {
   isOpen: boolean
@@ -14,6 +16,13 @@ export function CreateWorktreeDialog({ isOpen, onClose }: CreateWorktreeDialogPr
   const [customPath, setCustomPath] = useState('')
   const [createNewBranch, setCreateNewBranch] = useState(true)
   const [error, setError] = useState('')
+  const [clipboardHint, setClipboardHint] = useState<string | null>(null)
+
+  // 生成命名建议
+  const suggestions = useMemo(() => generateSuggestions(name), [name])
+
+  // 验证名称
+  const nameValidation = useMemo(() => validateBranchName(name), [name])
 
   // 当仓库改变时，更新默认分支
   useEffect(() => {
@@ -23,18 +32,50 @@ export function CreateWorktreeDialog({ isOpen, onClose }: CreateWorktreeDialogPr
     }
   }, [currentRepo])
 
+  // 检测剪贴板内容
+  useEffect(() => {
+    const checkClipboard = async () => {
+      try {
+        const text = await navigator.clipboard.readText()
+        if (text) {
+          // 检查是否是 GitHub Issue 链接
+          if (text.includes('github.com') && text.includes('/issues/')) {
+            setClipboardHint('检测到 GitHub Issue 链接，粘贴后自动生成建议')
+          } else if (text.includes('atlassian.net/browse/') || /^[A-Z]+-\d+$/i.test(text.trim())) {
+            setClipboardHint('检测到 Jira Issue，粘贴后自动生成建议')
+          } else {
+            setClipboardHint(null)
+          }
+        }
+      } catch {
+        // 剪贴板访问失败，忽略
+        setClipboardHint(null)
+      }
+    }
+    
+    if (isOpen) {
+      checkClipboard()
+    }
+  }, [isOpen])
+
   // 重置表单
   const resetForm = () => {
     setName('')
     setCustomPath('')
     setError('')
     setCreateNewBranch(true)
+    setClipboardHint(null)
   }
 
   // 关闭对话框
   const handleClose = () => {
     resetForm()
     onClose()
+  }
+
+  // 应用建议
+  const applySuggestion = (suggestion: NamingSuggestion) => {
+    setName(suggestion.value)
   }
 
   // 提交创建
@@ -44,6 +85,11 @@ export function CreateWorktreeDialog({ isOpen, onClose }: CreateWorktreeDialogPr
 
     if (!name.trim()) {
       setError('请输入 Worktree 名称')
+      return
+    }
+
+    if (!nameValidation.valid) {
+      setError(nameValidation.message || '名称格式不正确')
       return
     }
 
@@ -105,10 +151,52 @@ export function CreateWorktreeDialog({ isOpen, onClose }: CreateWorktreeDialogPr
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="例如: feature/new-feature"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="例如: feature/new-feature 或粘贴 Issue 链接"
+              className={clsx(
+                'w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2',
+                nameValidation.valid || !name 
+                  ? 'border-gray-300 dark:border-gray-600 focus:ring-green-500'
+                  : 'border-red-300 dark:border-red-600 focus:ring-red-500'
+              )}
             />
+            {clipboardHint && !name && (
+              <p className="mt-1 text-xs text-blue-500 flex items-center gap-1">
+                <Github className="w-3 h-3" />
+                {clipboardHint}
+              </p>
+            )}
+            {!nameValidation.valid && name && (
+              <p className="mt-1 text-xs text-red-500">{nameValidation.message}</p>
+            )}
           </div>
+
+          {/* 智能命名建议 */}
+          {suggestions.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1">
+                <Lightbulb className="w-4 h-4 text-yellow-500" />
+                命名建议
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {suggestions.slice(0, 6).map((suggestion, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => applySuggestion(suggestion)}
+                    className={clsx(
+                      'px-2 py-1 text-xs rounded border transition-colors',
+                      'hover:bg-gray-100 dark:hover:bg-gray-700',
+                      name === suggestion.value
+                        ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
+                        : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400'
+                    )}
+                  >
+                    {suggestion.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           
           {/* 基础分支 */}
           <div>
@@ -177,7 +265,7 @@ export function CreateWorktreeDialog({ isOpen, onClose }: CreateWorktreeDialogPr
             </button>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || (!nameValidation.valid && !!name)}
               className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? '创建中...' : '创建'}
