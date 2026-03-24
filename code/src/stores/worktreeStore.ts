@@ -1,15 +1,6 @@
 import { create } from 'zustand'
-import type { Worktree, WorktreeListResponse, CreateWorktreeParams, WorktreeResult, BranchListResponse } from '@/types/worktree'
+import type { Worktree, WorktreeListResponse, CreateWorktreeParams, WorktreeResult, BranchListResponse, Repository } from '@/types/worktree'
 import { gitService } from '@/services/git'
-
-interface Repository {
-  id: string
-  name: string
-  mainWorktreePath: string
-  worktrees: Worktree[]
-  branches: { name: string; isCurrent: boolean }[]
-  defaultBranch: string
-}
 
 interface WorktreeState {
   // 状态
@@ -18,6 +9,8 @@ interface WorktreeState {
   currentRepoPath: string | null
   isLoading: boolean
   error: string | null
+  // 事务状态：跟踪正在进行的操作
+  pendingOperations: Set<string>
 
   // 操作
   loadRepository: (path: string) => Promise<void>
@@ -27,154 +20,218 @@ interface WorktreeState {
   clearError: () => void
 }
 
-export const useWorktreeStore = create<WorktreeState>((set, get) => ({
-  // 初始状态
-  worktrees: [],
-  currentRepo: null,
-  currentRepoPath: null,
-  isLoading: false,
-  error: null,
+/**
+ * 事务式状态更新辅助函数
+ * 确保多个状态字段一起更新，避免中间状态
+ */
+const createTransaction = <T extends Partial<WorktreeState>>(
+  set: (partial: T | ((state: WorktreeState) => T)) => void
+) => {
+  return {
+    // 开始操作：设置 loading 并清除错误
+    start: (operationId: string) => {
+      set((state) => ({
+        isLoading: true,
+        error: null,
+        pendingOperations: new Set([...state.pendingOperations, operationId]),
+      }) as T)
+    },
+    // 成功完成：更新状态并清除 loading
+    success: (operationId: string, updates: Partial<WorktreeState>) => {
+      set((state) => {
+        const newPending = new Set(state.pendingOperations)
+        newPending.delete(operationId)
+        return {
+          ...updates,
+          isLoading: newPending.size > 0,
+          error: null,
+          pendingOperations: newPending,
+        } as T
+      })
+    },
+    // 失败：设置错误并清除 loading
+    error: (operationId: string, error: string, rollbackState?: Partial<WorktreeState>) => {
+      set((state) => {
+        const newPending = new Set(state.pendingOperations)
+        newPending.delete(operationId)
+        return {
+          ...rollbackState,
+          error,
+          isLoading: newPending.size > 0,
+          pendingOperations: newPending,
+        } as T
+      })
+    },
+  }
+}
 
-  // 加载仓库
-  loadRepository: async (path: string) => {
-    set({ isLoading: true, error: null })
+let operationCounter = 0
+const generateOperationId = () => `op_${++operationCounter}_${Date.now()}`
 
-    try {
-      // 检查是否是 Git 仓库
-      const isRepo = await gitService.isGitRepo(path)
-      if (!isRepo) {
-        set({
-          error: '选择的目录不是 Git 仓库',
-          isLoading: false,
+export const useWorktreeStore = create<WorktreeState>((set, get) => {
+  const tx = createTransaction(set)
+
+  return {
+    // 初始状态
+    worktrees: [],
+    currentRepo: null,
+    currentRepoPath: null,
+    isLoading: false,
+    error: null,
+    pendingOperations: new Set<string>(),
+
+    // 加载仓库
+    loadRepository: async (path: string) => {
+      const opId = generateOperationId()
+      tx.start(opId)
+
+      try {
+        // 检查是否是 Git 仓库
+        const isRepo = await gitService.isGitRepo(path)
+        if (!isRepo) {
+          tx.error(opId, '选择的目录不是 Git 仓库', {
+            currentRepo: null,
+            worktrees: []
+          })
+          return
+        }
+
+        // 获取 worktrees
+        const response: WorktreeListResponse = await gitService.listWorktrees(path)
+
+        // 获取分支列表
+        let branches: { name: string; isCurrent: boolean }[] = []
+        try {
+          const branchResponse: BranchListResponse = await gitService.listBranches(path)
+          branches = branchResponse.branches.map(b => ({
+            name: b.name,
+            isCurrent: b.isCurrent
+          }))
+        } catch {
+          // 分支列表获取失败不影响主流程
+        }
+
+        // 推断默认分支名
+        const defaultBranch = branches.find(b => b.name === 'main')?.name
+          || branches.find(b => b.name === 'master')?.name
+          || 'main'
+
+        const repo: Repository = {
+          id: path,
+          name: path.split('/').pop() || path,
+          path: path,
+          currentBranch: branches.find(b => b.isCurrent)?.name || defaultBranch,
+          worktreeCount: response.worktrees.length,
+          lastActive: null,
+          mainWorktreePath: path,
+          worktrees: response.worktrees,
+          branches,
+          defaultBranch
+        }
+
+        tx.success(opId, {
+          currentRepo: repo,
+          currentRepoPath: path,
+          worktrees: response.worktrees,
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '加载仓库失败'
+        tx.error(opId, message, {
           currentRepo: null,
           worktrees: []
         })
-        return
       }
+    },
 
-      // 获取 worktrees
-      const response: WorktreeListResponse = await gitService.listWorktrees(path)
+    // 刷新 worktrees
+    refreshWorktrees: async () => {
+      const { currentRepoPath } = get()
+      if (!currentRepoPath) return
 
-      // 获取分支列表
-      let branches: { name: string; isCurrent: boolean }[] = []
+      const opId = generateOperationId()
+      tx.start(opId)
+
       try {
-        const branchResponse: BranchListResponse = await gitService.listBranches(path)
-        branches = branchResponse.branches.map(b => ({
-          name: b.name,
-          isCurrent: b.isCurrent
-        }))
-      } catch {
-        // 分支列表获取失败不影响主流程
+        const response: WorktreeListResponse = await gitService.listWorktrees(currentRepoPath)
+        tx.success(opId, { worktrees: response.worktrees })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '刷新失败'
+        tx.error(opId, message)
+      }
+    },
+
+    // 创建 worktree
+    createWorktree: async (params: CreateWorktreeParams) => {
+      const { currentRepoPath } = get()
+      if (!currentRepoPath) {
+        return { success: false, message: '未选择仓库' }
       }
 
-      // 推断默认分支名
-      const defaultBranch = branches.find(b => b.name === 'main')?.name
-        || branches.find(b => b.name === 'master')?.name
-        || 'main'
+      const opId = generateOperationId()
+      tx.start(opId)
 
-      const repo: Repository = {
-        id: path,
-        name: path.split('/').pop() || path,
-        mainWorktreePath: path,
-        worktrees: response.worktrees,
-        branches,
-        defaultBranch
+      try {
+        const result = await gitService.createWorktree(currentRepoPath, params)
+
+        if (result.success) {
+          // 刷新列表
+          const response: WorktreeListResponse = await gitService.listWorktrees(currentRepoPath)
+          tx.success(opId, { worktrees: response.worktrees })
+        } else {
+          tx.error(opId, result.message || '创建失败')
+        }
+
+        return result
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '创建失败'
+        tx.error(opId, message)
+        return { success: false, message }
+      }
+    },
+
+    // 删除 worktree
+    deleteWorktree: async (worktreePath: string, force = false) => {
+      const { currentRepoPath, worktrees } = get()
+      if (!currentRepoPath) {
+        return { success: false, message: '未选择仓库' }
       }
 
-      set({
-        currentRepo: repo,
-        currentRepoPath: path,
-        worktrees: response.worktrees,
-        isLoading: false
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '加载仓库失败'
-      set({
-        error: message,
-        isLoading: false,
-        currentRepo: null,
-        worktrees: []
-      })
-    }
-  },
+      const opId = generateOperationId()
+      // 保存当前状态用于回滚
+      const previousWorktrees = worktrees
+      
+      // 乐观更新：立即从 UI 中移除
+      set((state) => ({
+        worktrees: state.worktrees.filter(w => w.path !== worktreePath),
+        isLoading: true,
+        pendingOperations: new Set([...state.pendingOperations, opId]),
+      }))
 
-  // 刷新 worktrees
-  refreshWorktrees: async () => {
-    const { currentRepoPath } = get()
-    if (!currentRepoPath) return
+      try {
+        const result = await gitService.deleteWorktree(currentRepoPath, worktreePath, force)
 
-    set({ isLoading: true })
+        if (result.success) {
+          // 确认删除成功，刷新列表以确保同步
+          const response: WorktreeListResponse = await gitService.listWorktrees(currentRepoPath)
+          tx.success(opId, { worktrees: response.worktrees })
+        } else {
+          // 删除失败，回滚状态
+          tx.error(opId, result.message || '删除失败', {
+            worktrees: previousWorktrees
+          })
+        }
 
-    try {
-      const response: WorktreeListResponse = await gitService.listWorktrees(currentRepoPath)
-
-      set({
-        worktrees: response.worktrees,
-        isLoading: false,
-        error: null
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '刷新失败'
-      set({
-        error: message,
-        isLoading: false
-      })
-    }
-  },
-
-  // 创建 worktree
-  createWorktree: async (params: CreateWorktreeParams) => {
-    const { currentRepoPath } = get()
-    if (!currentRepoPath) {
-      return { success: false, message: '未选择仓库' }
-    }
-
-    set({ isLoading: true, error: null })
-
-    try {
-      const result = await gitService.createWorktree(currentRepoPath, params)
-
-      if (result.success) {
-        // 刷新列表
-        await get().refreshWorktrees()
+        return result
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '删除失败'
+        // 回滚状态
+        tx.error(opId, message, { worktrees: previousWorktrees })
+        return { success: false, message }
       }
+    },
 
-      set({ isLoading: false })
-      return result
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '创建失败'
-      set({ error: message, isLoading: false })
-      return { success: false, message }
+    clearError: () => {
+      set({ error: null })
     }
-  },
-
-  // 删除 worktree
-  deleteWorktree: async (worktreePath: string, force = false) => {
-    const { currentRepoPath } = get()
-    if (!currentRepoPath) {
-      return { success: false, message: '未选择仓库' }
-    }
-
-    set({ isLoading: true, error: null })
-
-    try {
-      const result = await gitService.deleteWorktree(currentRepoPath, worktreePath, force)
-
-      if (result.success) {
-        // 刷新列表
-        await get().refreshWorktrees()
-      }
-
-      set({ isLoading: false })
-      return result
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '删除失败'
-      set({ error: message, isLoading: false })
-      return { success: false, message }
-    }
-  },
-
-  clearError: () => {
-    set({ error: null })
   }
-}))
+})

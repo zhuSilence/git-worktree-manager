@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 import { Worktree } from '@/types/worktree'
 import { StatusBadge } from './StatusBadge'
 import { TagBadge, getTagDef } from './TagBadge'
@@ -10,6 +10,7 @@ import { settingsStore } from '@/stores/settingsStore'
 import { BranchManager } from '@/components/BranchManager'
 import { getAnnotation, saveAnnotation, PRESET_TAGS } from '@/services/annotations'
 import { checkIdleStatus } from '@/utils/idleDetection'
+import { useErrorHandler } from '@/hooks/useToast'
 import type { WorktreeAnnotation, TagDefinition } from '@/types/annotation'
 import { clsx } from 'clsx'
 
@@ -21,9 +22,10 @@ interface WorktreeItemProps {
   onTagsChange?: () => void
 }
 
-export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false, onTagsChange }: WorktreeItemProps) {
+export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false, onTagsChange }: WorktreeItemProps) {
   const { deleteWorktree } = useWorktreeStore()
   const { defaultIde, defaultTerminal, enableIdleDetection, idleThresholdDays } = settingsStore()
+  const { handleError, toast } = useErrorHandler()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -45,7 +47,7 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false,
     try {
       await gitService.openInTerminal(worktree.path, defaultTerminal)
     } catch (error) {
-      console.error('Failed to open in terminal:', error)
+      handleError(error, '打开终端失败')
     }
   }
 
@@ -53,7 +55,7 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false,
     try {
       await gitService.openInEditor(worktree.path, defaultIde)
     } catch (error) {
-      console.error('Failed to open in editor:', error)
+      handleError(error, '打开编辑器失败')
     }
   }
 
@@ -62,7 +64,7 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false,
       // 在 Finder 中打开
       await gitService.openWorktree(worktree)
     } catch (error) {
-      console.error('Failed to open folder:', error)
+      handleError(error, '打开文件夹失败')
     }
   }
 
@@ -148,15 +150,14 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false,
                         try {
                           const result = await gitService.push(worktree.path, worktree.branch)
                           if (result.success) {
+                            toast.success('推送成功')
                             // 刷新列表
                             window.location.reload()
                           } else {
-                            console.error('Push failed:', result.message)
-                            alert(`推送失败: ${result.message}`)
+                            toast.error(`推送失败: ${result.message}`)
                           }
                         } catch (error) {
-                          console.error('Push failed:', error)
-                          alert(`推送失败: ${error}`)
+                          handleError(error, '推送失败')
                         }
                       }}
                     >
@@ -172,15 +173,14 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false,
                         try {
                           const result = await gitService.pull(worktree.path, worktree.branch)
                           if (result.success) {
+                            toast.success('拉取成功')
                             // 刷新列表
                             window.location.reload()
                           } else {
-                            console.error('Pull failed:', result.message)
-                            alert(`拉取失败: ${result.message}`)
+                            toast.error(`拉取失败: ${result.message}`)
                           }
                         } catch (error) {
-                          console.error('Pull failed:', error)
-                          alert(`拉取失败: ${error}`)
+                          handleError(error, '拉取失败')
                         }
                       }}
                     >
@@ -253,8 +253,8 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false,
             {idleStatus && idleStatus.level !== 'active' && (
               <div className={clsx(
                 'mt-2 flex items-center gap-1.5 text-xs px-2 py-1 rounded',
-                idleStatus.level === 'critical' 
-                  ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400' 
+                idleStatus.level === 'critical'
+                  ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
                   : 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400'
               )}>
                 <AlertTriangle className="w-3.5 h-3.5" />
@@ -381,4 +381,4 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false,
       />
     </>
   )
-}
+})

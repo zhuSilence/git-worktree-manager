@@ -43,6 +43,20 @@ export interface LastCommit {
 }
 
 /**
+ * Worktree 元数据类型
+ */
+export interface WorktreeMetadata {
+  /** 标签列表 */
+  tags?: string[]
+  /** 备注 */
+  notes?: string
+  /** 优先级 */
+  priority?: 'high' | 'medium' | 'low'
+  /** 自定义字段 */
+  [key: string]: unknown
+}
+
+/**
  * Worktree 信息
  */
 export interface Worktree {
@@ -65,7 +79,7 @@ export interface Worktree {
   /** 关联的远程仓库名 */
   remote?: string
   /** 额外元数据 */
-  metadata?: Record<string, unknown>
+  metadata?: WorktreeMetadata
   /** 远程同步状态 */
   syncStatus: SyncStatus
 }
@@ -231,7 +245,7 @@ export interface DetailedDiffResponse {
 }
 
 /**
- * 仓库信息
+ * 仓库基础信息
  */
 export interface RepositoryInfo {
   /** 仓库 ID (路径) */
@@ -248,6 +262,20 @@ export interface RepositoryInfo {
   lastActive: string | null
   /** 路径是否有效 */
   isPathValid?: boolean
+}
+
+/**
+ * 仓库详细信息（包含 worktrees 和 branches）
+ */
+export interface Repository extends RepositoryInfo {
+  /** 主 Worktree 路径 */
+  mainWorktreePath: string
+  /** Worktree 列表 */
+  worktrees: Worktree[]
+  /** 分支列表 */
+  branches: { name: string; isCurrent: boolean }[]
+  /** 默认分支 */
+  defaultBranch: string
 }
 
 /**

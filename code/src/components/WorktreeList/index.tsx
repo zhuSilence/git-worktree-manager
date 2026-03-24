@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { WorktreeItem } from './WorktreeItem'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 import { GitBranch, Plus, Search, ArrowUpDown, AlertTriangle, Trash2, PanelLeftClose, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/common'
+import { EmptyState } from '@/components/common'
 import type { Worktree, WorktreeHint } from '@/types/worktree'
 import { WorktreeStatus } from '@/types/worktree'
 import { HintsPanel } from '@/components/HintsPanel'
@@ -28,11 +29,17 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
   const [showBatchActions, setShowBatchActions] = useState(false)
   const [mergedHints, setMergedHints] = useState<WorktreeHint[]>([])
 
+  // 用于竞态条件处理的请求版本号
+  const requestVersionRef = useRef(0)
+
   // 获取分支列表
   const branches = currentRepo?.branches || []
 
-  // 获取已合并提示
+  // 获取已合并提示 - 带竞态条件处理
   useEffect(() => {
+    // 每次 effect 运行时增加版本号
+    const currentVersion = ++requestVersionRef.current
+
     const fetchMergedHints = async () => {
       if (currentRepo?.mainWorktreePath) {
         try {
@@ -40,9 +47,15 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
             currentRepo.mainWorktreePath,
             currentRepo.defaultBranch || 'main'
           )
-          setMergedHints(hints)
+          // 只有当版本号匹配时才更新状态，避免过期响应覆盖新数据
+          if (currentVersion === requestVersionRef.current) {
+            setMergedHints(hints)
+          }
         } catch (err) {
-          console.error('Failed to fetch merged hints:', err)
+          // 只在版本匹配时记录错误
+          if (currentVersion === requestVersionRef.current) {
+            console.error('Failed to fetch merged hints:', err)
+          }
         }
       }
     }
@@ -120,20 +133,23 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
 
   if (!worktrees || worktrees.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
-        <GitBranch className="w-12 h-12 mb-4 opacity-50" />
-        <p className="text-lg">No worktrees found</p>
-        <p className="text-sm mt-1 mb-4">Create a worktree to get started</p>
-        {onCreateWorktree && (
-          <Button
-            onClick={onCreateWorktree}
-            className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white"
-          >
-            <Plus className="w-4 h-4" />
-            创建 Worktree
-          </Button>
-        )}
-      </div>
+      <EmptyState
+        icon={GitBranch}
+        title="No worktrees found"
+        description="Create a worktree to get started"
+        className="h-64"
+        action={
+          onCreateWorktree && (
+            <Button
+              onClick={onCreateWorktree}
+              className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white"
+            >
+              <Plus className="w-4 h-4" />
+              创建 Worktree
+            </Button>
+          )
+        }
+      />
     )
   }
 
@@ -237,9 +253,11 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
 
       {/* 无搜索结果 */}
       {searchQuery && filteredAndSortedWorktrees.length === 0 && (
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          <p>未找到匹配 "{searchQuery}" 的 Worktree</p>
-        </div>
+        <EmptyState
+          icon={Search}
+          title={`未找到匹配 "${searchQuery}" 的 Worktree`}
+          size="sm"
+        />
       )}
 
       {/* 智能提示面板 */}

@@ -8,6 +8,7 @@ import { SettingsPanel } from './components/SettingsPanel'
 import { Sidebar } from './components/Sidebar'
 import { DiffSidebar } from './components/DiffSidebar'
 import { Timeline } from './components/Timeline'
+import { ToastContainer } from './components/common'
 import { useWorktreeStore } from './stores/worktreeStore'
 import { useRepositoryStore } from './stores/repositoryStore'
 import { settingsStore } from './stores/settingsStore'
@@ -206,6 +207,9 @@ function App() {
         onClose={() => setShowTimeline(false)}
         repoPath={currentRepo?.mainWorktreePath || null}
       />
+
+      {/* Toast 通知容器 */}
+      <ToastContainer />
     </div>
   )
 }
