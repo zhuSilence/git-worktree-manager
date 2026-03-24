@@ -780,7 +780,13 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                     {expandedFiles.has(file.path) && (
                       <div className="overflow-hidden">
                         {viewMode === 'unified' ? (
-                          <UnifiedDiffView hunks={file.hunks} fileIdx={fileIdx} selectedLine={selectedLine} />
+                          <UnifiedDiffView
+                            hunks={file.hunks}
+                            fileIdx={fileIdx}
+                            selectedLine={selectedLine}
+                            sourceBranch={diff?.sourceBranch || worktreeName}
+                            targetBranch={targetBranch}
+                          />
                         ) : (
                           <SplitDiffView
                             hunks={file.hunks}
@@ -805,9 +811,55 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
 }
 
 // 统一视图组件 — memo 避免其他文件展开/收起时重渲
-const UnifiedDiffView = memo(function UnifiedDiffView({ hunks, fileIdx, selectedLine }: { hunks: DiffHunk[], fileIdx: number, selectedLine: string | null }) {
+const UnifiedDiffView = memo(function UnifiedDiffView({
+  hunks, fileIdx, selectedLine, sourceBranch, targetBranch
+}: {
+  hunks: DiffHunk[]
+  fileIdx: number
+  selectedLine: string | null
+  sourceBranch: string
+  targetBranch: string
+}) {
   return (
     <div className="font-mono text-xs overflow-x-auto">
+      {/* 分支名称标识行 - 仅在第一个 hunk 前显示 */}
+      {hunks.length > 0 && (
+        <div className="flex border-b border-gray-200 dark:border-gray-700">
+          <div
+            className="w-[24px] bg-gray-100 dark:bg-gray-800"
+          />
+          <div
+            className="w-[24px] px-1 text-center text-[10px] leading-5 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700"
+          />
+          <div
+            className="w-12 px-1 text-right text-[10px] leading-5 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700"
+            title={`旧版本: ${targetBranch}`}
+          >
+            <span className="cursor-help" title={targetBranch}>
+              {targetBranch.length > 6 ? targetBranch.slice(0, 6) + '…' : targetBranch}
+            </span>
+          </div>
+          <div
+            className="w-12 px-1 text-right text-[10px] leading-5 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700"
+            title={`新版本: ${sourceBranch}`}
+          >
+            <span className="cursor-help" title={sourceBranch}>
+              {sourceBranch.length > 6 ? sourceBranch.slice(0, 6) + '…' : sourceBranch}
+            </span>
+          </div>
+          <div className="flex-1 flex items-center px-2 text-[10px] leading-5 bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500">
+            <span className="flex items-center gap-1 text-red-500" title={`删除的内容来自: ${targetBranch}`}>
+              <Minus className="w-2.5 h-2.5" />
+              <span className="truncate max-w-[100px]" title={targetBranch}>{targetBranch}</span>
+            </span>
+            <span className="mx-2 text-gray-300 dark:text-gray-600">|</span>
+            <span className="flex items-center gap-1 text-green-500" title={`新增的内容来自: ${sourceBranch}`}>
+              <Plus className="w-2.5 h-2.5" />
+              <span className="truncate max-w-[100px]" title={sourceBranch}>{sourceBranch}</span>
+            </span>
+          </div>
+        </div>
+      )}
       {hunks.map((hunk: DiffHunk, hunkIdx: number) => {
         const charMap = pairHunkLines(hunk.lines)
         return (
