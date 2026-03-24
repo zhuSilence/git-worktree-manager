@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.8] - 2026-03-24
+
+### ✨ Added
+
+- Worktree 标签与备注功能 (Issue #12)
+  - 为 worktree 添加自定义标签
+  - 添加备注说明，方便区分不同用途
+  - 标签颜色区分，快速识别 worktree 类型
+- Diff 面板分支名称显示 (Issue #26)
+  - 在 Diff 对比面板顶部显示当前分支名和对比分支名
+  - 清晰了解正在对比的是哪两个分支
+
+### 🐛 Fixed
+
+- 中文文件名显示异常 (Issue #24)
+  - 修复某些情况下中文文件名乱码问题
+
 ## [0.0.7] - 2026-03-21
 
 ### ✨ Added
