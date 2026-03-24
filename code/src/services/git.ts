@@ -168,4 +168,18 @@ export const gitService = {
   async getTimeline(repoPath: string, since?: number, until?: number): Promise<TimelineResponse> {
     return invoke<TimelineResponse>('get_timeline', { repoPath, since, until })
   },
+
+  /**
+   * Push 本地提交到远程
+   */
+  async push(worktreePath: string, branch?: string): Promise<SwitchBranchResult> {
+    return invoke<SwitchBranchResult>('push', { worktreePath, branch })
+  },
+
+  /**
+   * Pull 远程提交到本地
+   */
+  async pull(worktreePath: string, branch?: string): Promise<SwitchBranchResult> {
+    return invoke<SwitchBranchResult>('pull', { worktreePath, branch })
+  },
 }

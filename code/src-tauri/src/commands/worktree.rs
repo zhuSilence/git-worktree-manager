@@ -131,3 +131,15 @@ pub async fn get_stale_hints(repo_path: String, days: i64) -> Result<Vec<crate::
 pub async fn get_timeline(repo_path: String, since: Option<i64>, until: Option<i64>) -> Result<crate::models::TimelineResponse, String> {
     git_service::get_timeline(&repo_path, since, until).map_err(|e| e.to_string())
 }
+
+/// Push 本地提交到远程
+#[command]
+pub async fn push(worktree_path: String, branch: Option<String>) -> Result<crate::models::SwitchBranchResult, String> {
+    git_service::push(&worktree_path, branch.as_deref()).map_err(|e| e.to_string())
+}
+
+/// Pull 远程提交到本地
+#[command]
+pub async fn pull(worktree_path: String, branch: Option<String>) -> Result<crate::models::SwitchBranchResult, String> {
+    git_service::pull(&worktree_path, branch.as_deref()).map_err(|e| e.to_string())
+}
