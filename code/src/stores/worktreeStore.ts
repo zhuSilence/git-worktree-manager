@@ -199,7 +199,7 @@ export const useWorktreeStore = create<WorktreeState>((set, get) => {
       const opId = generateOperationId()
       // 保存当前状态用于回滚
       const previousWorktrees = worktrees
-      
+
       // 乐观更新：立即从 UI 中移除
       set((state) => ({
         worktrees: state.worktrees.filter(w => w.path !== worktreePath),

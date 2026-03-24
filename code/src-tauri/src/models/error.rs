@@ -24,17 +24,17 @@ pub enum ErrorCode {
     GitWorktreeExists,
     GitMergeConflict,
     GitOperationFailed,
-    
+
     // 文件系统错误
     PathNotFound,
     PathAlreadyExists,
     InvalidPath,
     PermissionDenied,
-    
+
     // 验证错误
     InvalidInput,
     ValidationFailed,
-    
+
     // 系统错误
     InternalError,
     ExternalCommandFailed,

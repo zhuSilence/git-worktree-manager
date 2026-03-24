@@ -44,7 +44,7 @@ const sizeStyles = {
 
 /**
  * 可复用的空状态组件
- * 
+ *
  * @example
  * <EmptyState
  *   icon={GitBranch}
