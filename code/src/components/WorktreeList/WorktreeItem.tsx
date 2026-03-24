@@ -1,26 +1,38 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Worktree } from '@/types/worktree'
 import { StatusBadge } from './StatusBadge'
-import { Folder, ExternalLink, Terminal, Trash2, GitCompare, GitBranch, ArrowUp, ArrowDown, Check, GitMerge } from 'lucide-react'
+import { TagBadge, getTagDef } from './TagBadge'
+import { TagEditor } from './TagEditor'
+import { Folder, ExternalLink, Terminal, Trash2, GitCompare, GitBranch, ArrowUp, ArrowDown, Check, GitMerge, Tag, MessageSquare } from 'lucide-react'
 import { gitService } from '@/services/git'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 import { settingsStore } from '@/stores/settingsStore'
 import { BranchManager } from '@/components/BranchManager'
+import { getAnnotation, saveAnnotation, PRESET_TAGS } from '@/services/annotations'
+import type { WorktreeAnnotation, TagDefinition } from '@/types/annotation'
 
 interface WorktreeItemProps {
   worktree: Worktree
   branches: { name: string; isCurrent: boolean }[]
   onShowDiff?: (path: string, name: string) => void
   isMerged?: boolean
+  onTagsChange?: () => void
 }
 
-export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false }: WorktreeItemProps) {
+export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false, onTagsChange }: WorktreeItemProps) {
   const { deleteWorktree } = useWorktreeStore()
   const { defaultIde, defaultTerminal } = settingsStore()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [showBranchManager, setShowBranchManager] = useState(false)
+  const [showTagEditor, setShowTagEditor] = useState(false)
+  const [annotation, setAnnotation] = useState<WorktreeAnnotation | null>(null)
+
+  // 加载标注信息
+  useEffect(() => {
+    setAnnotation(getAnnotation(worktree.path))
+  }, [worktree.path])
 
   const handleOpenInTerminal = async () => {
     try {
@@ -73,6 +85,20 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false 
       setIsDeleting(false)
     }
   }
+
+  const handleSaveTags = (tags: string[], notes: string) => {
+    saveAnnotation(worktree.path, { tags, notes })
+    setAnnotation(getAnnotation(worktree.path))
+    onTagsChange?.()
+  }
+
+  // 获取标签定义
+  const tagDefs: TagDefinition[] = [...PRESET_TAGS]
+  annotation?.tags.forEach(tagId => {
+    if (!tagDefs.find(t => t.id === tagId)) {
+      tagDefs.push({ id: tagId, name: tagId, color: '#6b7280', bgColor: '#f3f4f6', isPreset: false })
+    }
+  })
 
   return (
     <>
@@ -170,6 +196,31 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false 
               </div>
             )}
 
+            {/* 标签显示 */}
+            {annotation && annotation.tags.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                {annotation.tags.map(tagId => {
+                  const tagDef = getTagDef(tagId, tagDefs)
+                  return (
+                    <TagBadge
+                      key={tagId}
+                      tag={tagDef}
+                      size="sm"
+                      onClick={() => setShowTagEditor(true)}
+                    />
+                  )
+                })}
+              </div>
+            )}
+
+            {/* 备注显示 */}
+            {annotation && annotation.notes && (
+              <div className="mt-2 flex items-start gap-1.5 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 px-2 py-1.5 rounded">
+                <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                <span className="whitespace-pre-wrap break-words">{annotation.notes}</span>
+              </div>
+            )}
+
             {worktree.lastActiveAt && (
               <div className="text-xs text-gray-400 dark:text-gray-500 mt-1" title={worktree.lastActiveAt}>
                 最后活跃: {worktree.lastActiveAt}
@@ -179,6 +230,13 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false 
 
           {/* 右侧：操作按钮 */}
           <div className="flex items-center gap-1 ml-4">
+            <button
+              onClick={() => setShowTagEditor(true)}
+              className={annotation?.tags.length || annotation?.notes ? 'p-2 text-purple-500 bg-purple-50 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded-md transition-colors' : 'p-2 text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors'}
+              title="编辑标签和备注"
+            >
+              <Tag className="w-4 h-4" />
+            </button>
             <button
               onClick={() => setShowBranchManager(true)}
               className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
@@ -272,6 +330,16 @@ export function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false 
         worktreePath={worktree.path}
         worktreeBranch={worktree.branch}
         branches={branches}
+      />
+
+      {/* 标签编辑器 */}
+      <TagEditor
+        isOpen={showTagEditor}
+        onClose={() => setShowTagEditor(false)}
+        path={worktree.path}
+        branch={worktree.branch}
+        annotation={annotation}
+        onSave={handleSaveTags}
       />
     </>
   )
