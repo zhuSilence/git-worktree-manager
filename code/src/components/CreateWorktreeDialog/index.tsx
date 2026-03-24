@@ -46,43 +46,11 @@ export function CreateWorktreeDialog({ isOpen, onClose }: CreateWorktreeDialogPr
     }
   }, [currentRepo])
 
-  // 检测剪贴板内容 - 使用 setTimeout 延迟执行避免阻塞渲染
+  // 以前这里会读取剪贴板以给出命名提示
+  // 但在桌面环境下会触发系统 Paste 弹窗并卡住输入，现已完全关闭
   useEffect(() => {
     if (!isOpen) return
-
-    const checkClipboard = async () => {
-      try {
-        // 检查是否在 Tauri 环境
-        const isTauri = typeof window !== 'undefined' && '__TAURI__' in window
-        if (isTauri) {
-          // Tauri 环境下跳过剪贴板读取，避免权限问题
-          setClipboardHint(null)
-          return
-        }
-
-        const text = await navigator.clipboard.readText()
-        if (text) {
-          // 检查是否是 GitHub Issue 链接
-          if (text.includes('github.com') && text.includes('/issues/')) {
-            setClipboardHint('检测到 GitHub Issue 链接，粘贴后自动生成建议')
-          } else if (text.includes('atlassian.net/browse/') || /^[A-Z]+-\d+$/i.test(text.trim())) {
-            setClipboardHint('检测到 Jira Issue，粘贴后自动生成建议')
-          } else {
-            setClipboardHint(null)
-          }
-        }
-      } catch {
-        // 剪贴板访问失败，忽略
-        setClipboardHint(null)
-      }
-    }
-
-    // 延迟执行，避免阻塞弹窗渲染
-    const timer = setTimeout(() => {
-      checkClipboard()
-    }, 100)
-
-    return () => clearTimeout(timer)
+    setClipboardHint(null)
   }, [isOpen])
 
   // 重置表单
