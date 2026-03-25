@@ -1,10 +1,11 @@
-import { useState, memo, useRef, useCallback } from 'react'
-import { Plus, Minus, Copy, Check } from 'lucide-react'
+import { useState, memo, useRef, useCallback, useMemo } from 'react'
+import { Plus, Minus, Copy, Check, ChevronDown, ChevronRight } from 'lucide-react'
 import { clsx } from 'clsx'
 import type { DiffHunk, DiffLine } from '@/types/worktree'
 import type { CharSegment } from './types'
 import { pairHunkLines } from './DiffAlgorithm'
 import { tokenize, SYNTAX_COLORS } from './SyntaxHighlighter'
+import { mergeHunks_smart, type MergedHunk, type CollapsibleRange } from './HunkMerger'
 
 /**
  * 行内复制按钮
@@ -108,12 +109,48 @@ export function HighlightedLine({ content, lineType, charSegments }: Highlighted
   )
 }
 
+/**
+ * 可折叠区域指示器组件
+ */
+function CollapsedIndicator({ 
+  range, 
+  isCollapsed, 
+  onToggle 
+}: { 
+  range: CollapsibleRange
+  isCollapsed: boolean
+  onToggle: () => void 
+}) {
+  return (
+    <div 
+      className="flex items-center h-[22px] bg-blue-50 dark:bg-blue-900/30 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors border-y border-blue-200 dark:border-blue-800"
+      onClick={onToggle}
+    >
+      <span className="w-12 px-1 text-center text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+        {isCollapsed ? <ChevronRight className="w-3 h-3 mx-auto" /> : <ChevronDown className="w-3 h-3 mx-auto" />}
+      </span>
+      <span className="w-12 px-1 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700" />
+      <span className="w-5" />
+      <span className="flex-1 px-2 text-[11px] text-blue-600 dark:text-blue-400 font-medium">
+        {isCollapsed 
+          ? `↓ 展开 ${range.lineCount} 行上下文` 
+          : `↑ 折叠 ${range.lineCount} 行`
+        }
+      </span>
+    </div>
+  )
+}
+
 interface UnifiedDiffViewProps {
   hunks: DiffHunk[]
   fileIdx: number
   selectedLine: string | null
   sourceBranch: string
   targetBranch: string
+  /** 是否启用智能 Hunk 合并，默认开启 */
+  enableSmartMerge?: boolean
+  /** Hunk 合并的最大间隔行数，默认 15 */
+  maxGapLines?: number
 }
 
 /**
@@ -125,7 +162,33 @@ export const UnifiedDiffView = memo(function UnifiedDiffView({
   selectedLine,
   sourceBranch,
   targetBranch,
+  enableSmartMerge = true,
+  maxGapLines = 15,
 }: UnifiedDiffViewProps) {
+  // 智能合并 hunks
+  const mergedHunks = useMemo(() => {
+    if (!enableSmartMerge) {
+      return hunks.map((h, i) => ({
+        ...h,
+        sourceHunkIndices: [i],
+        collapsibleRanges: [],
+        isMerged: false,
+      })) as MergedHunk[]
+    }
+    return mergeHunks_smart(hunks, { maxGapLines, enableSemanticMerge: true })
+  }, [hunks, enableSmartMerge, maxGapLines])
+
+  // 折叠状态管理
+  const [collapseStates, setCollapseStates] = useState<Record<string, boolean>>({})
+
+  const toggleCollapse = useCallback((hunkIdx: number, rangeIdx: number) => {
+    const key = `${hunkIdx}-${rangeIdx}`
+    setCollapseStates(prev => ({
+      ...prev,
+      [key]: !prev[key],
+    }))
+  }, [])
+
   return (
     <div className="font-mono text-xs overflow-x-auto">
       {/* 分支名称标识行 */}
@@ -167,18 +230,75 @@ export const UnifiedDiffView = memo(function UnifiedDiffView({
         </div>
       )}
 
-      {hunks.map((hunk: DiffHunk, hunkIdx: number) => {
+      {mergedHunks.map((hunk: MergedHunk, hunkIdx: number) => {
         const charMap = pairHunkLines(hunk.lines)
+        
+        // 构建包含折叠状态的行列表
+        const renderLines: Array<{ type: 'line' | 'collapse', data: DiffLine | CollapsibleRange, idx: number, rangeIdx?: number }> = []
+        let currentIdx = 0
+        
+        // 处理可折叠区域
+        for (let ri = 0; ri < hunk.collapsibleRanges.length; ri++) {
+          const range = hunk.collapsibleRanges[ri]
+          const key = `${hunkIdx}-${ri}`
+          const isCollapsed = collapseStates[key] !== false // 默认折叠
+          
+          // 添加折叠区域之前的行
+          while (currentIdx < range.startIdx) {
+            renderLines.push({ type: 'line', data: hunk.lines[currentIdx], idx: currentIdx })
+            currentIdx++
+          }
+          
+          if (isCollapsed) {
+            // 添加折叠指示器
+            renderLines.push({ type: 'collapse', data: range, idx: currentIdx, rangeIdx: ri })
+          } else {
+            // 展开：添加所有行
+            while (currentIdx < range.endIdx) {
+              renderLines.push({ type: 'line', data: hunk.lines[currentIdx], idx: currentIdx })
+              currentIdx++
+            }
+          }
+          
+          currentIdx = range.endIdx
+        }
+        
+        // 添加剩余的行
+        while (currentIdx < hunk.lines.length) {
+          renderLines.push({ type: 'line', data: hunk.lines[currentIdx], idx: currentIdx })
+          currentIdx++
+        }
 
         return (
           <div key={hunkIdx}>
-            {/* Hunk header */}
-            <div className="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-y border-blue-200 dark:border-blue-800 text-xs font-mono">
-              @@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
+            {/* Hunk header - 显示合并标识 */}
+            <div className="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-y border-blue-200 dark:border-blue-800 text-xs font-mono flex items-center justify-between">
+              <span>
+                @@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
+              </span>
+              {hunk.isMerged && (
+                <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 rounded">
+                  合并了 {hunk.sourceHunkIndices.length} 个变更块
+                </span>
+              )}
             </div>
 
-            {/* Lines */}
-            {hunk.lines.map((line: DiffLine, lineIdx: number) => {
+            {/* Lines with collapse support */}
+            {renderLines.map((item, renderIdx) => {
+              if (item.type === 'collapse') {
+                const range = item.data as CollapsibleRange
+                return (
+                  <CollapsedIndicator
+                    key={`collapse-${renderIdx}`}
+                    range={range}
+                    isCollapsed={true}
+                    onToggle={() => toggleCollapse(hunkIdx, item.rangeIdx!)}
+                  />
+                )
+              }
+              
+              const line = item.data as DiffLine
+              const lineIdx = item.idx
               const id = `diff-${fileIdx}-${hunkIdx}-${lineIdx}`
               const isSelected = selectedLine === id
               const isChange = line.lineType !== 'context'
