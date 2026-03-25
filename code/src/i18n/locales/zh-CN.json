@@ -1,0 +1,104 @@
+{
+  "common": {
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "confirm": "确认",
+    "close": "关闭",
+    "loading": "加载中...",
+    "success": "成功",
+    "error": "错误",
+    "warning": "警告"
+  },
+  "settings": {
+    "title": "设置",
+    "currentVersion": "当前版本",
+    "checkUpdate": "检查更新",
+    "newVersionFound": "发现新版本",
+    "defaultIde": "默认编辑器",
+    "defaultIdeDesc": "选择打开 worktree 时使用的编辑器",
+    "defaultTerminal": "默认终端",
+    "defaultTerminalDesc": "选择打开 worktree 时使用的终端",
+    "idleDetection": "空闲检测",
+    "enable": "启用",
+    "idleThreshold": "空闲提醒阈值",
+    "idleThresholdDesc": "超过此天数的 worktree 将显示空闲提醒",
+    "days": "天",
+    "language": "语言",
+    "languageDesc": "选择界面显示语言"
+  },
+  "ide": {
+    "vscode": "VS Code",
+    "vscodeInsiders": "VS Code Insiders",
+    "cursor": "Cursor",
+    "webstorm": "WebStorm",
+    "intellij": "IntelliJ IDEA"
+  },
+  "terminal": {
+    "default": "Terminal (默认)",
+    "iterm2": "iTerm2",
+    "warp": "Warp"
+  },
+  "worktree": {
+    "title": "Worktree 列表",
+    "create": "创建 Worktree",
+    "open": "打开",
+    "openInIde": "在编辑器中打开",
+    "openInTerminal": "在终端中打开",
+    "delete": "删除 Worktree",
+    "deleteConfirm": "确定要删除此 worktree 吗？",
+    "deleteForce": "强制删除",
+    "branch": "分支",
+    "path": "路径",
+    "status": "状态",
+    "lastActivity": "最后活动",
+    "noWorktrees": "暂无 worktree",
+    "noRepo": "请先打开一个 Git 仓库",
+    "openRepo": "打开仓库",
+    "refresh": "刷新",
+    "idle": "空闲",
+    "active": "活跃",
+    "loading": "加载中..."
+  },
+  "branch": {
+    "create": "创建分支",
+    "switch": "切换分支",
+    "current": "当前分支",
+    "newBranch": "新分支",
+    "branchName": "分支名称",
+    "baseBranch": "基于分支",
+    "createNew": "创建新分支"
+  },
+  "validation": {
+    "nameRequired": "名称不能为空",
+    "invalidChars": "包含非法字符，只允许字母、数字、-、_、/",
+    "cannotStartWith": "名称不能以 . 或 - 开头",
+    "cannotEndWith": "名称不能以 . 或 / 结尾",
+    "noConsecutiveSlashes": "不能包含连续的斜杠"
+  },
+  "naming": {
+    "feature": "功能",
+    "featureDesc": "新功能开发",
+    "bugfix": "修复",
+    "bugfixDesc": "Bug 修复",
+    "hotfix": "热修复",
+    "hotfixDesc": "紧急修复",
+    "release": "发布",
+    "releaseDesc": "发布分支",
+    "experiment": "实验",
+    "experimentDesc": "实验性功能",
+    "docs": "文档",
+    "docsDesc": "文档更新",
+    "refactor": "重构",
+    "refactorDesc": "代码重构",
+    "test": "测试",
+    "testDesc": "测试相关"
+  },
+  "errors": {
+    "generic": "操作失败，请重试",
+    "networkError": "网络错误，请检查网络连接",
+    "notFound": "未找到资源",
+    "permissionDenied": "权限不足"
+  }
+}

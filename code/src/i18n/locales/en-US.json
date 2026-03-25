@@ -1,0 +1,104 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "confirm": "Confirm",
+    "close": "Close",
+    "loading": "Loading...",
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning"
+  },
+  "settings": {
+    "title": "Settings",
+    "currentVersion": "Current Version",
+    "checkUpdate": "Check for Updates",
+    "newVersionFound": "New version available",
+    "defaultIde": "Default Editor",
+    "defaultIdeDesc": "Select the editor to use when opening a worktree",
+    "defaultTerminal": "Default Terminal",
+    "defaultTerminalDesc": "Select the terminal to use when opening a worktree",
+    "idleDetection": "Idle Detection",
+    "enable": "Enable",
+    "idleThreshold": "Idle Alert Threshold",
+    "idleThresholdDesc": "Worktrees idle for more than this many days will show an idle alert",
+    "days": "days",
+    "language": "Language",
+    "languageDesc": "Select interface display language"
+  },
+  "ide": {
+    "vscode": "VS Code",
+    "vscodeInsiders": "VS Code Insiders",
+    "cursor": "Cursor",
+    "webstorm": "WebStorm",
+    "intellij": "IntelliJ IDEA"
+  },
+  "terminal": {
+    "default": "Terminal (Default)",
+    "iterm2": "iTerm2",
+    "warp": "Warp"
+  },
+  "worktree": {
+    "title": "Worktree List",
+    "create": "Create Worktree",
+    "open": "Open",
+    "openInIde": "Open in Editor",
+    "openInTerminal": "Open in Terminal",
+    "delete": "Delete Worktree",
+    "deleteConfirm": "Are you sure you want to delete this worktree?",
+    "deleteForce": "Force Delete",
+    "branch": "Branch",
+    "path": "Path",
+    "status": "Status",
+    "lastActivity": "Last Activity",
+    "noWorktrees": "No worktrees yet",
+    "noRepo": "Please open a Git repository first",
+    "openRepo": "Open Repository",
+    "refresh": "Refresh",
+    "idle": "Idle",
+    "active": "Active",
+    "loading": "Loading..."
+  },
+  "branch": {
+    "create": "Create Branch",
+    "switch": "Switch Branch",
+    "current": "Current Branch",
+    "newBranch": "New Branch",
+    "branchName": "Branch Name",
+    "baseBranch": "Base Branch",
+    "createNew": "Create New Branch"
+  },
+  "validation": {
+    "nameRequired": "Name cannot be empty",
+    "invalidChars": "Contains invalid characters. Only letters, numbers, -, _, / are allowed",
+    "cannotStartWith": "Name cannot start with . or -",
+    "cannotEndWith": "Name cannot end with . or /",
+    "noConsecutiveSlashes": "Cannot contain consecutive slashes"
+  },
+  "naming": {
+    "feature": "Feature",
+    "featureDesc": "New feature development",
+    "bugfix": "Bugfix",
+    "bugfixDesc": "Bug fixes",
+    "hotfix": "Hotfix",
+    "hotfixDesc": "Emergency fixes",
+    "release": "Release",
+    "releaseDesc": "Release branches",
+    "experiment": "Experiment",
+    "experimentDesc": "Experimental features",
+    "docs": "Docs",
+    "docsDesc": "Documentation updates",
+    "refactor": "Refactor",
+    "refactorDesc": "Code refactoring",
+    "test": "Test",
+    "testDesc": "Testing related"
+  },
+  "errors": {
+    "generic": "Operation failed. Please try again",
+    "networkError": "Network error. Please check your connection",
+    "notFound": "Resource not found",
+    "permissionDenied": "Permission denied"
+  }
+}
