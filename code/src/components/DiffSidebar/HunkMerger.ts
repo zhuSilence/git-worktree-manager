@@ -4,18 +4,18 @@ import type { DiffHunk, DiffLine } from '@/types/worktree'
  * Hunk 合并配置
  */
 export interface HunkMergeConfig {
-  /** 
+  /**
    * 两个 hunk 之间的最大间隔行数，小于此值时自动合并
    * 默认 15 行（覆盖大多数中小型函数）
    */
   maxGapLines: number
-  
+
   /**
    * 是否启用语义边界检测（基于函数/方法签名）
    * 开启后会尝试将同一函数内的所有修改合并
    */
   enableSemanticMerge: boolean
-  
+
   /**
    * 合并后的 hunk 中，连续上下文行超过此数量时可折叠
    */
@@ -74,7 +74,7 @@ const FUNCTION_PATTERNS = [
 export function isFunctionSignature(line: string): boolean {
   const trimmed = line.trim()
   if (!trimmed) return false
-  
+
   return FUNCTION_PATTERNS.some(pattern => pattern.test(trimmed))
 }
 
@@ -124,11 +124,11 @@ function calculateGap(hunk1: DiffHunk, hunk2: DiffHunk): number {
  */
 function mergeTwoHunks(hunk1: MergedHunk, hunk2: MergedHunk, config: HunkMergeConfig): MergedHunk {
   const gap = calculateGap(hunk1, hunk2)
-  
+
   // 生成中间的上下文行
   const gapStartLine = hunk1.newStart + hunk1.newLines
   const gapLines: DiffLine[] = []
-  
+
   // 创建表示间隔区域的上下文行
   for (let i = 0; i < gap; i++) {
     gapLines.push({
@@ -138,13 +138,13 @@ function mergeTwoHunks(hunk1: MergedHunk, hunk2: MergedHunk, config: HunkMergeCo
       content: `... (${gap} lines hidden) ...`, // 占位符
     })
   }
-  
+
   // 合并后的行
   const mergedLines = [...hunk1.lines, ...gapLines, ...hunk2.lines]
-  
+
   // 记录可折叠区域（间隔部分）
   const collapsibleRanges: CollapsibleRange[] = [...hunk1.collapsibleRanges]
-  
+
   if (gap > config.collapsibleContextThreshold) {
     collapsibleRanges.push({
       startIdx: hunk1.lines.length,
@@ -153,7 +153,7 @@ function mergeTwoHunks(hunk1: MergedHunk, hunk2: MergedHunk, config: HunkMergeCo
       collapsed: true, // 默认折叠
     })
   }
-  
+
   return {
     oldStart: hunk1.oldStart,
     oldLines: hunk1.oldLines + gap + hunk2.oldLines,
@@ -168,7 +168,7 @@ function mergeTwoHunks(hunk1: MergedHunk, hunk2: MergedHunk, config: HunkMergeCo
 
 /**
  * 智能合并 Hunks
- * 
+ *
  * 核心算法：
  * 1. 遍历所有 hunk，计算相邻 hunk 之间的间隔
  * 2. 如果间隔小于阈值，或者两个 hunk 属于同一函数，则合并
@@ -184,7 +184,7 @@ export function mergeHunks_smart(
     collapsibleContextThreshold: 8,
     ...config,
   }
-  
+
   if (hunks.length === 0) return []
   if (hunks.length === 1) {
     return [{
@@ -194,9 +194,9 @@ export function mergeHunks_smart(
       isMerged: false,
     }]
   }
-  
+
   const result: MergedHunk[] = []
-  
+
   // 初始化第一个 hunk
   let current: MergedHunk = {
     ...hunks[0],
@@ -204,29 +204,29 @@ export function mergeHunks_smart(
     collapsibleRanges: [],
     isMerged: false,
   }
-  
+
   for (let i = 1; i < hunks.length; i++) {
     const next = hunks[i]
     const gap = calculateGap(current, next)
-    
+
     let shouldMerge = false
-    
+
     // 条件1: 间隔小于阈值
     if (gap <= fullConfig.maxGapLines) {
       shouldMerge = true
     }
-    
+
     // 条件2: 语义合并 - 检测是否属于同一函数
     if (!shouldMerge && fullConfig.enableSemanticMerge) {
       const currentFn = extractFunctionSignature(current.lines)
       const nextFn = extractFunctionSignature(next.lines)
-      
+
       // 如果下一个 hunk 没有新的函数签名，可能仍在同一函数内
       if (currentFn && !nextFn && gap <= fullConfig.maxGapLines * 2) {
         shouldMerge = true
       }
     }
-    
+
     if (shouldMerge) {
       current = mergeTwoHunks(current, { ...next, sourceHunkIndices: [i], collapsibleRanges: [], isMerged: false }, fullConfig)
     } else {
@@ -239,9 +239,9 @@ export function mergeHunks_smart(
       }
     }
   }
-  
+
   result.push(current)
-  
+
   return result
 }
 
@@ -278,20 +278,20 @@ export function getExpandedLines(
   if (hunk.collapsibleRanges.length === 0) {
     return hunk.lines
   }
-  
+
   const result: DiffLine[] = []
   let currentIdx = 0
-  
+
   for (let i = 0; i < hunk.collapsibleRanges.length; i++) {
     const range = hunk.collapsibleRanges[i]
     const isCollapsed = collapseStates[i] ?? range.collapsed
-    
+
     // 添加折叠区域之前的行
     while (currentIdx < range.startIdx) {
       result.push(hunk.lines[currentIdx])
       currentIdx++
     }
-    
+
     if (isCollapsed) {
       // 添加折叠指示行
       result.push({
@@ -307,16 +307,16 @@ export function getExpandedLines(
         currentIdx++
       }
     }
-    
+
     currentIdx = range.endIdx
   }
-  
+
   // 添加最后一个折叠区域之后的行
   while (currentIdx < hunk.lines.length) {
     result.push(hunk.lines[currentIdx])
     currentIdx++
   }
-  
+
   return result
 }
 
@@ -331,12 +331,12 @@ export function getMergeStats(originalHunks: DiffHunk[], mergedHunks: MergedHunk
 } {
   const originalCount = originalHunks.length
   const mergedCount = mergedHunks.length
-  const reductionPercent = originalCount > 0 
-    ? Math.round((1 - mergedCount / originalCount) * 100) 
+  const reductionPercent = originalCount > 0
+    ? Math.round((1 - mergedCount / originalCount) * 100)
     : 0
-  
+
   const mergedGroups = mergedHunks.map(h => h.sourceHunkIndices)
-  
+
   return {
     originalCount,
     mergedCount,

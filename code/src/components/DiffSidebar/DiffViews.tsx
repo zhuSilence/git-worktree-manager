@@ -112,17 +112,17 @@ export function HighlightedLine({ content, lineType, charSegments }: Highlighted
 /**
  * 可折叠区域指示器组件
  */
-function CollapsedIndicator({ 
-  range, 
-  isCollapsed, 
-  onToggle 
-}: { 
+function CollapsedIndicator({
+  range,
+  isCollapsed,
+  onToggle
+}: {
   range: CollapsibleRange
   isCollapsed: boolean
-  onToggle: () => void 
+  onToggle: () => void
 }) {
   return (
-    <div 
+    <div
       className="flex items-center h-[22px] bg-blue-50 dark:bg-blue-900/30 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors border-y border-blue-200 dark:border-blue-800"
       onClick={onToggle}
     >
@@ -132,8 +132,8 @@ function CollapsedIndicator({
       <span className="w-12 px-1 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700" />
       <span className="w-5" />
       <span className="flex-1 px-2 text-[11px] text-blue-600 dark:text-blue-400 font-medium">
-        {isCollapsed 
-          ? `↓ 展开 ${range.lineCount} 行上下文` 
+        {isCollapsed
+          ? `↓ 展开 ${range.lineCount} 行上下文`
           : `↑ 折叠 ${range.lineCount} 行`
         }
       </span>
@@ -232,23 +232,23 @@ export const UnifiedDiffView = memo(function UnifiedDiffView({
 
       {mergedHunks.map((hunk: MergedHunk, hunkIdx: number) => {
         const charMap = pairHunkLines(hunk.lines)
-        
+
         // 构建包含折叠状态的行列表
         const renderLines: Array<{ type: 'line' | 'collapse', data: DiffLine | CollapsibleRange, idx: number, rangeIdx?: number }> = []
         let currentIdx = 0
-        
+
         // 处理可折叠区域
         for (let ri = 0; ri < hunk.collapsibleRanges.length; ri++) {
           const range = hunk.collapsibleRanges[ri]
           const key = `${hunkIdx}-${ri}`
           const isCollapsed = collapseStates[key] !== false // 默认折叠
-          
+
           // 添加折叠区域之前的行
           while (currentIdx < range.startIdx) {
             renderLines.push({ type: 'line', data: hunk.lines[currentIdx], idx: currentIdx })
             currentIdx++
           }
-          
+
           if (isCollapsed) {
             // 添加折叠指示器
             renderLines.push({ type: 'collapse', data: range, idx: currentIdx, rangeIdx: ri })
@@ -259,10 +259,10 @@ export const UnifiedDiffView = memo(function UnifiedDiffView({
               currentIdx++
             }
           }
-          
+
           currentIdx = range.endIdx
         }
-        
+
         // 添加剩余的行
         while (currentIdx < hunk.lines.length) {
           renderLines.push({ type: 'line', data: hunk.lines[currentIdx], idx: currentIdx })
@@ -296,7 +296,7 @@ export const UnifiedDiffView = memo(function UnifiedDiffView({
                   />
                 )
               }
-              
+
               const line = item.data as DiffLine
               const lineIdx = item.idx
               const id = `diff-${fileIdx}-${hunkIdx}-${lineIdx}`
