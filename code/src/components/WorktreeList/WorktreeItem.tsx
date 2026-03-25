@@ -1,4 +1,5 @@
 import { useState, useEffect, memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Worktree } from '@/types/worktree'
 import { StatusBadge } from './StatusBadge'
 import { TagBadge, getTagDef } from './TagBadge'
@@ -23,6 +24,7 @@ interface WorktreeItemProps {
 }
 
 export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false, onTagsChange }: WorktreeItemProps) {
+  const { t } = useTranslation()
   const { deleteWorktree } = useWorktreeStore()
   const { defaultIde, defaultTerminal, enableIdleDetection, idleThresholdDays } = settingsStore()
   const { handleError, toast } = useErrorHandler()
@@ -47,7 +49,7 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
     try {
       await gitService.openInTerminal(worktree.path, defaultTerminal)
     } catch (error) {
-      handleError(error, '打开终端失败')
+      handleError(error, t('errors.openTerminalFailed'))
     }
   }
 
@@ -55,7 +57,7 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
     try {
       await gitService.openInEditor(worktree.path, defaultIde)
     } catch (error) {
-      handleError(error, '打开编辑器失败')
+      handleError(error, t('errors.openEditorFailed'))
     }
   }
 
@@ -64,7 +66,7 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
       // 在 Finder 中打开
       await gitService.openWorktree(worktree)
     } catch (error) {
-      handleError(error, '打开文件夹失败')
+      handleError(error, t('errors.openFolderFailed'))
     }
   }
 
@@ -89,7 +91,7 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
         setShowDeleteConfirm(false)
       }
     } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : '删除失败')
+      setDeleteError(error instanceof Error ? error.message : t('worktree.deleteFailed'))
     } finally {
       setIsDeleting(false)
     }
@@ -116,7 +118,7 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
         {isMerged && !worktree.isMain && (
           <div className="flex items-center gap-2 mb-2 px-2 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs rounded-md">
             <GitMerge className="w-3.5 h-3.5" />
-            <span>分支已合并到主分支，可以删除</span>
+            <span>{t('worktree.mergedHint')}</span>
           </div>
         )}
 
@@ -130,13 +132,13 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
               </span>
               {worktree.isMain && (
                 <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
-                  Main
+                  {t('worktree.main')}
                 </span>
               )}
               {isMerged && !worktree.isMain && (
                 <span className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2 py-0.5 rounded flex items-center gap-1">
                   <GitMerge className="w-3 h-3" />
-                  已合并
+                  {t('worktree.merged')}
                 </span>
               )}
               {/* 同步状态 */}
@@ -145,19 +147,19 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
                   {worktree.syncStatus.ahead > 0 && (
                     <span
                       className="flex items-center gap-0.5 text-green-600 dark:text-green-400 cursor-pointer hover:underline"
-                      title={`${worktree.syncStatus.ahead} 个提交未推送，点击推送`}
+                      title={t('worktree.unpushedCommits', { count: worktree.syncStatus.ahead })}
                       onClick={async () => {
                         try {
                           const result = await gitService.push(worktree.path, worktree.branch)
                           if (result.success) {
-                            toast.success('推送成功')
+                            toast.success(t('worktree.pushSuccess'))
                             // 刷新列表
                             window.location.reload()
                           } else {
-                            toast.error(`推送失败: ${result.message}`)
+                            toast.error(`${t('worktree.pushFailed')}: ${result.message}`)
                           }
                         } catch (error) {
-                          handleError(error, '推送失败')
+                          handleError(error, t('worktree.pushFailed'))
                         }
                       }}
                     >
@@ -168,19 +170,19 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
                   {worktree.syncStatus.behind > 0 && (
                     <span
                       className="flex items-center gap-0.5 text-orange-600 dark:text-orange-400 cursor-pointer hover:underline"
-                      title={`${worktree.syncStatus.behind} 个提交未拉取，点击拉取`}
+                      title={t('worktree.unpulledCommits', { count: worktree.syncStatus.behind })}
                       onClick={async () => {
                         try {
                           const result = await gitService.pull(worktree.path, worktree.branch)
                           if (result.success) {
-                            toast.success('拉取成功')
+                            toast.success(t('worktree.pullSuccess'))
                             // 刷新列表
                             window.location.reload()
                           } else {
-                            toast.error(`拉取失败: ${result.message}`)
+                            toast.error(`${t('worktree.pullFailed')}: ${result.message}`)
                           }
                         } catch (error) {
-                          handleError(error, '拉取失败')
+                          handleError(error, t('worktree.pullFailed'))
                         }
                       }}
                     >
@@ -189,7 +191,7 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
                     </span>
                   )}
                   {worktree.syncStatus.ahead === 0 && worktree.syncStatus.behind === 0 && (
-                    <span className="flex items-center gap-0.5 text-gray-400 dark:text-gray-500" title="与远程同步">
+                    <span className="flex items-center gap-0.5 text-gray-400 dark:text-gray-500" title={t('worktree.syncWithRemote')}>
                       <Check className="w-3 h-3" />
                     </span>
                   )}
@@ -245,7 +247,7 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
             {worktree.lastActiveAt && (
               <div className="text-xs text-gray-400 dark:text-gray-500 mt-1 flex items-center gap-1" title={worktree.lastActiveAt}>
                 <Clock className="w-3 h-3" />
-                最后活跃: {worktree.lastActiveAt}
+                {t('worktree.lastActive')}: {worktree.lastActiveAt}
               </div>
             )}
 
@@ -260,7 +262,7 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
                 <AlertTriangle className="w-3.5 h-3.5" />
                 <span>{idleStatus.message}</span>
                 {idleStatus.isIdle && (
-                  <span className="ml-1 opacity-75">，建议清理</span>
+                  <span className="ml-1 opacity-75">{t('worktree.idleSuggestCleanup')}</span>
                 )}
               </div>
             )}
@@ -271,42 +273,42 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
             <button
               onClick={() => setShowTagEditor(true)}
               className={annotation?.tags.length || annotation?.notes ? 'p-2 text-purple-500 bg-purple-50 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded-md transition-colors' : 'p-2 text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors'}
-              title="编辑标签和备注"
+              title={t('worktree.editTagsAndNotes')}
             >
               <Tag className="w-4 h-4" />
             </button>
             <button
               onClick={() => setShowBranchManager(true)}
               className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-              title="分支管理"
+              title={t('worktree.branchManager')}
             >
               <GitBranch className="w-4 h-4" />
             </button>
             <button
               onClick={() => onShowDiff?.(worktree.path, worktree.name)}
               className="p-2 text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-              title="查看与主分支差异"
+              title={t('worktree.viewDiff')}
             >
               <GitCompare className="w-4 h-4" />
             </button>
             <button
               onClick={handleOpenInEditor}
               className="p-2 text-gray-500 hover:text-green-600 dark:text-gray-400 dark:hover:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-              title="在 VS Code 中打开"
+              title={t('worktree.openInIde')}
             >
               <ExternalLink className="w-4 h-4" />
             </button>
             <button
               onClick={handleOpenInTerminal}
               className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-              title="在终端中打开"
+              title={t('worktree.openInTerminal')}
             >
               <Terminal className="w-4 h-4" />
             </button>
             <button
               onClick={handleOpenFolder}
               className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-              title="在 Finder 中打开"
+              title={t('worktree.openInFinder')}
             >
               <Folder className="w-4 h-4" />
             </button>
@@ -314,7 +316,7 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
               <button
                 onClick={() => setShowDeleteConfirm(true)}
                 className="p-2 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-                title="删除 Worktree"
+                title={t('worktree.delete')}
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -332,10 +334,10 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
           />
           <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-sm mx-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              确认删除
+              {t('worktree.confirmDelete')}
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              确定要删除 worktree <span className="font-medium">{worktree.branch}</span> 吗？
+              {t('worktree.deleteConfirm', { branch: worktree.branch })}
             </p>
             {deleteError && (
               <div className="mb-4 p-3 text-sm bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-md">
@@ -347,14 +349,14 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
                 onClick={() => { setShowDeleteConfirm(false); setDeleteError(null) }}
                 className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
               >
-                取消
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
                 className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50"
               >
-                {isDeleting ? '删除中...' : '删除'}
+                {isDeleting ? t('common.deleting') : t('common.delete')}
               </button>
             </div>
           </div>

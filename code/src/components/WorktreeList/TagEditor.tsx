@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { X, Check, Plus, Tag, MessageSquare } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { clsx } from 'clsx'
 import type { TagDefinition, WorktreeAnnotation } from '@/types/annotation'
 import { PRESET_TAGS } from '@/types/annotation'
@@ -15,6 +16,7 @@ interface TagEditorProps {
 }
 
 export function TagEditor({ isOpen, onClose, path: _path, branch, annotation, onSave }: TagEditorProps) {
+  const { t } = useTranslation()
   const [selectedTags, setSelectedTags] = useState<string[]>(annotation?.tags || [])
   const [notes, setNotes] = useState(annotation?.notes || '')
   const [customTagInput, setCustomTagInput] = useState('')
@@ -29,8 +31,8 @@ export function TagEditor({ isOpen, onClose, path: _path, branch, annotation, on
   if (!isOpen) return null
 
   const handleTagToggle = (tagId: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tagId) 
+    setSelectedTags(prev =>
+      prev.includes(tagId)
         ? prev.filter(t => t !== tagId)
         : [...prev, tagId]
     )
@@ -70,7 +72,7 @@ export function TagEditor({ isOpen, onClose, path: _path, branch, annotation, on
           <div className="flex items-center gap-2">
             <Tag className="w-4 h-4 text-purple-500" />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              编辑标注
+              {t('tagEditor.title')}
             </h3>
           </div>
           <button
@@ -85,20 +87,20 @@ export function TagEditor({ isOpen, onClose, path: _path, branch, annotation, on
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* 分支信息 */}
           <div className="text-sm text-gray-500 dark:text-gray-400">
-            分支: <span className="font-medium text-gray-700 dark:text-gray-300">{branch}</span>
+            {t('tagEditor.branch')}: <span className="font-medium text-gray-700 dark:text-gray-300">{branch}</span>
           </div>
 
           {/* 已选标签 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              已选标签
+              {t('tagEditor.selectedTags')}
             </label>
             <div className="flex flex-wrap gap-1.5 min-h-[32px] p-2 bg-gray-50 dark:bg-gray-900 rounded-md">
               {selectedTags.length === 0 ? (
-                <span className="text-xs text-gray-400">点击下方标签添加</span>
+                <span className="text-xs text-gray-400">{t('tagEditor.clickToAdd')}</span>
               ) : (
                 selectedTags.map(tagId => {
-                  const tagDef = PRESET_TAGS.find(t => t.id === tagId) || 
+                  const tagDef = PRESET_TAGS.find(t => t.id === tagId) ||
                     { id: tagId, name: tagId, color: '#6b7280', bgColor: '#f3f4f6', isPreset: false }
                   return (
                     <TagBadge
@@ -117,7 +119,7 @@ export function TagEditor({ isOpen, onClose, path: _path, branch, annotation, on
           {/* 预设标签选择 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              预设标签
+              {t('tagEditor.presetTags')}
             </label>
             <div className="flex flex-wrap gap-1.5">
               {PRESET_TAGS.map(tag => {
@@ -129,8 +131,8 @@ export function TagEditor({ isOpen, onClose, path: _path, branch, annotation, on
                     className={clsx(
                       'px-2 py-0.5 text-xs rounded font-medium transition-all',
                       'border-2',
-                      isSelected 
-                        ? 'border-purple-500 ring-2 ring-purple-500/20' 
+                      isSelected
+                        ? 'border-purple-500 ring-2 ring-purple-500/20'
                         : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'
                     )}
                     style={{
@@ -149,7 +151,7 @@ export function TagEditor({ isOpen, onClose, path: _path, branch, annotation, on
           {/* 自定义标签 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              自定义标签
+              {t('tagEditor.customTags')}
             </label>
             <div className="flex gap-2">
               <input
@@ -157,7 +159,7 @@ export function TagEditor({ isOpen, onClose, path: _path, branch, annotation, on
                 value={customTagInput}
                 onChange={(e) => setCustomTagInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddCustomTag()}
-                placeholder="输入自定义标签..."
+                placeholder={t('tagEditor.customTagPlaceholder')}
                 className="flex-1 px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               />
               <button
@@ -166,7 +168,7 @@ export function TagEditor({ isOpen, onClose, path: _path, branch, annotation, on
                 className="px-3 py-1.5 text-sm bg-purple-500 text-white rounded-md hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
               >
                 <Plus className="w-4 h-4" />
-                添加
+                {t('tagEditor.add')}
               </button>
             </div>
             {customTags.length > 0 && (
@@ -188,12 +190,12 @@ export function TagEditor({ isOpen, onClose, path: _path, branch, annotation, on
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               <MessageSquare className="w-4 h-4 inline mr-1" />
-              备注描述
+              {t('tagEditor.notesLabel')}
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="添加备注..."
+              placeholder={t('tagEditor.notesPlaceholder')}
               rows={3}
               className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none"
             />
@@ -206,14 +208,14 @@ export function TagEditor({ isOpen, onClose, path: _path, branch, annotation, on
             onClick={onClose}
             className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
           >
-            取消
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSave}
             className="px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 flex items-center gap-1"
           >
             <Check className="w-4 h-4" />
-            保存
+            {t('common.save')}
           </button>
         </div>
       </div>

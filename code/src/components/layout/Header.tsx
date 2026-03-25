@@ -1,4 +1,5 @@
 import { GitBranch, Settings, RefreshCw, Plus, Clock } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/common'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 
@@ -10,6 +11,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings, onOpenTimeline, onRefresh }) => {
+  const { t } = useTranslation()
   const { currentRepo, refreshWorktrees, isLoading } = useWorktreeStore()
 
   const handleRefresh = async () => {
@@ -45,17 +47,17 @@ export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings
                 disabled={isLoading}
                 className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white"
                 translate="no"
-                aria-label="创建 Worktree"
+                aria-label={t('worktree.create')}
               >
                 <Plus className="h-4 w-4" />
-                <span>创建</span>
+                <span>{t('header.create')}</span>
               </Button>
 
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onOpenTimeline}
-                title="时间线"
+                title={t('timeline.title')}
               >
                 <Clock className="h-4 w-4" />
               </Button>

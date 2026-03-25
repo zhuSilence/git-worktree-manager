@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { WorktreeItem } from './WorktreeItem'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 import { GitBranch, Plus, Search, ArrowUpDown, AlertTriangle, Trash2, PanelLeftClose, RefreshCw } from 'lucide-react'
@@ -21,6 +22,7 @@ interface WorktreeListProps {
 }
 
 export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchInputRef }: WorktreeListProps) {
+  const { t } = useTranslation()
   const { worktrees, isLoading, currentRepo, refreshWorktrees } = useWorktreeStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [sortField, setSortField] = useState<SortField>('name')
@@ -135,8 +137,8 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
     return (
       <EmptyState
         icon={GitBranch}
-        title="No worktrees found"
-        description="Create a worktree to get started"
+        title={t('worktree.noWorktrees')}
+        description={t('worktree.noWorktreesDesc')}
         className="h-64"
         action={
           onCreateWorktree && (
@@ -145,7 +147,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
               className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white"
             >
               <Plus className="w-4 h-4" />
-              创建 Worktree
+              {t('worktree.create')}
             </Button>
           )
         }
@@ -164,7 +166,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
             <input
               ref={searchInputRef}
               type="text"
-              placeholder="搜索分支名、路径..."
+              placeholder={t('worktree.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 pr-4 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500 w-full"
@@ -178,13 +180,13 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
               onClick={() => toggleSort('name')}
               className={`px-2 py-1 rounded ${sortField === 'name' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
             >
-              名称
+              {t('common.name')}
             </button>
             <button
               onClick={() => toggleSort('status')}
               className={`px-2 py-1 rounded ${sortField === 'status' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
             >
-              状态
+              {t('common.status')}
             </button>
           </div>
 
@@ -192,7 +194,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
           <button
             onClick={() => setShowHints(true)}
             className="p-1.5 text-gray-400 hover:text-yellow-500 dark:hover:text-yellow-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-            title="智能提示"
+            title={t('hints.title')}
           >
             <AlertTriangle className="w-4 h-4" />
           </button>
@@ -202,7 +204,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
             onClick={() => refreshWorktrees()}
             disabled={isLoading}
             className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
-            title="刷新 Worktree 列表"
+            title={t('worktree.refreshList')}
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
@@ -212,7 +214,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
             <button
               onClick={() => setShowBatchActions(true)}
               className="p-1.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-              title="批量删除"
+              title={t('batch.title')}
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -230,7 +232,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
             <button
               onClick={onCollapse}
               className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-              title="收起 Worktree 列表"
+              title={t('worktree.collapseList')}
             >
               <PanelLeftClose className="w-4 h-4" />
             </button>
@@ -255,7 +257,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
       {searchQuery && filteredAndSortedWorktrees.length === 0 && (
         <EmptyState
           icon={Search}
-          title={`未找到匹配 "${searchQuery}" 的 Worktree`}
+          title={t('worktree.noSearchResult', { query: searchQuery })}
           size="sm"
         />
       )}

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X, Trash2, AlertTriangle, CheckSquare, Square } from 'lucide-react'
 import type { Worktree } from '@/types/worktree'
 import { gitService } from '@/services/git'
@@ -13,6 +14,7 @@ interface BatchActionsProps {
 }
 
 export function BatchActions({ isOpen, onClose, worktrees, repoPath }: BatchActionsProps) {
+  const { t } = useTranslation()
   const { refreshWorktrees } = useWorktreeStore()
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
@@ -43,8 +45,8 @@ export function BatchActions({ isOpen, onClose, worktrees, repoPath }: BatchActi
     if (selectedWorktrees.length === 0) return
 
     const confirmMsg = force
-      ? `确定强制删除 ${selectedWorktrees.length} 个 worktree 吗？（包括有未提交更改的）`
-      : `确定删除 ${selectedWorktrees.length} 个 worktree 吗？`
+      ? t('batch.confirmForceDelete', { count: selectedWorktrees.length })
+      : t('batch.confirmDelete', { count: selectedWorktrees.length })
 
     if (!confirm(confirmMsg)) return
 
@@ -79,7 +81,7 @@ export function BatchActions({ isOpen, onClose, worktrees, repoPath }: BatchActi
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <Trash2 className="w-5 h-5 text-red-500" />
-            批量删除
+            {t('batch.title')}
           </h2>
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded">
             <X className="w-5 h-5" />
@@ -90,15 +92,15 @@ export function BatchActions({ isOpen, onClose, worktrees, repoPath }: BatchActi
         <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2">
             <button onClick={selectAll} className="text-xs text-blue-500 hover:text-blue-600">
-              全选
+              {t('common.selectAll')}
             </button>
             <span className="text-gray-300 dark:text-gray-600">|</span>
             <button onClick={deselectAll} className="text-xs text-blue-500 hover:text-blue-600">
-              取消全选
+              {t('common.deselectAll')}
             </button>
           </div>
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            已选择 {selectedPaths.size} 个
+            {t('common.selected', { count: selectedPaths.size })}
           </span>
         </div>
 
@@ -107,8 +109,8 @@ export function BatchActions({ isOpen, onClose, worktrees, repoPath }: BatchActi
           {nonMainWorktrees.length === 0 ? (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               <AlertTriangle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>没有可删除的 worktree</p>
-              <p className="text-sm mt-1">主 worktree 不能删除</p>
+              <p>{t('batch.noWorktreesToDelete')}</p>
+              <p className="text-sm mt-1">{t('batch.mainCannotDelete')}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -142,9 +144,9 @@ export function BatchActions({ isOpen, onClose, worktrees, repoPath }: BatchActi
         {result && (
           <div className="p-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
             <p className="text-sm text-center">
-              <span className="text-green-500">成功 {result.successCount} 个</span>
+              <span className="text-green-500">{t('batch.successCount', { count: result.successCount })}</span>
               {result.failedCount > 0 && (
-                <span className="text-red-500 ml-2">失败 {result.failedCount} 个</span>
+                <span className="text-red-500 ml-2">{t('batch.failedCount', { count: result.failedCount })}</span>
               )}
             </p>
           </div>
@@ -162,14 +164,14 @@ export function BatchActions({ isOpen, onClose, worktrees, repoPath }: BatchActi
             ) : (
               <Trash2 className="w-4 h-4" />
             )}
-            删除
+            {t('common.delete')}
           </button>
           <button
             onClick={() => handleBatchDelete(true)}
             disabled={selectedPaths.size === 0 || isLoading}
             className="flex-1 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            强制删除
+            {t('batch.forceDelete')}
           </button>
         </div>
       </div>

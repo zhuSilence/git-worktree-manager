@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { X, FileText, Plus, Minus, RefreshCw, GitCompare, ChevronDown, ChevronRight, Columns, AlignLeft, ArrowUp, GripVertical, ChevronsDown, LayoutList } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { gitService } from '@/services/git'
 import type { DetailedDiffResponse, FileDiff } from '@/types/worktree'
 import { clsx } from 'clsx'
@@ -27,6 +28,7 @@ const STORAGE_KEY = 'diff-sidebar-width'
 const SPLIT_MIN_WIDTH = 700
 
 export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branches = [], defaultBranch = 'main', fillWidth = false, refreshToken }: DiffSidebarProps) {
+  const { t } = useTranslation()
   const [diff, setDiff] = useState<DetailedDiffResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -128,7 +130,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
       // 默认全部收起，避免大量文件同时渲染卡顿
       setExpandedFiles(new Set())
     } catch (err) {
-      setError(err instanceof Error ? err.message : '获取 diff 失败')
+      setError(err instanceof Error ? err.message : t('diff.fetchFailed'))
     } finally {
       setIsLoading(false)
     }
@@ -284,10 +286,10 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'added': return '新增'
-      case 'deleted': return '删除'
-      case 'modified': return '修改'
-      case 'renamed': return '重命名'
+      case 'added': return t('diff.statusAdded')
+      case 'deleted': return t('diff.statusDeleted')
+      case 'modified': return t('diff.statusModified')
+      case 'renamed': return t('diff.statusRenamed')
       default: return status
     }
   }
@@ -329,14 +331,14 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
             <button
               onClick={jumpToPrevChange}
               className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded"
-              title="上一个变更"
+              title={t('diff.prevChange')}
             >
               <ArrowUp className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={jumpToNextChange}
               className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rotate-180 rounded"
-              title="下一个变更"
+              title={t('diff.nextChange')}
             >
               <ArrowUp className="w-3.5 h-3.5" />
             </button>
@@ -365,7 +367,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                   : 'text-gray-500 dark:text-gray-400',
                 width < SPLIT_MIN_WIDTH && 'opacity-40 cursor-not-allowed'
               )}
-              title={width < SPLIT_MIN_WIDTH ? '窗口太窄，请拖宽后使用' : '拆分视图'}
+              title={width < SPLIT_MIN_WIDTH ? t('diff.tooNarrow') : t('diff.splitView')}
             >
               <Columns className="w-3 h-3" />
             </button>
@@ -380,7 +382,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                 ? 'text-purple-500 bg-purple-50 dark:bg-purple-900/30'
                 : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
             )}
-            title={showFileTree ? '隐藏文件列表' : '显示文件列表'}
+            title={showFileTree ? t('diff.hideFileList') : t('diff.showFileList')}
           >
             <LayoutList className="w-3.5 h-3.5" />
           </button>
@@ -425,7 +427,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
         {showFileTree && !isLoading && !error && diff && diff.files.length > 0 && (
           <div className="w-56 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 flex flex-col bg-gray-50/50 dark:bg-gray-900/50">
             <div className="p-2 text-[11px] font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-              文件 ({diff.files.length})
+              {t('diff.files')} ({diff.files.length})
             </div>
             <div className="flex-1 overflow-y-auto">
               {fileTree.map(node => (
@@ -464,7 +466,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                   <div className="flex items-center gap-1">
                     <FileText className="w-3.5 h-3.5 text-gray-500" />
                     <span className="font-medium">{diff.files.length}</span>
-                    <span className="text-gray-500">文件</span>
+                    <span className="text-gray-500">{t('diff.files')}</span>
                   </div>
                   <div className="flex items-center gap-1 text-green-500">
                     <Plus className="w-3.5 h-3.5" />
@@ -494,14 +496,14 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                       className="text-xs text-purple-500 hover:text-purple-700 dark:hover:text-purple-300 flex items-center gap-0.5"
                     >
                       <ChevronsDown className="w-3 h-3" />
-                      展开更多
+                      {t('diff.expandMore')}
                     </button>
                   )}
                   <button
                     onClick={toggleAll}
                     className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                   >
-                    {expandedFiles.size === diff.files.length ? '全部收起' : '全部展开'}
+                    {expandedFiles.size === diff.files.length ? t('diff.collapseAll') : t('diff.expandAll')}
                   </button>
                 </div>
               </div>
@@ -511,8 +513,8 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
             {diff.files.length === 0 ? (
               <div className="text-center py-16 text-gray-500 dark:text-gray-400">
                 <GitCompare className="w-12 h-12 mx-auto mb-3 opacity-50 animate-pulse" />
-                <p className="text-sm">没有发现差异</p>
-                <p className="text-xs text-gray-400 mt-1">当前分支与 {targetBranch} 内容相同</p>
+                <p className="text-sm">{t('diff.noDiff')}</p>
+                <p className="text-xs text-gray-400 mt-1">{t('diff.sameContent', { branch: targetBranch })}</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-200 dark:divide-gray-700">

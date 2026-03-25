@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X, Clock, Calendar, Loader2 } from 'lucide-react'
 import { gitService } from '@/services/git'
 import type { CommitInfo, TimelineResponse } from '@/types/worktree'
@@ -13,6 +14,7 @@ interface TimelineProps {
 type TimeRange = '7d' | '30d' | 'all'
 
 export function Timeline({ isOpen, onClose, repoPath }: TimelineProps) {
+  const { t } = useTranslation()
   const [timelineData, setTimelineData] = useState<TimelineResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -47,7 +49,7 @@ export function Timeline({ isOpen, onClose, repoPath }: TimelineProps) {
         )
         setTimelineData(data)
       } catch (err) {
-        setError(err instanceof Error ? err.message : '加载时间线失败')
+        setError(err instanceof Error ? err.message : t('timeline.loading'))
       } finally {
         setIsLoading(false)
       }
@@ -92,7 +94,7 @@ export function Timeline({ isOpen, onClose, repoPath }: TimelineProps) {
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <Clock className="w-5 h-5" />
-            提交时间线
+            {t('timeline.title')}
           </h2>
           <div className="flex items-center gap-2">
             {/* 时间范围选择器 */}
@@ -131,7 +133,7 @@ export function Timeline({ isOpen, onClose, repoPath }: TimelineProps) {
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-12">
               <Loader2 className="w-8 h-8 text-green-500 animate-spin mb-4" />
-              <p className="text-gray-600 dark:text-gray-300">加载中...</p>
+              <p className="text-gray-600 dark:text-gray-300">{t('timeline.loading')}</p>
             </div>
           )}
 
@@ -146,8 +148,8 @@ export function Timeline({ isOpen, onClose, repoPath }: TimelineProps) {
           {!isLoading && !error && timelineData && timelineData.commits.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
               <Calendar className="w-12 h-12 mb-4 opacity-50" />
-              <p>暂无提交记录</p>
-              <p className="text-sm mt-1">尝试选择更长的时间范围</p>
+              <p>{t('timeline.noCommits')}</p>
+              <p className="text-sm mt-1">{t('timeline.tryLongerRange')}</p>
             </div>
           )}
 

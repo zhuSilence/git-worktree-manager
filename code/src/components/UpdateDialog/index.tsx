@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X, Download, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react'
 import { updateStore } from '@/stores/updateStore'
 
@@ -8,6 +9,7 @@ interface UpdateDialogProps {
 }
 
 export function UpdateDialog({ isOpen, onClose }: UpdateDialogProps) {
+  const { t } = useTranslation()
   const {
     isDownloading,
     updateInfo,
@@ -68,7 +70,7 @@ export function UpdateDialog({ isOpen, onClose }: UpdateDialogProps) {
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <RefreshCw className="w-5 h-5" />
-            软件更新
+            {t('settings.checkUpdate')}
           </h2>
           <button
             onClick={handleClose}
@@ -84,7 +86,7 @@ export function UpdateDialog({ isOpen, onClose }: UpdateDialogProps) {
           {step === 'checking' && (
             <div className="flex flex-col items-center justify-center py-8">
               <RefreshCw className="w-12 h-12 text-green-500 animate-spin mb-4" />
-              <p className="text-gray-600 dark:text-gray-300">正在检查更新...</p>
+              <p className="text-gray-600 dark:text-gray-300">{t('update.checking')}</p>
             </div>
           )}
 
@@ -95,10 +97,10 @@ export function UpdateDialog({ isOpen, onClose }: UpdateDialogProps) {
                 <Download className="w-8 h-8 text-green-500" />
                 <div>
                   <p className="font-medium text-gray-900 dark:text-white">
-                    发现新版本 v{updateInfo.version}
+                    {t('settings.newVersionFound')} v{updateInfo.version}
                   </p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    当前版本 v{__APP_VERSION__}
+                    {t('settings.currentVersion')} v{__APP_VERSION__}
                   </p>
                 </div>
               </div>
@@ -116,14 +118,14 @@ export function UpdateDialog({ isOpen, onClose }: UpdateDialogProps) {
                   onClick={handleClose}
                   className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600"
                 >
-                  稍后提醒
+                  {t('common.close')}
                 </button>
                 <button
                   onClick={handleInstall}
                   className="flex-1 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 flex items-center justify-center gap-2"
                 >
                   <Download className="w-4 h-4" />
-                  立即更新
+                  {t('settings.checkUpdate')}
                 </button>
               </div>
             </div>
@@ -134,14 +136,14 @@ export function UpdateDialog({ isOpen, onClose }: UpdateDialogProps) {
             <div className="space-y-4">
               <div className="flex flex-col items-center justify-center py-8">
                 <CheckCircle className="w-12 h-12 text-green-500 mb-4" />
-                <p className="text-gray-900 dark:text-white font-medium mb-1">当前已是最新版本</p>
+                <p className="text-gray-900 dark:text-white font-medium mb-1">{t('update.latestVersion')}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">v{__APP_VERSION__}</p>
               </div>
               <button
                 onClick={handleClose}
                 className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600"
               >
-                关闭
+                {t('common.close')}
               </button>
             </div>
           )}
@@ -154,7 +156,7 @@ export function UpdateDialog({ isOpen, onClose }: UpdateDialogProps) {
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
-                  <span>正在下载更新...</span>
+                  <span>{t('update.downloading')}</span>
                   <span>{Math.round(downloadProgress)}%</span>
                 </div>
                 <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -176,7 +178,7 @@ export function UpdateDialog({ isOpen, onClose }: UpdateDialogProps) {
               <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
                 <AlertCircle className="w-8 h-8 text-red-500" />
                 <div>
-                  <p className="font-medium text-gray-900 dark:text-white">更新失败</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{t('update.failed')}</p>
                   <p className="text-sm text-red-500">{error}</p>
                 </div>
               </div>
@@ -185,7 +187,7 @@ export function UpdateDialog({ isOpen, onClose }: UpdateDialogProps) {
                   onClick={handleClose}
                   className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600"
                 >
-                  关闭
+                  {t('common.close')}
                 </button>
                 <button
                   onClick={() => {
@@ -195,7 +197,7 @@ export function UpdateDialog({ isOpen, onClose }: UpdateDialogProps) {
                   }}
                   className="flex-1 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
                 >
-                  重试
+                  {t('common.refresh')}
                 </button>
               </div>
             </div>

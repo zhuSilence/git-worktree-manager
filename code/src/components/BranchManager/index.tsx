@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { X, GitBranch, Plus, Download, RefreshCw, Search, ChevronDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { gitService } from '@/services/git'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 import { clsx } from 'clsx'
@@ -21,7 +22,8 @@ interface BranchComboBoxProps {
   excludeCurrent?: boolean
 }
 
-function BranchComboBox({ value, onChange, branches, placeholder = '输入或选择分支...', excludeCurrent = false }: BranchComboBoxProps) {
+function BranchComboBox({ value, onChange, branches, placeholder, excludeCurrent = false }: BranchComboBoxProps) {
+  const { t } = useTranslation()
   const [query, setQuery] = useState(value)
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -72,7 +74,7 @@ function BranchComboBox({ value, onChange, branches, placeholder = '输入或选
           value={query}
           onChange={(e) => handleInputChange(e.target.value)}
           onFocus={() => setIsOpen(true)}
-          placeholder={placeholder}
+          placeholder={placeholder || t('branchManager.inputOrSelect')}
           className="w-full pl-9 pr-8 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
         />
         <button
@@ -86,7 +88,7 @@ function BranchComboBox({ value, onChange, branches, placeholder = '输入或选
       {isOpen && (
         <div className="absolute z-20 w-full mt-1 max-h-48 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
           {filtered.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-gray-400 dark:text-gray-500">无匹配分支</div>
+            <div className="px-3 py-2 text-sm text-gray-400 dark:text-gray-500">{t('branchManager.noMatch')}</div>
           ) : (
             filtered.map((b) => (
               <button
@@ -101,7 +103,7 @@ function BranchComboBox({ value, onChange, branches, placeholder = '输入或选
                 )}
               >
                 {b.name}
-                {b.isCurrent && <span className="ml-2 text-xs text-gray-400">(当前)</span>}
+                {b.isCurrent && <span className="ml-2 text-xs text-gray-400">{t('branchManager.current')}</span>}
               </button>
             ))
           )}
@@ -112,6 +114,7 @@ function BranchComboBox({ value, onChange, branches, placeholder = '输入或选
 }
 
 export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, branches }: BranchManagerProps) {
+  const { t } = useTranslation()
   const { refreshWorktrees } = useWorktreeStore()
   const [mode, setMode] = useState<'switch' | 'create' | 'fetch'>('switch')
   const [selectedBranch, setSelectedBranch] = useState('')
@@ -138,7 +141,7 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
         setMessage({ type: 'error', text: result.message })
       }
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : '切换失败' })
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : t('branchManager.switchFailed') })
     } finally {
       setIsLoading(false)
     }
@@ -158,7 +161,7 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
         setMessage({ type: 'error', text: result.message })
       }
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : '创建失败' })
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : t('branchManager.createFailed') })
     } finally {
       setIsLoading(false)
     }
@@ -178,7 +181,7 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
         setMessage({ type: 'error', text: result.message })
       }
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : '拉取失败' })
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : t('branchManager.fetchFailed') })
     } finally {
       setIsLoading(false)
     }
@@ -192,7 +195,7 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <GitBranch className="w-5 h-5" />
-            分支管理
+            {t('branchManager.title')}
           </h2>
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded">
             <X className="w-5 h-5" />
@@ -210,7 +213,7 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             )}
           >
-            切换分支
+            {t('branchManager.switchBranch')}
           </button>
           <button
             onClick={() => setMode('create')}
@@ -221,7 +224,7 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             )}
           >
-            创建分支
+            {t('branchManager.createBranch')}
           </button>
           <button
             onClick={() => setMode('fetch')}
@@ -232,7 +235,7 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             )}
           >
-            拉取远程
+            {t('branchManager.fetchRemote')}
           </button>
         </div>
 
@@ -242,17 +245,17 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  选择分支
+                  {t('branchManager.selectBranch')}
                 </label>
                 <BranchComboBox
                   value={selectedBranch}
                   onChange={setSelectedBranch}
                   branches={branches}
                   excludeCurrent
-                  placeholder="输入或选择分支..."
+                  placeholder={t('branchManager.inputOrSelect')}
                 />
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  当前分支: {worktreeBranch}
+                  {t('branchManager.currentBranch')}: {worktreeBranch}
                 </p>
               </div>
               <button
@@ -261,7 +264,7 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
                 className="w-full py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <GitBranch className="w-4 h-4" />}
-                切换
+                {t('branchManager.switch')}
               </button>
             </div>
           )}
@@ -270,7 +273,7 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  新分支名
+                  {t('branchManager.newBranchName')}
                 </label>
                 <input
                   type="text"
@@ -282,13 +285,13 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  基于分支 (可选)
+                  {t('branchManager.baseBranchOptional')}
                 </label>
                 <BranchComboBox
                   value={baseBranch}
                   onChange={setBaseBranch}
                   branches={branches}
-                  placeholder={`默认: ${worktreeBranch}`}
+                  placeholder={`${t('branchManager.default')}: ${worktreeBranch}`}
                 />
               </div>
               <button
@@ -297,7 +300,7 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
                 className="w-full py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                创建并切换
+                {t('branchManager.createAndSwitch')}
               </button>
             </div>
           )}
@@ -306,7 +309,7 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  远程分支名
+                  {t('branchManager.remoteBranchName')}
                 </label>
                 <input
                   type="text"
@@ -318,13 +321,13 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  本地分支名 (可选)
+                  {t('branchManager.localBranchNameOptional')}
                 </label>
                 <input
                   type="text"
                   value={localBranchName}
                   onChange={(e) => setLocalBranchName(e.target.value)}
-                  placeholder="默认与远程分支同名"
+                  placeholder={t('branchManager.defaultRemoteName')}
                   className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                 />
               </div>
@@ -334,7 +337,7 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
                 className="w-full py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                拉取并切换
+                {t('branchManager.fetchAndSwitch')}
               </button>
             </div>
           )}
