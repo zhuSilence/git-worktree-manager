@@ -1,4 +1,4 @@
-use crate::models::{CreateWorktreeParams, Worktree, WorktreeListResponse, WorktreeResult, WorktreeStatus, Branch, BranchListResponse, LastCommit, DiffStats, DiffResponse, DiffLine, DiffHunk, FileDiff, DetailedDiffResponse, RepositoryInfo, SwitchBranchResult, BatchDeleteResult, WorktreeHint, SyncStatus, CommitInfo, TimelineResponse};
+use crate::models::{CreateWorktreeParams, Worktree, WorktreeListResponse, WorktreeResult, WorktreeStatus, Branch, BranchListResponse, LastCommit, DiffStats, DiffResponse, DiffLine, DiffHunk, FileDiff, DetailedDiffResponse, RepositoryInfo, SwitchBranchResult, BatchDeleteResult, WorktreeHint, SyncStatus, CommitInfo, TimelineResponse, BackupInfo, BackupListResponse, BackupResult, RestoreResult, BackupType, get_backup_dir, generate_backup_id};
 use crate::utils::validation::{sanitize_branch_name, validate_path};
 use git2::Repository;
 use std::path::Path;
@@ -1296,4 +1296,260 @@ pub fn pull(worktree_path: &str, branch: Option<&str>) -> anyhow::Result<SwitchB
         success: true,
         message: format!("Pulled latest changes for '{}'", branch_name),
     })
+}
+
+// ============ 备份相关功能 ============
+
+/// 创建删除前的备份
+pub fn create_pre_delete_backup(
+    worktree_path: &str,
+    branch_name: &str,
+) -> anyhow::Result<BackupResult> {
+    let repo = Repository::open(worktree_path)?;
+    let status = get_worktree_status(&repo)?;
+
+    // 只有在有未提交更改时才需要备份
+    let has_changes = status != WorktreeStatus::Clean;
+
+    let backup_id = generate_backup_id();
+    let created_at = chrono::Local::now().to_rfc3339();
+
+    let stash_ref = if has_changes {
+        // 创建 stash
+        let stash_output = Command::new("git")
+            .args(["stash", "push", "-m", &format!("pre-delete-backup-{}", backup_id)])
+            .current_dir(worktree_path)
+            .output()?;
+
+        if stash_output.status.success() {
+            // 获取 stash 引用
+            let ref_output = Command::new("git")
+                .args(["stash", "list", "-n", "1", "--format=%gd"])
+                .current_dir(worktree_path)
+                .output()?;
+
+            if ref_output.status.success() {
+                let stash_ref = String::from_utf8_lossy(&ref_output.stdout).trim().to_string();
+                if !stash_ref.is_empty() {
+                    Some(stash_ref)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let backup_info = BackupInfo {
+        id: backup_id,
+        branch: branch_name.to_string(),
+        worktree_path: worktree_path.to_string(),
+        created_at,
+        stash_ref: stash_ref.clone(),
+        has_changes,
+        backup_type: BackupType::PreDelete,
+    };
+
+    // 保存备份元数据
+    save_backup_metadata(&backup_info)?;
+
+    Ok(BackupResult {
+        success: true,
+        message: if has_changes {
+            format!("已创建备份: {} (stash: {:?})", backup_info.id, stash_ref)
+        } else {
+            format!("已记录备份: {} (无未提交更改)", backup_info.id)
+        },
+        backup: Some(backup_info),
+    })
+}
+
+/// 保存备份元数据到文件
+fn save_backup_metadata(backup: &BackupInfo) -> anyhow::Result<()> {
+    let backup_dir = get_backup_dir();
+    std::fs::create_dir_all(&backup_dir)?;
+
+    let backup_file = backup_dir.join(format!("{}.json", backup.id));
+    let content = serde_json::to_string_pretty(backup)?;
+    std::fs::write(&backup_file, content)?;
+
+    Ok(())
+}
+
+/// 列出所有备份
+pub fn list_backups() -> anyhow::Result<BackupListResponse> {
+    let backup_dir = get_backup_dir();
+
+    if !backup_dir.exists() {
+        return Ok(BackupListResponse {
+            backups: Vec::new(),
+            total: 0,
+        });
+    }
+
+    let mut backups = Vec::new();
+
+    for entry in std::fs::read_dir(&backup_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.extension().map(|e| e == "json").unwrap_or(false) {
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                if let Ok(backup) = serde_json::from_str::<BackupInfo>(&content) {
+                    backups.push(backup);
+                }
+            }
+        }
+    }
+
+    // 按时间倒序排列
+    backups.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+
+    let total = backups.len();
+
+    Ok(BackupListResponse {
+        backups,
+        total,
+    })
+}
+
+/// 获取单个备份详情
+pub fn get_backup(backup_id: &str) -> anyhow::Result<Option<BackupInfo>> {
+    let backup_dir = get_backup_dir();
+    let backup_file = backup_dir.join(format!("{}.json", backup_id));
+
+    if !backup_file.exists() {
+        return Ok(None);
+    }
+
+    let content = std::fs::read_to_string(&backup_file)?;
+    let backup = serde_json::from_str::<BackupInfo>(&content)?;
+
+    Ok(Some(backup))
+}
+
+/// 从备份恢复
+pub fn restore_from_backup(backup_id: &str, target_path: &str) -> anyhow::Result<RestoreResult> {
+    let backup = match get_backup(backup_id)? {
+        Some(b) => b,
+        None => {
+            return Ok(RestoreResult {
+                success: false,
+                message: format!("备份不存在: {}", backup_id),
+            });
+        }
+    };
+
+    // 检查目标路径是否存在
+    if !std::path::Path::new(target_path).exists() {
+        return Ok(RestoreResult {
+            success: false,
+            message: format!("目标路径不存在: {}", target_path),
+        });
+    }
+
+    // 如果有 stash，恢复 stash
+    if let Some(ref stash_ref) = backup.stash_ref {
+        // 检查 stash 是否还存在
+        let check_output = Command::new("git")
+            .args(["stash", "list"])
+            .current_dir(target_path)
+            .output()?;
+
+        let stash_list = String::from_utf8_lossy(&check_output.stdout).to_string();
+
+        if stash_list.contains(stash_ref) {
+            // 应用 stash
+            let apply_output = Command::new("git")
+                .args(["stash", "apply", stash_ref])
+                .current_dir(target_path)
+                .output()?;
+
+            if !apply_output.status.success() {
+                return Ok(RestoreResult {
+                    success: false,
+                    message: format!("恢复 stash 失败: {}", String::from_utf8_lossy(&apply_output.stderr)),
+                });
+            }
+        }
+    }
+
+    Ok(RestoreResult {
+        success: true,
+        message: format!("已从备份 {} 恢复", backup_id),
+    })
+}
+
+/// 删除备份
+pub fn delete_backup(backup_id: &str) -> anyhow::Result<bool> {
+    let backup_dir = get_backup_dir();
+    let backup_file = backup_dir.join(format!("{}.json", backup_id));
+
+    if backup_file.exists() {
+        std::fs::remove_file(&backup_file)?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
+/// 清理过期备份（默认保留 7 天）
+pub fn cleanup_old_backups(days_to_keep: i64) -> anyhow::Result<usize> {
+    let backup_dir = get_backup_dir();
+
+    if !backup_dir.exists() {
+        return Ok(0);
+    }
+
+    let now = chrono::Local::now();
+    let threshold = now - chrono::Duration::days(days_to_keep);
+    let mut removed_count = 0;
+
+    for entry in std::fs::read_dir(&backup_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.extension().map(|e| e == "json").unwrap_or(false) {
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                if let Ok(backup) = serde_json::from_str::<BackupInfo>(&content) {
+                    if let Ok(created) = chrono::DateTime::parse_from_rfc3339(&backup.created_at) {
+                        if created.with_timezone(&chrono::Local) < threshold {
+                            std::fs::remove_file(&path)?;
+                            removed_count += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(removed_count)
+}
+
+/// 带备份的删除 worktree
+pub fn delete_worktree_with_backup(
+    repo_path: &str,
+    worktree_path: &str,
+    force: bool,
+) -> anyhow::Result<WorktreeResult> {
+    // 如果是强制删除，先创建备份
+    if force {
+        // 获取分支名
+        if let Ok(repo) = Repository::open(worktree_path) {
+            if let Ok(head) = repo.head() {
+                if let Some(branch_name) = head.shorthand() {
+                    // 尝试创建备份（失败不影响删除流程）
+                    let _ = create_pre_delete_backup(worktree_path, branch_name);
+                }
+            }
+        }
+    }
+
+    // 执行删除
+    delete_worktree(repo_path, worktree_path, force)
 }

@@ -42,6 +42,12 @@ pub fn run() {
             commands::worktree::get_timeline,
             commands::worktree::push,
             commands::worktree::pull,
+            // 备份相关命令
+            commands::worktree::create_pre_delete_backup,
+            commands::worktree::list_backups,
+            commands::worktree::restore_from_backup,
+            commands::worktree::delete_backup,
+            commands::worktree::cleanup_old_backups,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

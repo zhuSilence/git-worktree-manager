@@ -1,4 +1,4 @@
-use crate::models::{CreateWorktreeParams, WorktreeListResponse, WorktreeResult};
+use crate::models::{CreateWorktreeParams, WorktreeListResponse, WorktreeResult, BackupListResponse, BackupResult, RestoreResult};
 use crate::services::git_service;
 use tauri::command;
 use tauri::async_runtime::spawn_blocking;
@@ -244,6 +244,69 @@ pub async fn push(worktree_path: String, branch: Option<String>) -> Result<crate
 pub async fn pull(worktree_path: String, branch: Option<String>) -> Result<crate::models::SwitchBranchResult, String> {
     spawn_blocking(move || {
         git_service::pull(&worktree_path, branch.as_deref())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}
+
+// ============ 备份相关命令 ============
+
+/// 创建删除前备份
+#[command]
+pub async fn create_pre_delete_backup(
+    worktree_path: String,
+    branch_name: String,
+) -> Result<BackupResult, String> {
+    spawn_blocking(move || {
+        git_service::create_pre_delete_backup(&worktree_path, &branch_name)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}
+
+/// 列出所有备份
+#[command]
+pub async fn list_backups() -> Result<BackupListResponse, String> {
+    spawn_blocking(move || {
+        git_service::list_backups()
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}
+
+/// 从备份恢复
+#[command]
+pub async fn restore_from_backup(
+    backup_id: String,
+    target_path: String,
+) -> Result<RestoreResult, String> {
+    spawn_blocking(move || {
+        git_service::restore_from_backup(&backup_id, &target_path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}
+
+/// 删除备份
+#[command]
+pub async fn delete_backup(backup_id: String) -> Result<bool, String> {
+    spawn_blocking(move || {
+        git_service::delete_backup(&backup_id)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}
+
+/// 清理过期备份
+#[command]
+pub async fn cleanup_old_backups(days_to_keep: i64) -> Result<usize, String> {
+    spawn_blocking(move || {
+        git_service::cleanup_old_backups(days_to_keep)
     })
     .await
     .map_err(|e| e.to_string())?
