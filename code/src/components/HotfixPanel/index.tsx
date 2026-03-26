@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { X, Zap, Check, XCircle, Loader2, GitBranch, ArrowRight, Trash2, Rocket } from 'lucide-react'
+import { X, Zap, Check, Loader2, GitBranch, ArrowRight, Trash2, Rocket } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { gitService } from '@/services/git'
 import { useWorktreeStore } from '@/stores/worktreeStore'
-import type { HotfixInfo, HotfixStatus } from '@/types/worktree'
+import type { HotfixInfo } from '@/types/worktree'
 
 interface HotfixPanelProps {
   isOpen: boolean
