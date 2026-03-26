@@ -1,8 +1,10 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { WorktreeItem } from './WorktreeItem'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 import { GitBranch, Plus, Search, ArrowUpDown, AlertTriangle, Trash2, PanelLeftClose, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/common'
+import { EmptyState } from '@/components/common'
 import type { Worktree, WorktreeHint } from '@/types/worktree'
 import { WorktreeStatus } from '@/types/worktree'
 import { HintsPanel } from '@/components/HintsPanel'
@@ -20,6 +22,7 @@ interface WorktreeListProps {
 }
 
 export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchInputRef }: WorktreeListProps) {
+  const { t } = useTranslation()
   const { worktrees, isLoading, currentRepo, refreshWorktrees } = useWorktreeStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [sortField, setSortField] = useState<SortField>('name')
@@ -28,11 +31,17 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
   const [showBatchActions, setShowBatchActions] = useState(false)
   const [mergedHints, setMergedHints] = useState<WorktreeHint[]>([])
 
+  // 用于竞态条件处理的请求版本号
+  const requestVersionRef = useRef(0)
+
   // 获取分支列表
   const branches = currentRepo?.branches || []
 
-  // 获取已合并提示
+  // 获取已合并提示 - 带竞态条件处理
   useEffect(() => {
+    // 每次 effect 运行时增加版本号
+    const currentVersion = ++requestVersionRef.current
+
     const fetchMergedHints = async () => {
       if (currentRepo?.mainWorktreePath) {
         try {
@@ -40,9 +49,15 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
             currentRepo.mainWorktreePath,
             currentRepo.defaultBranch || 'main'
           )
-          setMergedHints(hints)
+          // 只有当版本号匹配时才更新状态，避免过期响应覆盖新数据
+          if (currentVersion === requestVersionRef.current) {
+            setMergedHints(hints)
+          }
         } catch (err) {
-          console.error('Failed to fetch merged hints:', err)
+          // 只在版本匹配时记录错误
+          if (currentVersion === requestVersionRef.current) {
+            console.error('Failed to fetch merged hints:', err)
+          }
         }
       }
     }
@@ -120,20 +135,23 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
 
   if (!worktrees || worktrees.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
-        <GitBranch className="w-12 h-12 mb-4 opacity-50" />
-        <p className="text-lg">No worktrees found</p>
-        <p className="text-sm mt-1 mb-4">Create a worktree to get started</p>
-        {onCreateWorktree && (
-          <Button
-            onClick={onCreateWorktree}
-            className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white"
-          >
-            <Plus className="w-4 h-4" />
-            创建 Worktree
-          </Button>
-        )}
-      </div>
+      <EmptyState
+        icon={GitBranch}
+        title={t('worktree.noWorktrees')}
+        description={t('worktree.noWorktreesDesc')}
+        className="h-64"
+        action={
+          onCreateWorktree && (
+            <Button
+              onClick={onCreateWorktree}
+              className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white"
+            >
+              <Plus className="w-4 h-4" />
+              {t('worktree.create')}
+            </Button>
+          )
+        }
+      />
     )
   }
 
@@ -148,7 +166,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
             <input
               ref={searchInputRef}
               type="text"
-              placeholder="搜索分支名、路径..."
+              placeholder={t('worktree.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 pr-4 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500 w-full"
@@ -162,13 +180,13 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
               onClick={() => toggleSort('name')}
               className={`px-2 py-1 rounded ${sortField === 'name' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
             >
-              名称
+              {t('common.name')}
             </button>
             <button
               onClick={() => toggleSort('status')}
               className={`px-2 py-1 rounded ${sortField === 'status' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
             >
-              状态
+              {t('common.status')}
             </button>
           </div>
 
@@ -176,7 +194,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
           <button
             onClick={() => setShowHints(true)}
             className="p-1.5 text-gray-400 hover:text-yellow-500 dark:hover:text-yellow-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-            title="智能提示"
+            title={t('hints.title')}
           >
             <AlertTriangle className="w-4 h-4" />
           </button>
@@ -186,7 +204,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
             onClick={() => refreshWorktrees()}
             disabled={isLoading}
             className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
-            title="刷新 Worktree 列表"
+            title={t('worktree.refreshList')}
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
@@ -196,7 +214,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
             <button
               onClick={() => setShowBatchActions(true)}
               className="p-1.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-              title="批量删除"
+              title={t('batch.title')}
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -214,7 +232,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
             <button
               onClick={onCollapse}
               className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-              title="收起 Worktree 列表"
+              title={t('worktree.collapseList')}
             >
               <PanelLeftClose className="w-4 h-4" />
             </button>
@@ -237,9 +255,11 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
 
       {/* 无搜索结果 */}
       {searchQuery && filteredAndSortedWorktrees.length === 0 && (
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          <p>未找到匹配 "{searchQuery}" 的 Worktree</p>
-        </div>
+        <EmptyState
+          icon={Search}
+          title={t('worktree.noSearchResult', { query: searchQuery })}
+          size="sm"
+        />
       )}
 
       {/* 智能提示面板 */}

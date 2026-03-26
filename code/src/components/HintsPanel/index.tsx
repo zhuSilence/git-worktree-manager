@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X, AlertTriangle, Clock, Trash2, RefreshCw, Info } from 'lucide-react'
 import { gitService } from '@/services/git'
 import type { WorktreeHint } from '@/types/worktree'
@@ -13,6 +14,7 @@ interface HintsPanelProps {
 }
 
 export function HintsPanel({ isOpen, onClose, repoPath, mainBranch }: HintsPanelProps) {
+  const { t } = useTranslation()
   const { deleteWorktree, refreshWorktrees } = useWorktreeStore()
   const [mergedHints, setMergedHints] = useState<WorktreeHint[]>([])
   const [staleHints, setStaleHints] = useState<WorktreeHint[]>([])
@@ -42,18 +44,18 @@ export function HintsPanel({ isOpen, onClose, repoPath, mainBranch }: HintsPanel
   }
 
   const handleDeleteMerged = async (branch: string, worktreeId: string) => {
-    if (!confirm(`确定删除已合并分支 "${branch}" 的 worktree 吗？`)) return
+    if (!confirm(t('hints.confirmDeleteMerged', { branch }))) return
     await deleteWorktree(worktreeId, false)
     await fetchHints()
   }
 
   const handleCleanupMerged = async () => {
-    if (!confirm(`确定清理所有已合并的 worktree 吗？共 ${mergedHints.length} 个`)) return
-    
+    if (!confirm(t('hints.confirmCleanupAll', { count: mergedHints.length }))) return
+
     const paths = mergedHints.map(h => h.worktreeId)
     try {
       const result = await gitService.batchDeleteWorktrees(repoPath, paths, false)
-      alert(`清理完成: 成功 ${result.successCount} 个, 失败 ${result.failedCount} 个`)
+      alert(t('hints.cleanupComplete', { success: result.successCount, failed: result.failedCount }))
       await fetchHints()
       await refreshWorktrees()
     } catch (err) {
@@ -73,7 +75,7 @@ export function HintsPanel({ isOpen, onClose, repoPath, mainBranch }: HintsPanel
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-yellow-500" />
-            智能提示
+            {t('hints.title')}
             {totalHints > 0 && (
               <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded-full">
                 {totalHints}
@@ -106,8 +108,8 @@ export function HintsPanel({ isOpen, onClose, repoPath, mainBranch }: HintsPanel
           ) : totalHints === 0 ? (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               <Info className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg">暂无提示</p>
-              <p className="text-sm mt-1">所有 worktree 状态良好</p>
+              <p className="text-lg">{t('hints.noHints')}</p>
+              <p className="text-sm mt-1">{t('hints.allGood')}</p>
             </div>
           ) : (
             <div className="space-y-6">
@@ -117,13 +119,13 @@ export function HintsPanel({ isOpen, onClose, repoPath, mainBranch }: HintsPanel
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
                       <AlertTriangle className="w-4 h-4 text-green-500" />
-                      已合并分支 ({mergedHints.length})
+                      {t('hints.mergedBranches')} ({mergedHints.length})
                     </h3>
                     <button
                       onClick={handleCleanupMerged}
                       className="px-3 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600"
                     >
-                      一键清理
+                      {t('hints.oneClickCleanup')}
                     </button>
                   </div>
                   <div className="space-y-2">
@@ -139,7 +141,7 @@ export function HintsPanel({ isOpen, onClose, repoPath, mainBranch }: HintsPanel
                         <button
                           onClick={() => handleDeleteMerged(hint.branch, hint.worktreeId)}
                           className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
-                          title="删除"
+                          title={t('common.delete')}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -155,18 +157,18 @@ export function HintsPanel({ isOpen, onClose, repoPath, mainBranch }: HintsPanel
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
                       <Clock className="w-4 h-4 text-orange-500" />
-                      长期未更新 ({staleHints.length})
+                      {t('hints.staleBranches')} ({staleHints.length})
                     </h3>
                     <select
                       value={staleDays}
                       onChange={(e) => setStaleDays(Number(e.target.value))}
                       className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800"
                     >
-                      <option value={7}>7 天未更新</option>
-                      <option value={14}>14 天未更新</option>
-                      <option value={30}>30 天未更新</option>
-                      <option value={60}>60 天未更新</option>
-                      <option value={90}>90 天未更新</option>
+                      <option value={7}>{t('hints.daysNotUpdated', { days: 7 })}</option>
+                      <option value={14}>{t('hints.daysNotUpdated', { days: 14 })}</option>
+                      <option value={30}>{t('hints.daysNotUpdated', { days: 30 })}</option>
+                      <option value={60}>{t('hints.daysNotUpdated', { days: 60 })}</option>
+                      <option value={90}>{t('hints.daysNotUpdated', { days: 90 })}</option>
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -180,7 +182,7 @@ export function HintsPanel({ isOpen, onClose, repoPath, mainBranch }: HintsPanel
                           <p className="text-sm text-gray-500 dark:text-gray-400">{hint.message}</p>
                         </div>
                         <span className="px-2 py-1 text-xs bg-orange-200 dark:bg-orange-800 text-orange-700 dark:text-orange-300 rounded">
-                          {hint.inactiveDays} 天
+                          {t('hints.inactiveDays', { days: hint.inactiveDays })}
                         </span>
                       </div>
                     ))}

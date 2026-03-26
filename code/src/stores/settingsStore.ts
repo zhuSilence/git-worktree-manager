@@ -37,6 +37,10 @@ export interface AppSettings {
   theme: 'light' | 'dark' | 'system'
   /** 自动刷新间隔 (秒), 0 为禁用 */
   autoRefreshInterval: number
+  /** 是否启用空闲检测 */
+  enableIdleDetection: boolean
+  /** 空闲阈值 (天) */
+  idleThresholdDays: number
 }
 
 interface SettingsState extends AppSettings {
@@ -46,6 +50,8 @@ interface SettingsState extends AppSettings {
   setCustomTerminalPath: (path: string) => void
   setTheme: (theme: 'light' | 'dark' | 'system') => void
   setAutoRefreshInterval: (interval: number) => void
+  setEnableIdleDetection: (enabled: boolean) => void
+  setIdleThresholdDays: (days: number) => void
 }
 
 const defaultSettings: AppSettings = {
@@ -53,6 +59,8 @@ const defaultSettings: AppSettings = {
   defaultTerminal: 'terminal',
   theme: 'system',
   autoRefreshInterval: 0,
+  enableIdleDetection: true,
+  idleThresholdDays: 7,
 }
 
 export const settingsStore = create<SettingsState>()(
@@ -66,6 +74,8 @@ export const settingsStore = create<SettingsState>()(
       setCustomTerminalPath: (path) => set({ customTerminalPath: path }),
       setTheme: (theme) => set({ theme }),
       setAutoRefreshInterval: (interval) => set({ autoRefreshInterval: interval }),
+      setEnableIdleDetection: (enabled) => set({ enableIdleDetection: enabled }),
+      setIdleThresholdDays: (days) => set({ idleThresholdDays: days }),
     }),
     {
       name: 'worktree-manager-settings',

@@ -170,9 +170,16 @@ export const gitService = {
   },
 
   /**
-   * Pull 远程分支改动
+   * Push 本地提交到远程
    */
-  async pullBranch(worktreePath: string): Promise<SwitchBranchResult> {
-    return invoke<SwitchBranchResult>('pull_branch', { worktreePath })
+  async push(worktreePath: string, branch?: string): Promise<SwitchBranchResult> {
+    return invoke<SwitchBranchResult>('push', { worktreePath, branch })
+  },
+
+  /**
+   * Pull 远程提交到本地
+   */
+  async pull(worktreePath: string, branch?: string): Promise<SwitchBranchResult> {
+    return invoke<SwitchBranchResult>('pull', { worktreePath, branch })
   },
 }

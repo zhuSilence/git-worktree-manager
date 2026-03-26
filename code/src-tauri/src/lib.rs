@@ -40,7 +40,8 @@ pub fn run() {
             commands::worktree::get_merged_hints,
             commands::worktree::get_stale_hints,
             commands::worktree::get_timeline,
-            commands::worktree::pull_branch,
+            commands::worktree::push,
+            commands::worktree::pull,
             // AI 评审命令
             commands::ai_review::save_ai_config,
             commands::ai_review::get_ai_config,

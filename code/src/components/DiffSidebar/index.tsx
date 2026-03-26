@@ -1,13 +1,16 @@
-import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react'
-import { X, FileText, Plus, Minus, RefreshCw, GitCompare, ChevronDown, ChevronRight, Columns, AlignLeft, ArrowUp, GripVertical, Copy, Check, ChevronsDown, LayoutList, Folder, FolderOpen, Sparkles } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { X, FileText, Plus, Minus, RefreshCw, GitCompare, ChevronDown, ChevronRight, Columns, AlignLeft, ArrowUp, GripVertical, ChevronsDown, LayoutList, Sparkles } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { gitService } from '@/services/git'
-import type { DetailedDiffResponse, FileDiff, DiffHunk, DiffLine } from '@/types/worktree'
+import type { DetailedDiffResponse, FileDiff } from '@/types/worktree'
 import { clsx } from 'clsx'
-import { InlineReviewMarker, FileReviewSummary } from './InlineReviewMarker'
 import { aiReviewStore } from '@/stores/aiReviewStore'
 import { AIConfigPanel } from '@/components/AIConfigPanel'
-import { AIReviewResult } from '@/types/ai'
-import { getLineIssues } from '@/utils/aiReview'
+
+// 拆分的子模块
+import type { ViewMode, FileTreeNode } from './types'
+import { buildFileTree, FileTreeNodeItem } from './FileTree'
+import { UnifiedDiffView, SplitDiffView } from './DiffViews'
 
 interface DiffSidebarProps {
   isOpen: boolean
@@ -17,9 +20,8 @@ interface DiffSidebarProps {
   branches?: string[]
   defaultBranch?: string
   fillWidth?: boolean
+  refreshToken?: number
 }
-
-type ViewMode = 'unified' | 'split'
 
 const MIN_WIDTH = 400
 const MAX_WIDTH = 1200
@@ -27,241 +29,8 @@ const DEFAULT_WIDTH = 600
 const STORAGE_KEY = 'diff-sidebar-width'
 const SPLIT_MIN_WIDTH = 700
 
-// ─── 字符级差异算法 ───────────────────────────────────────────────
-interface CharSegment {
-  text: string
-  highlight: boolean
-}
-
-function computeIntraLineDiff(oldStr: string, newStr: string): { oldSegments: CharSegment[]; newSegments: CharSegment[] } {
-  // 找公共前缀
-  let prefix = 0
-  while (prefix < oldStr.length && prefix < newStr.length && oldStr[prefix] === newStr[prefix]) prefix++
-  // 找公共后缀
-  let oldEnd = oldStr.length
-  let newEnd = newStr.length
-  while (oldEnd > prefix && newEnd > prefix && oldStr[oldEnd - 1] === newStr[newEnd - 1]) {
-    oldEnd--
-    newEnd--
-  }
-  const oldSegments: CharSegment[] = []
-  const newSegments: CharSegment[] = []
-  if (prefix > 0) {
-    oldSegments.push({ text: oldStr.slice(0, prefix), highlight: false })
-    newSegments.push({ text: newStr.slice(0, prefix), highlight: false })
-  }
-  if (oldEnd > prefix) oldSegments.push({ text: oldStr.slice(prefix, oldEnd), highlight: true })
-  if (newEnd > prefix) newSegments.push({ text: newStr.slice(prefix, newEnd), highlight: true })
-  if (oldEnd < oldStr.length) {
-    oldSegments.push({ text: oldStr.slice(oldEnd), highlight: false })
-    newSegments.push({ text: newStr.slice(newEnd), highlight: false })
-  }
-  return { oldSegments, newSegments }
-}
-
-/** 将 hunk 中连续的 deletion/addition 配对，计算字符级 diff */
-function pairHunkLines(lines: DiffLine[]): Map<number, CharSegment[]> {
-  const charMap = new Map<number, CharSegment[]>()
-  let i = 0
-  while (i < lines.length) {
-    // 收集连续删除行
-    const delStart = i
-    while (i < lines.length && lines[i].lineType === 'deletion') i++
-    const delEnd = i
-    // 收集连续新增行
-    const addStart = i
-    while (i < lines.length && lines[i].lineType === 'addition') i++
-    const addEnd = i
-    // 1:1 配对
-    const pairCount = Math.min(delEnd - delStart, addEnd - addStart)
-    for (let p = 0; p < pairCount; p++) {
-      const { oldSegments, newSegments } = computeIntraLineDiff(
-        lines[delStart + p].content,
-        lines[addStart + p].content
-      )
-      charMap.set(delStart + p, oldSegments)
-      charMap.set(addStart + p, newSegments)
-    }
-    // 跳过 context 行
-    if (i === delStart) i++
-  }
-  return charMap
-}
-
-// ─── 简易语法着色 ─────────────────────────────────────────────────
-interface SyntaxToken { text: string; type: 'keyword' | 'string' | 'comment' | 'number' | 'normal' }
-
-const KEYWORDS = new Set([
-  'import','export','from','const','let','var','function','return','if','else',
-  'for','while','switch','case','break','continue','default','new','this',
-  'class','extends','implements','interface','type','enum','struct','pub',
-  'fn','mod','use','async','await','try','catch','finally','throw','yield',
-  'true','false','null','undefined','void','typeof','instanceof','in','of',
-  'static','readonly','private','public','protected','super','self','mut',
-])
-
-function tokenize(text: string): SyntaxToken[] {
-  const tokens: SyntaxToken[] = []
-  // Regex: comments, strings, numbers, words, rest
-  const re = /(\/\/.*$|\/\*[\s\S]*?\*\/|#.*$)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(\b\d+(?:\.\d+)?\b)|(\b[a-zA-Z_]\w*\b)|([\s\S])/gm
-  let m: RegExpExecArray | null
-  while ((m = re.exec(text)) !== null) {
-    if (m[1]) tokens.push({ text: m[0], type: 'comment' })
-    else if (m[2]) tokens.push({ text: m[0], type: 'string' })
-    else if (m[3]) tokens.push({ text: m[0], type: 'number' })
-    else if (m[4]) tokens.push({ text: m[0], type: KEYWORDS.has(m[0]) ? 'keyword' : 'normal' })
-    else tokens.push({ text: m[0], type: 'normal' })
-  }
-  return tokens
-}
-
-const syntaxColors: Record<string, string> = {
-  keyword: 'text-purple-600 dark:text-purple-400',
-  string: 'text-amber-700 dark:text-amber-300',
-  comment: 'text-gray-400 dark:text-gray-500 italic',
-  number: 'text-cyan-600 dark:text-cyan-400',
-  normal: '',
-}
-
-// ─── 文件树数据结构 ──────────────────────────────────────────────
-interface FileTreeNode {
-  name: string
-  fullPath: string
-  isFile: boolean
-  status?: string
-  additions?: number
-  deletions?: number
-  children: FileTreeNode[]
-}
-
-function buildFileTree(files: FileDiff[]): FileTreeNode[] {
-  const root: FileTreeNode = { name: '', fullPath: '', isFile: false, children: [] }
-
-  for (const file of files) {
-    const parts = file.path.split('/')
-    let current = root
-    for (let i = 0; i < parts.length; i++) {
-      const isLast = i === parts.length - 1
-      let child = current.children.find(c => c.name === parts[i] && c.isFile === isLast)
-      if (!child) {
-        child = {
-          name: parts[i],
-          fullPath: parts.slice(0, i + 1).join('/'),
-          isFile: isLast,
-          children: [],
-          ...(isLast ? { status: file.status, additions: file.additions, deletions: file.deletions } : {}),
-        }
-        current.children.push(child)
-      }
-      current = child
-    }
-  }
-
-  // 压缩只有单个子目录的中间节点: a/ -> b/ -> c 变成 a/b/ -> c
-  function compact(node: FileTreeNode): FileTreeNode {
-    if (!node.isFile && node.children.length === 1 && !node.children[0].isFile) {
-      const child = node.children[0]
-      return compact({
-        ...child,
-        name: node.name ? `${node.name}/${child.name}` : child.name,
-        children: child.children,
-      })
-    }
-    return { ...node, children: node.children.map(compact) }
-  }
-
-  // 排序：目录在前，文件在后，同类按名称排序
-  function sortTree(nodes: FileTreeNode[]): FileTreeNode[] {
-    return nodes
-      .map(n => ({ ...n, children: sortTree(n.children) }))
-      .sort((a, b) => {
-        if (a.isFile !== b.isFile) return a.isFile ? 1 : -1
-        return a.name.localeCompare(b.name)
-      })
-  }
-
-  return sortTree(root.children.map(compact))
-}
-
-// ─── 文件树节点组件 ──────────────────────────────────────────────
-function FileTreeNodeItem({
-  node, depth, activeFile, onFileClick, expandedDirs, toggleDir,
-}: {
-  node: FileTreeNode
-  depth: number
-  activeFile: string | null
-  onFileClick: (path: string) => void
-  expandedDirs: Set<string>
-  toggleDir: (path: string) => void
-}) {
-  if (node.isFile) {
-    return (
-      <button
-        onClick={() => onFileClick(node.fullPath)}
-        className={clsx(
-          'w-full text-left py-1 pr-2 text-[11px] hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-1 transition-colors',
-          activeFile === node.fullPath && 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
-        )}
-        style={{ paddingLeft: `${depth * 12 + 8}px` }}
-        title={node.fullPath}
-      >
-        <span className={clsx(
-          'w-1.5 h-1.5 rounded-full flex-shrink-0',
-          node.status === 'added' && 'bg-green-500',
-          node.status === 'deleted' && 'bg-red-500',
-          node.status === 'modified' && 'bg-yellow-500',
-          node.status === 'renamed' && 'bg-blue-500',
-        )} />
-        <FileText className="w-3 h-3 text-gray-400 flex-shrink-0" />
-        <span className="truncate font-medium">{node.name}</span>
-      </button>
-    )
-  }
-
-  const isExpanded = expandedDirs.has(node.fullPath)
-  return (
-    <div>
-      <button
-        onClick={() => toggleDir(node.fullPath)}
-        className="w-full text-left py-1 pr-2 text-[11px] hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-1 text-gray-600 dark:text-gray-400 transition-colors"
-        style={{ paddingLeft: `${depth * 12 + 8}px` }}
-      >
-        {isExpanded ? (
-          <ChevronDown className="w-3 h-3 flex-shrink-0 text-gray-400" />
-        ) : (
-          <ChevronRight className="w-3 h-3 flex-shrink-0 text-gray-400" />
-        )}
-        {isExpanded ? (
-          <FolderOpen className="w-3 h-3 flex-shrink-0 text-yellow-500" />
-        ) : (
-          <Folder className="w-3 h-3 flex-shrink-0 text-yellow-500" />
-        )}
-        <span className="truncate">{node.name}</span>
-        <span className="ml-auto text-[10px] text-gray-400 flex-shrink-0">
-          {countFiles(node)}
-        </span>
-      </button>
-      {isExpanded && node.children.map(child => (
-        <FileTreeNodeItem
-          key={child.fullPath}
-          node={child}
-          depth={depth + 1}
-          activeFile={activeFile}
-          onFileClick={onFileClick}
-          expandedDirs={expandedDirs}
-          toggleDir={toggleDir}
-        />
-      ))}
-    </div>
-  )
-}
-
-function countFiles(node: FileTreeNode): number {
-  if (node.isFile) return 1
-  return node.children.reduce((sum, c) => sum + countFiles(c), 0)
-}
-
-export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branches = [], defaultBranch = 'main', fillWidth = false }: DiffSidebarProps) {
+export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branches = [], defaultBranch = 'main', fillWidth = false, refreshToken }: DiffSidebarProps) {
+  const { t } = useTranslation()
   const [diff, setDiff] = useState<DetailedDiffResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -360,7 +129,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
     if (isOpen) {
       fetchDiff()
     }
-  }, [isOpen, worktreePath, targetBranch])
+  }, [isOpen, worktreePath, targetBranch, refreshToken])
 
   const fetchDiff = async () => {
     setIsLoading(true)
@@ -372,7 +141,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
       // 默认全部收起，避免大量文件同时渲染卡顿
       setExpandedFiles(new Set())
     } catch (err) {
-      setError(err instanceof Error ? err.message : '获取 diff 失败')
+      setError(err instanceof Error ? err.message : t('diff.fetchFailed'))
     } finally {
       setIsLoading(false)
     }
@@ -538,10 +307,10 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'added': return '新增'
-      case 'deleted': return '删除'
-      case 'modified': return '修改'
-      case 'renamed': return '重命名'
+      case 'added': return t('diff.statusAdded')
+      case 'deleted': return t('diff.statusDeleted')
+      case 'modified': return t('diff.statusModified')
+      case 'renamed': return t('diff.statusRenamed')
       default: return status
     }
   }
@@ -600,11 +369,11 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                 : 'text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20',
               reviewStatus === 'loading' && 'opacity-50 cursor-not-allowed'
             )}
-            title={reviewStatus === 'success' && currentResult ? '重新评审（点击强制刷新）' : 'AI 评审'}
+            title={reviewStatus === 'success' && currentResult ? t('diff.reReview') : t('diff.aiReview')}
           >
             <Sparkles className={clsx('w-3.5 h-3.5', reviewStatus === 'loading' && 'animate-pulse')} />
             {reviewStatus === 'loading' && (
-              <span className="text-xs">分析中...</span>
+              <span className="text-xs">{t('diff.analyzing')}</span>
             )}
             {reviewStatus === 'success' && currentResult && (() => {
               const count = currentResult.issues.filter(
@@ -619,14 +388,14 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
             <button
               onClick={jumpToPrevChange}
               className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded"
-              title="上一个变更"
+              title={t('diff.prevChange')}
             >
               <ArrowUp className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={jumpToNextChange}
               className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rotate-180 rounded"
-              title="下一个变更"
+              title={t('diff.nextChange')}
             >
               <ArrowUp className="w-3.5 h-3.5" />
             </button>
@@ -655,7 +424,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                   : 'text-gray-500 dark:text-gray-400',
                 width < SPLIT_MIN_WIDTH && 'opacity-40 cursor-not-allowed'
               )}
-              title={width < SPLIT_MIN_WIDTH ? '窗口太窄，请拖宽后使用' : '拆分视图'}
+              title={width < SPLIT_MIN_WIDTH ? t('diff.tooNarrow') : t('diff.splitView')}
             >
               <Columns className="w-3 h-3" />
             </button>
@@ -670,7 +439,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                 ? 'text-purple-500 bg-purple-50 dark:bg-purple-900/30'
                 : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
             )}
-            title={showFileTree ? '隐藏文件列表' : '显示文件列表'}
+            title={showFileTree ? t('diff.hideFileList') : t('diff.showFileList')}
           >
             <LayoutList className="w-3.5 h-3.5" />
           </button>
@@ -715,7 +484,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
         {showFileTree && !isLoading && !error && diff && diff.files.length > 0 && (
           <div className="w-56 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 flex flex-col bg-gray-50/50 dark:bg-gray-900/50">
             <div className="p-2 text-[11px] font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-              文件 ({diff.files.length})
+              {t('diff.files')} ({diff.files.length})
             </div>
             <div className="flex-1 overflow-y-auto">
               {fileTree.map(node => (
@@ -754,7 +523,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                   <div className="flex items-center gap-1">
                     <FileText className="w-3.5 h-3.5 text-gray-500" />
                     <span className="font-medium">{diff.files.length}</span>
-                    <span className="text-gray-500">文件</span>
+                    <span className="text-gray-500">{t('diff.files')}</span>
                   </div>
                   <div className="flex items-center gap-1 text-green-500">
                     <Plus className="w-3.5 h-3.5" />
@@ -784,14 +553,14 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                       className="text-xs text-purple-500 hover:text-purple-700 dark:hover:text-purple-300 flex items-center gap-0.5"
                     >
                       <ChevronsDown className="w-3 h-3" />
-                      展开更多
+                      {t('diff.expandMore')}
                     </button>
                   )}
                   <button
                     onClick={toggleAll}
                     className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                   >
-                    {expandedFiles.size === diff.files.length ? '全部收起' : '全部展开'}
+                    {expandedFiles.size === diff.files.length ? t('diff.collapseAll') : t('diff.expandAll')}
                   </button>
                 </div>
               </div>
@@ -801,12 +570,8 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
             {diff.files.length === 0 ? (
               <div className="text-center py-16 text-gray-500 dark:text-gray-400">
                 <GitCompare className="w-12 h-12 mx-auto mb-3 opacity-50 animate-pulse" />
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">与 {targetBranch} 内容相同</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  {diff.sourceBranch === targetBranch
-                    ? '当前分支即为目标分支'
-                    : '分支尚未有独立提交，可开始开发'}
-                </p>
+                <p className="text-sm">{t('diff.noDiff')}</p>
+                <p className="text-xs text-gray-400 mt-1">{t('diff.sameContent', { branch: targetBranch })}</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -829,8 +594,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                         <span className="truncate text-xs text-gray-700 dark:text-gray-300 font-medium" title={file.path}>
                           {file.path}
                         </span>
-                        {/* 文件评审摘要 */}
-                        <FileReviewSummary result={currentResult} filePath={file.path} />
+
                       </div>
                       <div className="flex items-center gap-2 text-xs ml-3">
                         {file.additions > 0 && (
@@ -850,8 +614,8 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                             hunks={file.hunks}
                             fileIdx={fileIdx}
                             selectedLine={selectedLine}
-                            filePath={file.path}
-                            reviewResult={currentResult}
+                            sourceBranch={diff?.sourceBranch || worktreeName}
+                            targetBranch={targetBranch}
                           />
                         ) : (
                           <SplitDiffView
@@ -860,8 +624,6 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                             selectedLine={selectedLine}
                             sourceBranch={diff?.sourceBranch || worktreeName}
                             targetBranch={targetBranch}
-                            filePath={file.path}
-                            reviewResult={currentResult}
                           />
                         )}
                       </div>
@@ -881,359 +643,5 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
         setShowConfigGuide(false)
       }} />
     </div>
-  )
-}
-
-// 统一视图组件 — memo 避免其他文件展开/收起时重渲
-const UnifiedDiffView = memo(function UnifiedDiffView({
-  hunks,
-  fileIdx,
-  selectedLine,
-  filePath,
-  reviewResult,
-}: {
-  hunks: DiffHunk[]
-  fileIdx: number
-  selectedLine: string | null
-  filePath: string
-  reviewResult: AIReviewResult | null
-}) {
-  return (
-    <div className="font-mono text-xs overflow-x-auto">
-      {hunks.map((hunk: DiffHunk, hunkIdx: number) => {
-        const charMap = pairHunkLines(hunk.lines)
-        return (
-          <div key={hunkIdx}>
-            {/* Hunk header */}
-            <div className="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-y border-blue-200 dark:border-blue-800 text-xs font-mono">
-              @@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
-            </div>
-            {/* Lines */}
-            {hunk.lines.map((line: DiffLine, lineIdx: number) => {
-              const id = `diff-${fileIdx}-${hunkIdx}-${lineIdx}`
-              const isSelected = selectedLine === id
-              const isChange = line.lineType !== 'context'
-              const segments = charMap.get(lineIdx)
-              // 获取当前行的评审问题
-              const lineNum = line.newLine || line.oldLine || 0
-              const issues = getLineIssues(reviewResult, filePath, lineNum)
-              const hasIssues = issues.length > 0
-
-              return (
-                <div
-                  id={id}
-                  key={lineIdx}
-                  className={clsx(
-                    'flex items-center group/line min-h-[22px] overflow-y-clip',
-                    line.lineType === 'addition' && 'bg-green-50 dark:bg-green-900/20',
-                    line.lineType === 'deletion' && 'bg-red-50 dark:bg-red-900/20',
-                    isSelected && 'ring-2 ring-purple-500 ring-inset',
-                    isChange && 'hover:bg-opacity-80',
-                    hasIssues && 'bg-yellow-50/50 dark:bg-yellow-900/10',
-                  )}
-                >
-                  <span className={clsx(
-                    'w-12 px-1 text-right text-[11px] leading-[22px] select-none border-r border-gray-200 dark:border-gray-700 font-mono flex items-center justify-end gap-1',
-                    line.lineType === 'deletion' ? 'bg-red-100 dark:bg-red-900/30 text-red-400' : 'bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500',
-                  )}>
-                    {hasIssues && (
-                      <InlineReviewMarker
-                        issues={issues}
-                        filePath={filePath}
-                        lineNum={lineNum}
-                      />
-                    )}
-                    {line.oldLine ?? ''}
-                  </span>
-                  <span className={clsx(
-                    'w-12 px-1 text-right text-[11px] leading-[22px] select-none border-r border-gray-200 dark:border-gray-700 font-mono',
-                    line.lineType === 'addition' ? 'bg-green-100 dark:bg-green-900/30 text-green-400' : 'bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500',
-                  )}>
-                    {line.newLine ?? ''}
-                  </span>
-                  <span
-                    className={clsx(
-                      'w-5 px-0.5 text-center select-none text-[10px] leading-[22px]',
-                      line.lineType === 'addition' && 'text-green-500 font-bold',
-                      line.lineType === 'deletion' && 'text-red-500 font-bold',
-                    )}
-                  >
-                    {line.lineType === 'addition' ? '+' : line.lineType === 'deletion' ? '-' : ' '}
-                  </span>
-                  <span className="flex-1 px-2 whitespace-pre text-[11px] leading-[22px] relative flex items-center">
-                    <HighlightedLine content={line.content} lineType={line.lineType} charSegments={segments} />
-                    <CopyButton text={line.content} />
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        )
-      })}
-    </div>
-  )
-})
-
-// 拆分视图组件 — memo 避免其他文件展开/收起时重渲，支持左右同步滚动
-const SplitDiffView = memo(function SplitDiffView({
-  hunks,
-  fileIdx,
-  selectedLine,
-  sourceBranch,
-  targetBranch,
-  filePath,
-  reviewResult,
-}: {
-  hunks: DiffHunk[]
-  fileIdx: number
-  selectedLine: string | null
-  sourceBranch: string
-  targetBranch: string
-  filePath: string
-  reviewResult: AIReviewResult | null
-}) {
-  const leftRef = useRef<HTMLDivElement>(null)
-  const rightRef = useRef<HTMLDivElement>(null)
-  const isScrolling = useRef(false)
-
-  // 同步滚动处理
-  const handleScroll = useCallback((source: 'left' | 'right') => {
-    if (isScrolling.current) return
-    isScrolling.current = true
-
-    const sourceRef = source === 'left' ? leftRef : rightRef
-    const targetRef = source === 'left' ? rightRef : leftRef
-
-    if (sourceRef.current && targetRef.current) {
-      targetRef.current.scrollLeft = sourceRef.current.scrollLeft
-    }
-
-    requestAnimationFrame(() => {
-      isScrolling.current = false
-    })
-  }, [])
-
-  return (
-    <div className="font-mono text-xs flex flex-col">
-      {hunks.map((hunk: DiffHunk, hunkIdx: number) => {
-        // 先计算 char-level diff
-        const charMap = pairHunkLines(hunk.lines)
-        // 分离删除行和新增行，记录原始索引
-        const leftLines: { line: DiffLine | null; origIdx: number }[] = []
-        const rightLines: { line: DiffLine | null; origIdx: number }[] = []
-
-        hunk.lines.forEach((line, idx) => {
-          if (line.lineType === 'deletion') {
-            leftLines.push({ line, origIdx: idx })
-          } else if (line.lineType === 'addition') {
-            rightLines.push({ line, origIdx: idx })
-          } else {
-            leftLines.push({ line, origIdx: idx })
-            rightLines.push({ line, origIdx: idx })
-          }
-        })
-
-        const maxLines = Math.max(leftLines.length, rightLines.length)
-        while (leftLines.length < maxLines) leftLines.push({ line: null, origIdx: -1 })
-        while (rightLines.length < maxLines) rightLines.push({ line: null, origIdx: -1 })
-
-        return (
-          <div key={hunkIdx}>
-            {/* Hunk header */}
-            <div className="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-y border-blue-200 dark:border-blue-800 text-xs font-mono">
-              @@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
-            </div>
-            {/* Split view */}
-            <div className="flex min-w-0">
-              {/* Left side (old/target branch) */}
-              <div className="w-1/2 flex flex-col">
-                {/* 分支名称标识 */}
-                <div className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-[10px] text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 truncate">
-                  {targetBranch}
-                </div>
-                <div
-                  ref={leftRef}
-                  className="overflow-x-auto flex-1"
-                  onScroll={() => handleScroll('left')}
-                >
-                  {leftLines.map(({ line, origIdx }, idx) => {
-                    const id = `diff-${fileIdx}-${hunkIdx}-L${idx}`
-                    const isSelected = selectedLine === id
-                    const segments = origIdx >= 0 ? charMap.get(origIdx) : undefined
-
-                    return (
-                      <div
-                        id={id}
-                        key={`left-${idx}`}
-                        className={clsx(
-                          'flex items-center group/line h-[22px] overflow-y-clip',
-                          line?.lineType === 'deletion' && 'bg-red-50 dark:bg-red-900/20',
-                          line === null && 'bg-gray-100 dark:bg-gray-800/50',
-                          isSelected && 'ring-2 ring-purple-500 ring-inset',
-                        )}
-                      >
-                        <span className={clsx(
-                          'w-10 px-1 text-right text-[11px] leading-[22px] select-none border-r border-gray-200 dark:border-gray-700 font-mono',
-                          line?.lineType === 'deletion' ? 'bg-red-100 dark:bg-red-900/30 text-red-400' : 'bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500',
-                        )}>
-                          {line?.oldLine ?? ''}
-                        </span>
-                        <span
-                          className={clsx(
-                            'w-5 px-0.5 text-center select-none text-[10px] leading-[22px]',
-                            line?.lineType === 'deletion' && 'text-red-500 font-bold',
-                          )}
-                        >
-                          {line?.lineType === 'deletion' ? '-' : ' '}
-                        </span>
-                        <span className="flex-1 px-1 whitespace-pre text-[11px] leading-[22px] relative">
-                          {line ? <HighlightedLine content={line.content} lineType={line.lineType} charSegments={segments} /> : ''}
-                          {line && <CopyButton text={line.content} />}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-              {/* Divider */}
-              <div className="w-[3px] flex-shrink-0 bg-gradient-to-b from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-600 dark:to-gray-700" />
-              {/* Right side (new/source branch) */}
-              <div className="w-1/2 flex flex-col">
-                {/* 分支名称标识 */}
-                <div className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-[10px] text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 truncate">
-                  {sourceBranch}
-                </div>
-                <div
-                  ref={rightRef}
-                  className="overflow-x-auto flex-1"
-                  onScroll={() => handleScroll('right')}
-                >
-                {rightLines.map(({ line, origIdx }, idx) => {
-                  const id = `diff-${fileIdx}-${hunkIdx}-R${idx}`
-                  const isSelected = selectedLine === id
-                  const segments = origIdx >= 0 ? charMap.get(origIdx) : undefined
-                  // 获取当前行的评审问题
-                  const lineNum = line?.newLine || 0
-                  const issues = line ? getLineIssues(reviewResult, filePath, lineNum) : []
-                  const hasIssues = issues.length > 0
-
-                  return (
-                    <div
-                      id={id}
-                      key={`right-${idx}`}
-                      className={clsx(
-                        'flex items-center group/line min-h-[22px] overflow-y-clip',
-                        line?.lineType === 'addition' && 'bg-green-50 dark:bg-green-900/20',
-                        line === null && 'bg-gray-100 dark:bg-gray-800/50',
-                        isSelected && 'ring-2 ring-purple-500 ring-inset',
-                        hasIssues && 'bg-yellow-50/50 dark:bg-yellow-900/10',
-                      )}
-                    >
-                      <span className={clsx(
-                        'w-10 px-1 text-right text-[11px] leading-[22px] select-none border-r border-gray-200 dark:border-gray-700 font-mono flex items-center justify-end gap-1',
-                        line?.lineType === 'addition' ? 'bg-green-100 dark:bg-green-900/30 text-green-400' : 'bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500',
-                      )}>
-                        {hasIssues && (
-                          <InlineReviewMarker
-                            issues={issues}
-                            filePath={filePath}
-                            lineNum={lineNum}
-                          />
-                        )}
-                        {line?.newLine ?? ''}
-                      </span>
-                      <span
-                        className={clsx(
-                          'w-5 px-0.5 text-center select-none text-[10px] leading-[22px]',
-                          line?.lineType === 'addition' && 'text-green-500 font-bold',
-                        )}
-                      >
-                        {line?.lineType === 'addition' ? '+' : ' '}
-                      </span>
-                      <span className="flex-1 px-1 whitespace-pre text-[11px] leading-[22px] relative flex items-center">
-                        {line ? <HighlightedLine content={line.content} lineType={line.lineType} charSegments={segments} /> : ''}
-                        {line && <CopyButton text={line.content} />}
-                      </span>
-                    </div>
-                  )
-                })}
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-})
-
-// 行内复制按钮
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false)
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation()
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    } catch { /* ignore */ }
-  }
-  return (
-    <button
-      onClick={handleCopy}
-      className="absolute right-1 top-0 bottom-0 my-auto h-5 w-5 items-center justify-center rounded opacity-0 group-hover/line:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-600 transition-opacity flex"
-      title="复制行内容"
-    >
-      {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3 text-gray-400" />}
-    </button>
-  )
-}
-
-// 高亮行组件 - 支持字符级差异高亮 + 语法着色
-function HighlightedLine({ content, lineType, charSegments }: { content: string; lineType: string; charSegments?: CharSegment[] }) {
-  // 如果有字符级 diff segments，优先用它
-  if (charSegments && charSegments.length > 0) {
-    const hlClass = lineType === 'deletion'
-      ? 'bg-red-200 dark:bg-red-800/60 rounded-sm px-[1px]'
-      : 'bg-green-200 dark:bg-green-800/60 rounded-sm px-[1px]'
-    const textClass = lineType === 'deletion'
-      ? 'text-red-800 dark:text-red-300'
-      : 'text-green-800 dark:text-green-300'
-    return (
-      <span className={textClass}>
-        {charSegments.map((seg, i) => (
-          <span key={i} className={seg.highlight ? hlClass : undefined}>{seg.text}</span>
-        ))}
-      </span>
-    )
-  }
-
-  // context 行：应用语法着色
-  if (lineType === 'context') {
-    const tokens = tokenize(content)
-    return (
-      <span className="text-gray-700 dark:text-gray-300">
-        {tokens.map((t, i) => {
-          const color = syntaxColors[t.type]
-          return color ? <span key={i} className={color}>{t.text}</span> : <span key={i}>{t.text}</span>
-        })}
-      </span>
-    )
-  }
-
-  // addition / deletion 无 char-level 时——语法着色 + 基础色
-  const baseClass = lineType === 'addition'
-    ? 'text-green-800 dark:text-green-300'
-    : lineType === 'deletion'
-      ? 'text-red-800 dark:text-red-300'
-      : ''
-  const tokens = tokenize(content)
-  return (
-    <span className={baseClass}>
-      {tokens.map((t, i) => {
-        const color = syntaxColors[t.type]
-        return color ? <span key={i} className={color}>{t.text}</span> : <span key={i}>{t.text}</span>
-      })}
-    </span>
   )
 }

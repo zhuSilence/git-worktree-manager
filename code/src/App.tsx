@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PanelLeftOpen, GitBranch } from 'lucide-react'
 import { Header } from './components/layout'
 import { Main } from './components/layout'
@@ -8,6 +9,7 @@ import { SettingsPanel } from './components/SettingsPanel'
 import { Sidebar } from './components/Sidebar'
 import { DiffSidebar } from './components/DiffSidebar'
 import { Timeline } from './components/Timeline'
+import { ToastContainer } from './components/common'
 import { useWorktreeStore } from './stores/worktreeStore'
 import { useRepositoryStore } from './stores/repositoryStore'
 import { settingsStore } from './stores/settingsStore'
@@ -15,23 +17,25 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import type { RepositoryInfo } from './types/worktree'
 
 function App() {
+  const { t } = useTranslation()
   const { currentRepo, isLoading, error, loadRepository, refreshWorktrees, worktrees } = useWorktreeStore()
-  const { repositories, activeRepoId, setActiveRepository, validateRepositories } = useRepositoryStore()
+  const { repositories, activeRepoId, setActiveRepository, validateRepositories, refreshRepositories } = useRepositoryStore()
   const { autoRefreshInterval } = settingsStore()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showTimeline, setShowTimeline] = useState(false)
   const [diffWorktree, setDiffWorktree] = useState<{ path: string; name: string } | null>(null)
   const [mainCollapsed, setMainCollapsed] = useState(() => localStorage.getItem('main-panel-collapsed') === 'true')
-  
+  const [diffRefreshSeq, setDiffRefreshSeq] = useState(0)
+
   // 搜索框 ref
   const searchInputRef = useRef<HTMLInputElement>(null)
-  
+
   // 聚焦搜索框
   const focusSearch = useCallback(() => {
     searchInputRef.current?.focus()
   }, [])
-  
+
   // 关闭所有对话框
   const closeAllDialogs = useCallback(() => {
     if (showCreateDialog) {
@@ -93,6 +97,13 @@ function App() {
         onCreateWorktree={() => setShowCreateDialog(true)}
         onOpenSettings={() => setShowSettings(true)}
         onOpenTimeline={() => setShowTimeline(true)}
+        onRefresh={async () => {
+          await Promise.all([
+            refreshRepositories(),
+            refreshWorktrees(),
+          ])
+          setDiffRefreshSeq(seq => seq + 1)
+        }}
       />
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧边栏 */}
@@ -107,7 +118,7 @@ function App() {
             <button
               onClick={toggleMainCollapsed}
               className="p-1.5 mb-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-              title="展开 Worktree 列表"
+              title={t('app.expandWorktreeList')}
             >
               <PanelLeftOpen className="w-4 h-4" />
             </button>
@@ -148,8 +159,8 @@ function App() {
               <svg className="w-20 h-20 mb-4 text-gray-300 dark:text-gray-600 animate-float" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
               </svg>
-              <p className="text-lg mb-2">欢迎使用 Worktree Manager</p>
-              <p className="text-sm mb-4">点击左侧“添加仓库”按钮开始</p>
+              <p className="text-lg mb-2">{t('app.welcome')}</p>
+              <p className="text-sm mb-4">{t('app.addRepoHint')}</p>
             </div>
           )}
 
@@ -158,8 +169,8 @@ function App() {
               <svg className="w-16 h-16 mb-4 text-gray-300 dark:text-gray-600 animate-float" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <p className="text-lg mb-2">选择一个仓库</p>
-              <p className="text-sm">点击左侧仓库列表中的项目</p>
+              <p className="text-lg mb-2">{t('app.selectRepoTitle')}</p>
+              <p className="text-sm">{t('app.selectRepoHint')}</p>
             </div>
           )}
           </Main>
@@ -175,6 +186,7 @@ function App() {
             branches={currentRepo?.branches.map(b => b.name) || []}
             defaultBranch={currentRepo?.defaultBranch || 'main'}
             fillWidth={mainCollapsed}
+            refreshToken={diffRefreshSeq}
           />
         )}
       </div>
@@ -197,6 +209,9 @@ function App() {
         onClose={() => setShowTimeline(false)}
         repoPath={currentRepo?.mainWorktreePath || null}
       />
+
+      {/* Toast 通知容器 */}
+      <ToastContainer />
     </div>
   )
 }

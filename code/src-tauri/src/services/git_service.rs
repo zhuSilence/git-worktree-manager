@@ -1046,7 +1046,6 @@ pub fn get_merged_hints(repo_path: &str, main_branch: &str) -> anyhow::Result<Ve
         }
 
         // 打开 worktree 的仓库来获取实际的分支 commit 和工作区状态
-        // （worktree 可能有未推送的本地提交或未提交的改动）
         let (branch_commit_id, has_uncommitted_changes) = match Repository::open(&worktree.path) {
             Ok(wt_repo) => {
                 // 获取分支 commit
@@ -1063,7 +1062,7 @@ pub fn get_merged_hints(repo_path: &str, main_branch: &str) -> anyhow::Result<Ve
                     Ok(statuses) => statuses.iter().any(|s| {
                         !s.status().is_empty() && !s.status().contains(git2::Status::IGNORED)
                     }),
-                    Err(_) => false, // 如果无法获取状态，假设没有改动
+                    Err(_) => false,
                 };
 
                 (commit_id, has_changes)
@@ -1079,13 +1078,10 @@ pub fn get_merged_hints(repo_path: &str, main_branch: &str) -> anyhow::Result<Ve
         // 检查分支是否有自己的提交（相对于 main）
         // 如果分支 HEAD 和 main HEAD 相同，说明是新创建的分支，没有自己的提交
         if branch_commit_id == main_commit_id {
-            // 新创建的分支，与 main 完全相同，不算"已合并"
             continue;
         }
 
         // 检查是否已合并到主分支
-        // branch 已合并意味着 branch_commit 是 main_commit 的祖先
-        // merge_base(branch, main) 如果等于 branch，说明 branch 的所有提交都在 main 中
         let is_merged = repo.merge_base(branch_commit_id, main_commit_id)
             .map(|base| base == branch_commit_id)
             .unwrap_or(false);
@@ -1222,49 +1218,124 @@ fn get_commit_revwalk(repo: &Repository, _since: Option<i64>, _until: Option<i64
     Ok(revwalk)
 }
 
-/// Pull 远程分支改动
-pub fn pull_branch(worktree_path: &str) -> anyhow::Result<SwitchBranchResult> {
+/// Push 本地提交到远程
+pub fn push(worktree_path: &str, branch: Option<&str>) -> anyhow::Result<SwitchBranchResult> {
+    let repo = Repository::open(worktree_path)?;
+
+    // 获取当前分支名
+    let branch_name = match branch {
+        Some(b) => b.to_string(),
+        None => {
+            let head = repo.head()?;
+            head.shorthand().map(String::from).unwrap_or_default()
+        }
+    };
+
+    if branch_name.is_empty() {
+        return Ok(SwitchBranchResult {
+            success: false,
+            message: "Cannot determine branch name".to_string(),
+        });
+    }
+
+    // 检查是否有远程
+    let remote_ref = format!("refs/remotes/origin/{}", branch_name);
+    if repo.find_reference(&remote_ref).is_err() {
+        // 没有远程分支，尝试 push -u origin branch
+        let output = Command::new("git")
+            .args(["push", "-u", "origin", &branch_name])
+            .current_dir(worktree_path)
+            .output()?;
+
+        if !output.status.success() {
+            return Ok(SwitchBranchResult {
+                success: false,
+                message: String::from_utf8_lossy(&output.stderr).to_string(),
+            });
+        }
+
+        return Ok(SwitchBranchResult {
+            success: true,
+            message: format!("Pushed and set upstream for '{}'", branch_name),
+        });
+    }
+
+    // 有远程分支，直接 push
+    let output = Command::new("git")
+        .args(["push", "origin", &branch_name])
+        .current_dir(worktree_path)
+        .output()?;
+
+    if !output.status.success() {
+        return Ok(SwitchBranchResult {
+            success: false,
+            message: String::from_utf8_lossy(&output.stderr).to_string(),
+        });
+    }
+
+    Ok(SwitchBranchResult {
+        success: true,
+        message: format!("Pushed '{}' to origin", branch_name),
+    })
+}
+
+/// Pull 远程提交到本地
+pub fn pull(worktree_path: &str, branch: Option<&str>) -> anyhow::Result<SwitchBranchResult> {
+    let repo = Repository::open(worktree_path)?;
+
+    // 获取当前分支名
+    let branch_name = match branch {
+        Some(b) => b.to_string(),
+        None => {
+            let head = repo.head()?;
+            head.shorthand().map(String::from).unwrap_or_default()
+        }
+    };
+
+    if branch_name.is_empty() {
+        return Ok(SwitchBranchResult {
+            success: false,
+            message: "Cannot determine branch name".to_string(),
+        });
+    }
+
     // 先 fetch
     let fetch_output = Command::new("git")
-        .args(["fetch", "origin"])
+        .args(["fetch", "origin", &branch_name])
         .current_dir(worktree_path)
         .output()?;
 
     if !fetch_output.status.success() {
         return Ok(SwitchBranchResult {
             success: false,
-            message: format!("Fetch 失败: {}", String::from_utf8_lossy(&fetch_output.stderr)),
+            message: String::from_utf8_lossy(&fetch_output.stderr).to_string(),
         });
     }
 
-    // 获取当前分支名
-    let repo = Repository::open(worktree_path)?;
-    let head = repo.head()?;
-    let branch_name = head.shorthand().unwrap_or("HEAD");
+    // 检查是否有远程分支
+    let remote_ref = format!("refs/remotes/origin/{}", branch_name);
+    if repo.find_reference(&remote_ref).is_err() {
+        return Ok(SwitchBranchResult {
+            success: false,
+            message: format!("No remote branch found for '{}'", branch_name),
+        });
+    }
 
-    // pull --rebase 更安全
-    let pull_output = Command::new("git")
-        .args(["pull", "--rebase", "origin", branch_name])
+    // 执行 pull (rebase 模式更安全)
+    let output = Command::new("git")
+        .args(["pull", "--rebase", "origin", &branch_name])
         .current_dir(worktree_path)
         .output()?;
 
-    if !pull_output.status.success() {
-        let stderr = String::from_utf8_lossy(&pull_output.stderr);
-        // 检查是否有冲突
-        if stderr.contains("CONFLICT") || stderr.contains("conflict") {
-            return Ok(SwitchBranchResult {
-                success: false,
-                message: "Pull 产生冲突，请手动解决".to_string(),
-            });
-        }
+    if !output.status.success() {
         return Ok(SwitchBranchResult {
             success: false,
-            message: format!("Pull 失败: {}", stderr),
+            message: String::from_utf8_lossy(&output.stderr).to_string(),
         });
     }
 
     Ok(SwitchBranchResult {
         success: true,
-        message: format!("已拉取 '{}' 分支的最新改动", branch_name),
+        message: format!("Pulled latest changes for '{}'", branch_name),
     })
 }

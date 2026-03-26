@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.9] - 2026-03-24
+
+### 🔧 Changed
+
+**系统性代码质量优化 (P0-P2)**
+
+**P0 高优先级 (安全/稳定性):**
+- 修复 CSP 安全策略，移除 unsafe-eval，收紧 connect-src
+- 创建统一错误处理 Hook (useErrorHandler + Toast 通知系统)
+- 统一 TypeScript 类型定义 (Repository, WorktreeMetadata)
+
+**P1 中优先级 (性能/架构):**
+- 重构 DiffSidebar 组件，拆分为 5 个独立模块 (DiffAlgorithm, DiffViews, FileTree, SyntaxHighlighter, types)
+- WorktreeList 性能优化 (竞态条件处理 + memo 包装)
+- Rust 后端 Git 操作异步化 (spawn_blocking)
+- 创建 Rust 统一错误处理类型 (AppError)
+
+**P2 低优先级 (代码质量):**
+- 提取 EmptyState 可复用组件
+- Store 状态事务性改进 (乐观更新 + 回滚机制)
+- 固定关键依赖版本号 (React, Tauri, Zustand)
+
+### ✨ Added
+
+- Worktree 空闲检测功能 (Issue #13)
+  - 自动检测长时间未使用的 worktree
+  - 提示用户清理闲置资源
+- 智能命名建议功能 (Issue #14)
+  - 基于分支命名规范给出建议
+  - 支持自定义命名模板
+
+## [0.0.8] - 2026-03-24
+
+### ✨ Added
+
+- Worktree 标签与备注功能 (Issue #12)
+  - 为 worktree 添加自定义标签
+  - 添加备注说明，方便区分不同用途
+  - 标签颜色区分，快速识别 worktree 类型
+- Diff 面板分支名称显示 (Issue #26)
+  - 在 Diff 对比面板顶部显示当前分支名和对比分支名
+  - 清晰了解正在对比的是哪两个分支
+
+### 🐛 Fixed
+
+- 中文文件名显示异常 (Issue #24)
+  - 修复某些情况下中文文件名乱码问题
+
 ## [0.0.7] - 2026-03-21
 
 ### ✨ Added
