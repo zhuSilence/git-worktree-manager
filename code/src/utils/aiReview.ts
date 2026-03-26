@@ -27,6 +27,72 @@ function isFilePathMatch(issuePath: string, diffPath: string): boolean {
 }
 
 /**
+ * 检查两个问题是否相同（用于去重）
+ */
+function isSameIssue(a: ReviewIssue, b: ReviewIssue): boolean {
+  return a.message === b.message && a.severity === b.severity;
+}
+
+/**
+ * 合并连续行的相同问题，返回每个问题应该显示的行号范围
+ * 只在第一行显示标记，并显示覆盖的行数
+ */
+export interface MergedIssue extends ReviewIssue {
+  /** 原始起始行 */
+  startLine: number;
+  /** 原始结束行 */
+  endLine: number;
+  /** 影响的行数 */
+  lineCount: number;
+}
+
+/**
+ * 合并文件中连续行的相同问题
+ */
+export function mergeConsecutiveIssues(issues: ReviewIssue[]): MergedIssue[] {
+  if (issues.length === 0) return [];
+
+  // 按行号排序
+  const sorted = [...issues].sort((a, b) => a.line - b.line);
+  const merged: MergedIssue[] = [];
+
+  let current: MergedIssue | null = null;
+
+  for (const issue of sorted) {
+    if (!current) {
+      current = {
+        ...issue,
+        startLine: issue.line,
+        endLine: issue.line,
+        lineCount: 1,
+      };
+    } else if (
+      isSameIssue(current, issue) &&
+      issue.line <= current.endLine + 3 // 允许3行的间距也认为是连续的
+    ) {
+      // 合并到当前问题
+      current.endLine = issue.line;
+      current.lineCount = current.endLine - current.startLine + 1;
+    } else {
+      // 保存当前问题，开始新的
+      merged.push(current);
+      current = {
+        ...issue,
+        startLine: issue.line,
+        endLine: issue.line,
+        lineCount: 1,
+      };
+    }
+  }
+
+  if (current) {
+    merged.push(current);
+  }
+
+  return merged;
+}
+
+/**
  * 按文件和行号组织评审问题
  */
 export function organizeIssuesByFileAndLine(result: AIReviewResult | null): Map<string, Map<number, ReviewIssue[]>> {
@@ -67,34 +133,27 @@ export function getFileIssues(result: AIReviewResult | null, filePath: string): 
 
 /**
  * 获取指定文件和行的问题
- * 支持行号范围匹配（如果AI返回的行号不完全匹配，在附近几行内也认为是匹配的）
+ * 只返回精确匹配的问题，不再返回附近行的问题
+ * 连续行的相同问题只在第一行显示
  */
 export function getLineIssues(
   result: AIReviewResult | null,
   filePath: string,
   lineNum: number
-): ReviewIssue[] {
+): MergedIssue[] {
   if (!result || !result.issues) return [];
 
-  // 先找完全匹配
-  const exactMatches = result.issues.filter(
-    (issue) => isFilePathMatch(issue.file, filePath) && issue.line === lineNum && !issue.ignored
+  // 获取文件的所有问题
+  const fileIssues = result.issues.filter(
+    (issue) => isFilePathMatch(issue.file, filePath) && !issue.ignored
       && !issue.file.endsWith('.md') && !issue.file.endsWith('.markdown')
   );
 
-  if (exactMatches.length > 0) return exactMatches;
+  // 合并连续行的相同问题
+  const mergedIssues = mergeConsecutiveIssues(fileIssues);
 
-  // 如果没有完全匹配，找附近3行内的（AI可能返回的是hunk开始行或粗略估计）
-  const nearbyMatches = result.issues.filter(
-    (issue) => {
-      if (!isFilePathMatch(issue.file, filePath) || issue.ignored) return false;
-      if (issue.file.endsWith('.md') || issue.file.endsWith('.markdown')) return false;
-      const lineDiff = Math.abs(issue.line - lineNum);
-      return lineDiff <= 3; // 允许3行的误差
-    }
-  );
-
-  return nearbyMatches;
+  // 只返回当前行是问题起始行的问题（避免重复显示）
+  return mergedIssues.filter(issue => issue.startLine === lineNum);
 }
 
 /**

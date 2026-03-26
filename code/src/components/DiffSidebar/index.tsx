@@ -11,6 +11,8 @@ import { AIConfigPanel } from '@/components/AIConfigPanel'
 import type { ViewMode, FileTreeNode } from './types'
 import { buildFileTree, FileTreeNodeItem } from './FileTree'
 import { UnifiedDiffView, SplitDiffView } from './DiffViews'
+import { FileReviewSummary } from './InlineReviewMarker'
+import { AIReviewPanel } from './AIReviewPanel'
 
 interface DiffSidebarProps {
   isOpen: boolean
@@ -58,6 +60,8 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
   const reReview = aiReviewStore((state) => state.reReview)
   const showConfigGuide = aiReviewStore((state) => state.showConfigGuide)
   const setShowConfigGuide = aiReviewStore((state) => state.setShowConfigGuide)
+  const ignoreIssue = aiReviewStore((state) => state.ignoreIssue)
+  const [showAIReviewPanel, setShowAIReviewPanel] = useState(false)
 
   // 拖拽处理
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -240,6 +244,26 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
     })
   }
 
+  // 导航到指定文件和行
+  const navigateToFileLine = (filePath: string, _line: number) => {
+    if (!diff) return
+    const fileIdx = diff.files.findIndex(f => f.path === filePath || f.path.endsWith(filePath) || filePath.endsWith(f.path))
+    if (fileIdx < 0) return
+
+    const file = diff.files[fileIdx]
+    // 展开文件
+    setExpandedFiles(prev => new Set([...prev, file.path]))
+    setActiveFile(file.path)
+
+    // 滚动到文件
+    setTimeout(() => {
+      const el = document.getElementById(`file-diff-${fileIdx}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }, 50)
+  }
+
   const jumpToNextChange = () => {
     if (!diff) return
 
@@ -354,8 +378,8 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                 setShowAIConfig(true)
               } else if (reviewStatus !== 'loading') {
                 if (reviewStatus === 'success' && currentResult) {
-                  // 已有结果时强制重新评审，跳过缓存
-                  reReview({ worktreePath, targetBranch })
+                  // 已有结果时切换显示评审面板
+                  setShowAIReviewPanel(!showAIReviewPanel)
                 } else {
                   handleStartAIReview()
                 }
@@ -369,7 +393,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                 : 'text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20',
               reviewStatus === 'loading' && 'opacity-50 cursor-not-allowed'
             )}
-            title={reviewStatus === 'success' && currentResult ? t('diff.reReview') : t('diff.aiReview')}
+            title={reviewStatus === 'success' && currentResult ? t('diff.toggleReviewPanel') : t('diff.aiReview')}
           >
             <Sparkles className={clsx('w-3.5 h-3.5', reviewStatus === 'loading' && 'animate-pulse')} />
             {reviewStatus === 'loading' && (
@@ -594,6 +618,8 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                         <span className="truncate text-xs text-gray-700 dark:text-gray-300 font-medium" title={file.path}>
                           {file.path}
                         </span>
+                        {/* 文件评审摘要 */}
+                        <FileReviewSummary result={currentResult} filePath={file.path} />
 
                       </div>
                       <div className="flex items-center gap-2 text-xs ml-3">
@@ -616,6 +642,8 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                             selectedLine={selectedLine}
                             sourceBranch={diff?.sourceBranch || worktreeName}
                             targetBranch={targetBranch}
+                            reviewResult={currentResult}
+                            filePath={file.path}
                           />
                         ) : (
                           <SplitDiffView
@@ -624,6 +652,8 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                             selectedLine={selectedLine}
                             sourceBranch={diff?.sourceBranch || worktreeName}
                             targetBranch={targetBranch}
+                            reviewResult={currentResult}
+                            filePath={file.path}
                           />
                         )}
                       </div>
@@ -636,6 +666,34 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
         )}
       </div>
       </div>
+
+      {/* AI 评审结果面板 */}
+      {showAIReviewPanel && currentResult && (
+        <div className="absolute right-0 top-0 bottom-0 w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 z-30 overflow-auto shadow-lg">
+          <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 flex items-center justify-between">
+            <span className="font-medium text-sm text-gray-900 dark:text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-purple-500" />
+              AI 评审结果
+            </span>
+            <button
+              onClick={() => setShowAIReviewPanel(false)}
+              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="p-3">
+            <AIReviewPanel
+              result={currentResult}
+              isLoading={reviewStatus === 'loading'}
+              error={aiReviewStore.getState().error}
+              onReReview={() => reReview({ worktreePath, targetBranch })}
+              onNavigateToLine={navigateToFileLine}
+              onIgnoreIssue={ignoreIssue}
+            />
+          </div>
+        </div>
+      )}
 
       {/* AI 配置面板 */}
       <AIConfigPanel isOpen={showAIConfig} onClose={() => {

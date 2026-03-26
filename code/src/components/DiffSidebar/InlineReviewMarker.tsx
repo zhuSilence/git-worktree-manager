@@ -2,10 +2,11 @@ import { useState, useRef, useEffect } from 'react';
 import { AlertCircle, AlertTriangle, Info, X, MessageSquare, GripHorizontal } from 'lucide-react';
 import { ReviewIssue, AIReviewResult } from '@/types/ai';
 import { clsx } from 'clsx';
-import { getHighestSeverity } from '@/utils/aiReview';
+import { getHighestSeverity, MergedIssue, mergeConsecutiveIssues } from '@/utils/aiReview';
+import { useTranslation } from 'react-i18next';
 
 interface InlineReviewMarkerProps {
-  issues: ReviewIssue[];
+  issues: MergedIssue[];
   filePath: string;
   lineNum: number;
   onNavigateToIssue?: (issue: ReviewIssue) => void;
@@ -17,10 +18,11 @@ interface InlineReviewMarkerProps {
  */
 export function InlineReviewMarker({
   issues,
-  filePath,
+  filePath: _filePath,
   lineNum,
-  onNavigateToIssue,
+  onNavigateToIssue: _onNavigateToIssue,
 }: InlineReviewMarkerProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [panelPos, setPanelPos] = useState<{ x: number; y: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -127,6 +129,10 @@ export function InlineReviewMarker({
           isOpen && 'ring-2 ring-offset-1 ring-offset-white dark:ring-offset-gray-900',
           isOpen && config.badgeClass
         )}
+        title={issues.length > 1 || issues.some(i => i.lineCount > 1)
+          ? `${issues.length} ${t('issues')}`
+          : undefined
+        }
       >
         {issues.length > 1 ? issues.length : ''}
       </button>
@@ -155,7 +161,13 @@ export function InlineReviewMarker({
               <GripHorizontal className="w-3 h-3 text-gray-400" />
               <Icon className={clsx('w-4 h-4', config.textClass)} />
               <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                {issues.length} 个问题
+                {issues.length} {t('issues')}
+                {/* 显示行范围 */}
+                {issues.length === 1 && issues[0].lineCount > 1 && (
+                  <span className="text-gray-500 ml-1">
+                    ({t('lines')} {issues[0].startLine}-{issues[0].endLine})
+                  </span>
+                )}
               </span>
             </div>
             <button
@@ -176,6 +188,17 @@ export function InlineReviewMarker({
                 <div className="flex items-start gap-2">
                   <SeverityBadge severity={issue.severity} />
                   <div className="flex-1 min-w-0">
+                    {/* 显示行范围信息 */}
+                    {issue.lineCount > 1 && (
+                      <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">
+                        {t('line')} {issue.startLine} - {issue.endLine} ({issue.lineCount} {t('linesAffected')})
+                      </div>
+                    )}
+                    {issue.lineCount === 1 && lineNum !== issue.line && (
+                      <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">
+                        {t('line')} {issue.line}
+                      </div>
+                    )}
                     <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
                       {issue.message}
                     </p>
@@ -224,7 +247,7 @@ interface FileReviewSummaryProps {
 
 /**
  * 文件评审摘要
- * 显示在文件头部
+ * 显示在文件头部，显示合并后的问题数量
  */
 export function FileReviewSummary({ result, filePath }: FileReviewSummaryProps) {
   if (!result || !result.issues) return null;
@@ -238,9 +261,11 @@ export function FileReviewSummary({ result, filePath }: FileReviewSummaryProps) 
 
   if (fileIssues.length === 0) return null;
 
-  const errors = fileIssues.filter((i) => i.severity === 'error').length;
-  const warnings = fileIssues.filter((i) => i.severity === 'warning').length;
-  const infos = fileIssues.filter((i) => i.severity === 'info').length;
+  // 合并连续行的相同问题，统计合并后的问题数量
+  const mergedIssues = mergeConsecutiveIssues(fileIssues);
+  const errors = mergedIssues.filter((i) => i.severity === 'error').length;
+  const warnings = mergedIssues.filter((i) => i.severity === 'warning').length;
+  const infos = mergedIssues.filter((i) => i.severity === 'info').length;
 
   return (
     <div className="flex items-center gap-2 text-[10px]">

@@ -2,10 +2,13 @@ import { useState, memo, useRef, useCallback, useMemo } from 'react'
 import { Plus, Minus, Copy, Check, ChevronDown, ChevronRight } from 'lucide-react'
 import { clsx } from 'clsx'
 import type { DiffHunk, DiffLine } from '@/types/worktree'
+import type { AIReviewResult } from '@/types/ai'
 import type { CharSegment } from './types'
 import { pairHunkLines } from './DiffAlgorithm'
 import { tokenize, SYNTAX_COLORS } from './SyntaxHighlighter'
 import { mergeHunks_smart, type MergedHunk, type CollapsibleRange } from './HunkMerger'
+import { InlineReviewMarker } from './InlineReviewMarker'
+import { getLineIssues } from '@/utils/aiReview'
 
 /**
  * 行内复制按钮
@@ -151,6 +154,10 @@ interface UnifiedDiffViewProps {
   enableSmartMerge?: boolean
   /** Hunk 合并的最大间隔行数，默认 15 */
   maxGapLines?: number
+  /** AI 评审结果 */
+  reviewResult?: AIReviewResult | null
+  /** 当前文件路径 */
+  filePath?: string
 }
 
 /**
@@ -164,6 +171,8 @@ export const UnifiedDiffView = memo(function UnifiedDiffView({
   targetBranch,
   enableSmartMerge = true,
   maxGapLines = 15,
+  reviewResult,
+  filePath,
 }: UnifiedDiffViewProps) {
   // 智能合并 hunks
   const mergedHunks = useMemo(() => {
@@ -194,7 +203,7 @@ export const UnifiedDiffView = memo(function UnifiedDiffView({
       {/* 分支名称标识行 */}
       {hunks.length > 0 && (
         <div className="flex border-b border-gray-200 dark:border-gray-700">
-          <div className="w-[24px] bg-gray-100 dark:bg-gray-800" />
+          <div className="w-[24px] bg-gray-100 dark:bg-gray-800" title="AI 评审标记" />
           <div className="w-[24px] px-1 text-center text-[10px] leading-5 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700" />
           <div
             className="w-12 px-1 text-right text-[10px] leading-5 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700"
@@ -316,6 +325,22 @@ export const UnifiedDiffView = memo(function UnifiedDiffView({
                     isChange && 'hover:bg-opacity-80'
                   )}
                 >
+                  {/* AI 评审标记列 */}
+                  <span className="w-[24px] flex-shrink-0 flex items-center justify-center bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+                    {filePath && reviewResult && line.newLine && (() => {
+                      const issues = getLineIssues(reviewResult, filePath, line.newLine)
+                      if (issues.length > 0) {
+                        return (
+                          <InlineReviewMarker
+                            issues={issues}
+                            filePath={filePath}
+                            lineNum={line.newLine}
+                          />
+                        )
+                      }
+                      return null
+                    })()}
+                  </span>
                   <span
                     className={clsx(
                       'w-12 px-1 text-right text-[11px] leading-[22px] select-none border-r border-gray-200 dark:border-gray-700 font-mono',
@@ -365,6 +390,10 @@ interface SplitDiffViewProps {
   selectedLine: string | null
   sourceBranch: string
   targetBranch: string
+  /** AI 评审结果 */
+  reviewResult?: AIReviewResult | null
+  /** 当前文件路径 */
+  filePath?: string
 }
 
 /**
@@ -376,6 +405,8 @@ export const SplitDiffView = memo(function SplitDiffView({
   selectedLine,
   sourceBranch,
   targetBranch,
+  reviewResult,
+  filePath,
 }: SplitDiffViewProps) {
   const leftRef = useRef<HTMLDivElement>(null)
   const rightRef = useRef<HTMLDivElement>(null)
@@ -511,6 +542,22 @@ export const SplitDiffView = memo(function SplitDiffView({
                           isSelected && 'ring-2 ring-purple-500 ring-inset'
                         )}
                       >
+                        {/* AI 评审标记 */}
+                        <span className="w-[20px] flex-shrink-0 flex items-center justify-center bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+                          {filePath && reviewResult && line?.newLine && (() => {
+                            const issues = getLineIssues(reviewResult, filePath, line.newLine)
+                            if (issues.length > 0) {
+                              return (
+                                <InlineReviewMarker
+                                  issues={issues}
+                                  filePath={filePath}
+                                  lineNum={line.newLine}
+                                />
+                              )
+                            }
+                            return null
+                          })()}
+                        </span>
                         <span
                           className={clsx(
                             'w-10 px-1 text-right text-[11px] leading-[22px] select-none border-r border-gray-200 dark:border-gray-700 font-mono',
