@@ -1,8 +1,13 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react'
-import { X, FileText, Plus, Minus, RefreshCw, GitCompare, ChevronDown, ChevronRight, Columns, AlignLeft, ArrowUp, GripVertical, Copy, Check, ChevronsDown, LayoutList, Folder, FolderOpen } from 'lucide-react'
+import { X, FileText, Plus, Minus, RefreshCw, GitCompare, ChevronDown, ChevronRight, Columns, AlignLeft, ArrowUp, GripVertical, Copy, Check, ChevronsDown, LayoutList, Folder, FolderOpen, Sparkles } from 'lucide-react'
 import { gitService } from '@/services/git'
 import type { DetailedDiffResponse, FileDiff, DiffHunk, DiffLine } from '@/types/worktree'
 import { clsx } from 'clsx'
+import { InlineReviewMarker, FileReviewSummary } from './InlineReviewMarker'
+import { aiReviewStore } from '@/stores/aiReviewStore'
+import { AIConfigPanel } from '@/components/AIConfigPanel'
+import { AIReviewResult } from '@/types/ai'
+import { getLineIssues } from '@/utils/aiReview'
 
 interface DiffSidebarProps {
   isOpen: boolean
@@ -273,8 +278,17 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
   const [showFileTree, setShowFileTree] = useState(true)
   const [activeFile, setActiveFile] = useState<string | null>(null)
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set())
+  const [showAIConfig, setShowAIConfig] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const sidebarRef = useRef<HTMLDivElement>(null)
+
+  // AI 评审状态
+  const reviewStatus = aiReviewStore((state) => state.reviewStatus)
+  const currentResult = aiReviewStore((state) => state.currentResult)
+  const performReview = aiReviewStore((state) => state.performReview)
+  const reReview = aiReviewStore((state) => state.reReview)
+  const showConfigGuide = aiReviewStore((state) => state.showConfigGuide)
+  const setShowConfigGuide = aiReviewStore((state) => state.setShowConfigGuide)
 
   // 拖拽处理
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -447,6 +461,16 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
     }
   }
 
+  // AI 评审相关函数
+  const handleStartAIReview = async () => {
+    if (!diff) return
+    await performReview({
+      worktreePath,
+      targetBranch,
+      force: false,
+    })
+  }
+
   const jumpToNextChange = () => {
     if (!diff) return
 
@@ -554,6 +578,42 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
           </span>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
+          {/* AI 评审按钮 */}
+          <button
+            onClick={() => {
+              if (showConfigGuide) {
+                setShowAIConfig(true)
+              } else if (reviewStatus !== 'loading') {
+                if (reviewStatus === 'success' && currentResult) {
+                  // 已有结果时强制重新评审，跳过缓存
+                  reReview({ worktreePath, targetBranch })
+                } else {
+                  handleStartAIReview()
+                }
+              }
+            }}
+            disabled={reviewStatus === 'loading'}
+            className={clsx(
+              'p-1.5 rounded transition-colors flex items-center gap-1',
+              reviewStatus === 'success' && currentResult
+                ? 'text-purple-500 bg-purple-50 dark:bg-purple-900/30'
+                : 'text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20',
+              reviewStatus === 'loading' && 'opacity-50 cursor-not-allowed'
+            )}
+            title={reviewStatus === 'success' && currentResult ? '重新评审（点击强制刷新）' : 'AI 评审'}
+          >
+            <Sparkles className={clsx('w-3.5 h-3.5', reviewStatus === 'loading' && 'animate-pulse')} />
+            {reviewStatus === 'loading' && (
+              <span className="text-xs">分析中...</span>
+            )}
+            {reviewStatus === 'success' && currentResult && (() => {
+              const count = currentResult.issues.filter(
+                i => !i.ignored && !i.file.endsWith('.md') && !i.file.endsWith('.markdown')
+              ).length
+              return count > 0 ? <span className="text-xs">{count}</span> : null
+            })()}
+          </button>
+
           {/* 导航按钮 */}
           <div className="flex items-center gap-1">
             <button
@@ -769,6 +829,8 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                         <span className="truncate text-xs text-gray-700 dark:text-gray-300 font-medium" title={file.path}>
                           {file.path}
                         </span>
+                        {/* 文件评审摘要 */}
+                        <FileReviewSummary result={currentResult} filePath={file.path} />
                       </div>
                       <div className="flex items-center gap-2 text-xs ml-3">
                         {file.additions > 0 && (
@@ -784,7 +846,13 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                     {expandedFiles.has(file.path) && (
                       <div className="overflow-hidden">
                         {viewMode === 'unified' ? (
-                          <UnifiedDiffView hunks={file.hunks} fileIdx={fileIdx} selectedLine={selectedLine} />
+                          <UnifiedDiffView
+                            hunks={file.hunks}
+                            fileIdx={fileIdx}
+                            selectedLine={selectedLine}
+                            filePath={file.path}
+                            reviewResult={currentResult}
+                          />
                         ) : (
                           <SplitDiffView
                             hunks={file.hunks}
@@ -792,6 +860,8 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                             selectedLine={selectedLine}
                             sourceBranch={diff?.sourceBranch || worktreeName}
                             targetBranch={targetBranch}
+                            filePath={file.path}
+                            reviewResult={currentResult}
                           />
                         )}
                       </div>
@@ -804,12 +874,30 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
         )}
       </div>
       </div>
+
+      {/* AI 配置面板 */}
+      <AIConfigPanel isOpen={showAIConfig} onClose={() => {
+        setShowAIConfig(false)
+        setShowConfigGuide(false)
+      }} />
     </div>
   )
 }
 
 // 统一视图组件 — memo 避免其他文件展开/收起时重渲
-const UnifiedDiffView = memo(function UnifiedDiffView({ hunks, fileIdx, selectedLine }: { hunks: DiffHunk[], fileIdx: number, selectedLine: string | null }) {
+const UnifiedDiffView = memo(function UnifiedDiffView({
+  hunks,
+  fileIdx,
+  selectedLine,
+  filePath,
+  reviewResult,
+}: {
+  hunks: DiffHunk[]
+  fileIdx: number
+  selectedLine: string | null
+  filePath: string
+  reviewResult: AIReviewResult | null
+}) {
   return (
     <div className="font-mono text-xs overflow-x-auto">
       {hunks.map((hunk: DiffHunk, hunkIdx: number) => {
@@ -826,23 +914,35 @@ const UnifiedDiffView = memo(function UnifiedDiffView({ hunks, fileIdx, selected
               const isSelected = selectedLine === id
               const isChange = line.lineType !== 'context'
               const segments = charMap.get(lineIdx)
+              // 获取当前行的评审问题
+              const lineNum = line.newLine || line.oldLine || 0
+              const issues = getLineIssues(reviewResult, filePath, lineNum)
+              const hasIssues = issues.length > 0
 
               return (
                 <div
                   id={id}
                   key={lineIdx}
                   className={clsx(
-                    'flex items-center group/line h-[22px] overflow-y-clip',
+                    'flex items-center group/line min-h-[22px] overflow-y-clip',
                     line.lineType === 'addition' && 'bg-green-50 dark:bg-green-900/20',
                     line.lineType === 'deletion' && 'bg-red-50 dark:bg-red-900/20',
                     isSelected && 'ring-2 ring-purple-500 ring-inset',
                     isChange && 'hover:bg-opacity-80',
+                    hasIssues && 'bg-yellow-50/50 dark:bg-yellow-900/10',
                   )}
                 >
                   <span className={clsx(
-                    'w-12 px-1 text-right text-[11px] leading-[22px] select-none border-r border-gray-200 dark:border-gray-700 font-mono',
+                    'w-12 px-1 text-right text-[11px] leading-[22px] select-none border-r border-gray-200 dark:border-gray-700 font-mono flex items-center justify-end gap-1',
                     line.lineType === 'deletion' ? 'bg-red-100 dark:bg-red-900/30 text-red-400' : 'bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500',
                   )}>
+                    {hasIssues && (
+                      <InlineReviewMarker
+                        issues={issues}
+                        filePath={filePath}
+                        lineNum={lineNum}
+                      />
+                    )}
                     {line.oldLine ?? ''}
                   </span>
                   <span className={clsx(
@@ -860,7 +960,7 @@ const UnifiedDiffView = memo(function UnifiedDiffView({ hunks, fileIdx, selected
                   >
                     {line.lineType === 'addition' ? '+' : line.lineType === 'deletion' ? '-' : ' '}
                   </span>
-                  <span className="flex-1 px-2 whitespace-pre text-[11px] leading-[22px] relative">
+                  <span className="flex-1 px-2 whitespace-pre text-[11px] leading-[22px] relative flex items-center">
                     <HighlightedLine content={line.content} lineType={line.lineType} charSegments={segments} />
                     <CopyButton text={line.content} />
                   </span>
@@ -875,7 +975,23 @@ const UnifiedDiffView = memo(function UnifiedDiffView({ hunks, fileIdx, selected
 })
 
 // 拆分视图组件 — memo 避免其他文件展开/收起时重渲，支持左右同步滚动
-const SplitDiffView = memo(function SplitDiffView({ hunks, fileIdx, selectedLine, sourceBranch, targetBranch }: { hunks: DiffHunk[], fileIdx: number, selectedLine: string | null, sourceBranch: string, targetBranch: string }) {
+const SplitDiffView = memo(function SplitDiffView({
+  hunks,
+  fileIdx,
+  selectedLine,
+  sourceBranch,
+  targetBranch,
+  filePath,
+  reviewResult,
+}: {
+  hunks: DiffHunk[]
+  fileIdx: number
+  selectedLine: string | null
+  sourceBranch: string
+  targetBranch: string
+  filePath: string
+  reviewResult: AIReviewResult | null
+}) {
   const leftRef = useRef<HTMLDivElement>(null)
   const rightRef = useRef<HTMLDivElement>(null)
   const isScrolling = useRef(false)
@@ -996,22 +1112,34 @@ const SplitDiffView = memo(function SplitDiffView({ hunks, fileIdx, selectedLine
                   const id = `diff-${fileIdx}-${hunkIdx}-R${idx}`
                   const isSelected = selectedLine === id
                   const segments = origIdx >= 0 ? charMap.get(origIdx) : undefined
+                  // 获取当前行的评审问题
+                  const lineNum = line?.newLine || 0
+                  const issues = line ? getLineIssues(reviewResult, filePath, lineNum) : []
+                  const hasIssues = issues.length > 0
 
                   return (
                     <div
                       id={id}
                       key={`right-${idx}`}
                       className={clsx(
-                        'flex items-center group/line h-[22px] overflow-y-clip',
+                        'flex items-center group/line min-h-[22px] overflow-y-clip',
                         line?.lineType === 'addition' && 'bg-green-50 dark:bg-green-900/20',
                         line === null && 'bg-gray-100 dark:bg-gray-800/50',
                         isSelected && 'ring-2 ring-purple-500 ring-inset',
+                        hasIssues && 'bg-yellow-50/50 dark:bg-yellow-900/10',
                       )}
                     >
                       <span className={clsx(
-                        'w-10 px-1 text-right text-[11px] leading-[22px] select-none border-r border-gray-200 dark:border-gray-700 font-mono',
+                        'w-10 px-1 text-right text-[11px] leading-[22px] select-none border-r border-gray-200 dark:border-gray-700 font-mono flex items-center justify-end gap-1',
                         line?.lineType === 'addition' ? 'bg-green-100 dark:bg-green-900/30 text-green-400' : 'bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500',
                       )}>
+                        {hasIssues && (
+                          <InlineReviewMarker
+                            issues={issues}
+                            filePath={filePath}
+                            lineNum={lineNum}
+                          />
+                        )}
                         {line?.newLine ?? ''}
                       </span>
                       <span
@@ -1022,7 +1150,7 @@ const SplitDiffView = memo(function SplitDiffView({ hunks, fileIdx, selectedLine
                       >
                         {line?.lineType === 'addition' ? '+' : ' '}
                       </span>
-                      <span className="flex-1 px-1 whitespace-pre text-[11px] leading-[22px] relative">
+                      <span className="flex-1 px-1 whitespace-pre text-[11px] leading-[22px] relative flex items-center">
                         {line ? <HighlightedLine content={line.content} lineType={line.lineType} charSegments={segments} /> : ''}
                         {line && <CopyButton text={line.content} />}
                       </span>

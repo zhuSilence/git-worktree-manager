@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
-import { X, Code, Terminal, Monitor, RefreshCw, Download } from 'lucide-react'
+import { X, Code, Terminal, Monitor, RefreshCw, Download, Bot, ChevronRight } from 'lucide-react'
 import { settingsStore, IdeType, TerminalType } from '@/stores/settingsStore'
 import { UpdateDialog } from '@/components/UpdateDialog'
 import { updateStore } from '@/stores/updateStore'
+import { AIConfigPanel } from '@/components/AIConfigPanel'
+import { aiReviewStore } from '@/stores/aiReviewStore'
 
 interface SettingsPanelProps {
   isOpen: boolean
@@ -43,7 +45,9 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   } = settingsStore()
 
   const { isUpdateAvailable, updateInfo } = updateStore()
+  const aiConfig = aiReviewStore((state) => state.config)
   const [showUpdateDialog, setShowUpdateDialog] = useState(false)
+  const [showAIConfig, setShowAIConfig] = useState(false)
   const [localIde, setLocalIde] = useState<IdeType>(defaultIde)
   const [localTerminal, setLocalTerminal] = useState<TerminalType>(defaultTerminal)
   const [localIdePath, setLocalIdePath] = useState(customIdePath || '')
@@ -122,6 +126,40 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* AI 评审设置 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                <Bot className="w-4 h-4" />
+                AI 评审
+              </label>
+              <button
+                onClick={() => setShowAIConfig(true)}
+                className="w-full flex items-center justify-between px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">
+                    {aiConfig.provider === 'openai' && 'OpenAI'}
+                    {aiConfig.provider === 'claude' && 'Claude'}
+                    {aiConfig.provider === 'ollama' && 'Ollama (本地)'}
+                    {aiConfig.provider === 'custom' && '自定义端点'}
+                  </span>
+                  {aiConfig.apiKey || aiConfig.provider === 'ollama' ? (
+                    <span className="text-xs text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded">
+                      已配置
+                    </span>
+                  ) : (
+                    <span className="text-xs text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded">
+                      未配置
+                    </span>
+                  )}
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+              </button>
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                配置 AI 评审的 API 提供商和密钥
+              </p>
             </div>
 
             {/* IDE 设置 */}
@@ -220,6 +258,9 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           </div>
         </div>
       </div>
+
+      {/* AI 配置面板 */}
+      <AIConfigPanel isOpen={showAIConfig} onClose={() => setShowAIConfig(false)} />
 
       {/* 更新对话框 */}
       <UpdateDialog isOpen={showUpdateDialog} onClose={() => setShowUpdateDialog(false)} />

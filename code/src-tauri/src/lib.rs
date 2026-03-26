@@ -41,6 +41,11 @@ pub fn run() {
             commands::worktree::get_stale_hints,
             commands::worktree::get_timeline,
             commands::worktree::pull_branch,
+            // AI 评审命令
+            commands::ai_review::save_ai_config,
+            commands::ai_review::get_ai_config,
+            commands::ai_review::test_ai_connection,
+            commands::ai_review::ai_review,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
