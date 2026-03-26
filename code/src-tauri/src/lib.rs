@@ -42,6 +42,11 @@ pub fn run() {
             commands::worktree::get_timeline,
             commands::worktree::push,
             commands::worktree::pull,
+            // Hotfix 相关命令
+            commands::worktree::start_hotfix,
+            commands::worktree::finish_hotfix,
+            commands::worktree::abort_hotfix,
+            commands::worktree::get_hotfix_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

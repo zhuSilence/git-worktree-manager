@@ -274,5 +274,24 @@
     "add": "添加",
     "notesLabel": "备注描述",
     "notesPlaceholder": "添加备注..."
+  },
+  "hotfix": {
+    "title": "快速 Hotfix",
+    "description": "修复描述",
+    "descriptionPlaceholder": "例如：修复登录页面样式问题",
+    "descriptionRequired": "请输入修复描述",
+    "baseBranch": "基准分支",
+    "baseBranchDesc": "Hotfix 将从此分支创建",
+    "branchName": "分支名（可选）",
+    "branchNamePlaceholder": "留空则自动生成：hotfix/YYYY-MM-DD-描述",
+    "start": "开始 Hotfix",
+    "inProgress": "Hotfix 进行中",
+    "branch": "分支",
+    "finishHint": "修复完成后，点击下方按钮合并到主分支并清理 worktree。",
+    "finishAndMerge": "完成并合并",
+    "finishAndPush": "完成并推送",
+    "abort": "取消 Hotfix",
+    "confirmAbort": "确定要取消此 Hotfix 吗？这将删除 hotfix 分支和 worktree。",
+    "help": "Hotfix 流程将自动创建分支和 worktree，修复完成后一键合并回主分支并清理。"
   }
 }

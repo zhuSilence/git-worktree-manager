@@ -1,4 +1,4 @@
-use crate::models::{CreateWorktreeParams, WorktreeListResponse, WorktreeResult};
+use crate::models::{CreateWorktreeParams, WorktreeListResponse, WorktreeResult, StartHotfixParams, StartHotfixResult, FinishHotfixResult, HotfixInfo};
 use crate::services::git_service;
 use tauri::command;
 use tauri::async_runtime::spawn_blocking;
@@ -244,6 +244,62 @@ pub async fn push(worktree_path: String, branch: Option<String>) -> Result<crate
 pub async fn pull(worktree_path: String, branch: Option<String>) -> Result<crate::models::SwitchBranchResult, String> {
     spawn_blocking(move || {
         git_service::pull(&worktree_path, branch.as_deref())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}
+
+// ============ Hotfix 相关命令 ============
+
+/// 开始 Hotfix 流程
+#[command]
+pub async fn start_hotfix(
+    repo_path: String,
+    description: String,
+    base_branch: Option<String>,
+    branch_name: Option<String>,
+) -> Result<StartHotfixResult, String> {
+    let params = StartHotfixParams {
+        description,
+        base_branch,
+        branch_name,
+    };
+    spawn_blocking(move || {
+        git_service::start_hotfix(&repo_path, params)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}
+
+/// 完成 Hotfix 流程
+#[command]
+pub async fn finish_hotfix(repo_path: String, push: bool) -> Result<FinishHotfixResult, String> {
+    spawn_blocking(move || {
+        git_service::finish_hotfix(&repo_path, push)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}
+
+/// 取消 Hotfix 流程
+#[command]
+pub async fn abort_hotfix(repo_path: String) -> Result<FinishHotfixResult, String> {
+    spawn_blocking(move || {
+        git_service::abort_hotfix(&repo_path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}
+
+/// 获取 Hotfix 状态
+#[command]
+pub async fn get_hotfix_status() -> Result<Option<HotfixInfo>, String> {
+    spawn_blocking(move || {
+        git_service::get_hotfix_status()
     })
     .await
     .map_err(|e| e.to_string())?

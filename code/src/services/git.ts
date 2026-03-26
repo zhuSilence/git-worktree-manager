@@ -12,6 +12,9 @@ import type {
   BatchDeleteResult,
   WorktreeHint,
   TimelineResponse,
+  HotfixInfo,
+  StartHotfixResult,
+  FinishHotfixResult,
 } from '@/types/worktree'
 import type { IdeType, TerminalType } from '@/stores/settingsStore'
 
@@ -181,5 +184,45 @@ export const gitService = {
    */
   async pull(worktreePath: string, branch?: string): Promise<SwitchBranchResult> {
     return invoke<SwitchBranchResult>('pull', { worktreePath, branch })
+  },
+
+  // ============ Hotfix 相关 ============
+
+  /**
+   * 开始 Hotfix 流程
+   */
+  async startHotfix(
+    repoPath: string,
+    description: string,
+    baseBranch?: string,
+    branchName?: string
+  ): Promise<StartHotfixResult> {
+    return invoke<StartHotfixResult>('start_hotfix', {
+      repoPath,
+      description,
+      baseBranch,
+      branchName,
+    })
+  },
+
+  /**
+   * 完成 Hotfix 流程
+   */
+  async finishHotfix(repoPath: string, push: boolean = false): Promise<FinishHotfixResult> {
+    return invoke<FinishHotfixResult>('finish_hotfix', { repoPath, push })
+  },
+
+  /**
+   * 取消 Hotfix 流程
+   */
+  async abortHotfix(repoPath: string): Promise<FinishHotfixResult> {
+    return invoke<FinishHotfixResult>('abort_hotfix', { repoPath })
+  },
+
+  /**
+   * 获取 Hotfix 状态
+   */
+  async getHotfixStatus(): Promise<HotfixInfo | null> {
+    return invoke<HotfixInfo | null>('get_hotfix_status')
   },
 }
