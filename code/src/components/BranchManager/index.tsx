@@ -32,7 +32,7 @@ function BranchComboBox({ value, onChange, branches, placeholder, excludeCurrent
   // 同步外部 value
   useEffect(() => { setQuery(value) }, [value])
 
-  // 点击外部关闭
+  // 点击外部关闭 - 只在组件挂载时绑定事件
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -41,6 +41,7 @@ function BranchComboBox({ value, onChange, branches, placeholder, excludeCurrent
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const filtered = useMemo(() => {

@@ -25,11 +25,16 @@ interface DiffSidebarProps {
   refreshToken?: number
 }
 
-const MIN_WIDTH = 400
-const MAX_WIDTH = 1200
-const DEFAULT_WIDTH = 600
-const STORAGE_KEY = 'diff-sidebar-width'
-const SPLIT_MIN_WIDTH = 700
+import {
+  MIN_SIDEBAR_WIDTH as MIN_WIDTH,
+  MAX_SIDEBAR_WIDTH as MAX_WIDTH,
+  DEFAULT_SIDEBAR_WIDTH as DEFAULT_WIDTH,
+  SIDEBAR_WIDTH_STORAGE_KEY as STORAGE_KEY,
+  SPLIT_MIN_WIDTH,
+  PROGRESSIVE_EXPAND_COUNT,
+  FILE_STATUS_COLOR_MAP,
+  FILE_STATUS_BG_COLOR_MAP,
+} from './constants'
 
 export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branches = [], defaultBranch = 'main', fillWidth = false, refreshToken }: DiffSidebarProps) {
   const { t } = useTranslation()
@@ -112,23 +117,6 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
     }
   }, [width, viewMode])
 
-  // 键盘快捷键
-  useEffect(() => {
-    if (!isOpen) return
-    const handler = (e: KeyboardEvent) => {
-      // 在 input/select 中不触发
-      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'SELECT') return
-      switch (e.key) {
-        case 'n': jumpToNextChange(); break
-        case 'p': jumpToPrevChange(); break
-        case 'e': toggleAll(); break
-        case 'Escape': onClose(); break
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [isOpen, diff, selectedLine, expandedFiles])
-
   useEffect(() => {
     if (isOpen) {
       fetchDiff()
@@ -151,25 +139,30 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
     }
   }
 
-  const toggleFile = (path: string) => {
-    const newExpanded = new Set(expandedFiles)
-    if (newExpanded.has(path)) {
-      newExpanded.delete(path)
-    } else {
-      newExpanded.add(path)
-    }
-    setExpandedFiles(newExpanded)
-  }
-
-  const toggleAll = () => {
-    if (diff) {
-      if (expandedFiles.size === diff.files.length) {
-        setExpandedFiles(new Set())
+  const toggleFile = useCallback((path: string) => {
+    setExpandedFiles(prev => {
+      const newExpanded = new Set(prev)
+      if (newExpanded.has(path)) {
+        newExpanded.delete(path)
       } else {
-        setExpandedFiles(new Set(diff.files.map(f => f.path)))
+        newExpanded.add(path)
       }
-    }
-  }
+      return newExpanded
+    })
+  }, [])
+
+  const toggleAll = useCallback(() => {
+    setExpandedFiles(prev => {
+      if (diff) {
+        if (prev.size === diff.files.length) {
+          return new Set()
+        } else {
+          return new Set(diff.files.map(f => f.path))
+        }
+      }
+      return prev
+    })
+  }, [diff])
 
   // 构建文件树
   const fileTree = useMemo(() => {
@@ -264,7 +257,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
     }, 50)
   }
 
-  const jumpToNextChange = () => {
+  const jumpToNextChange = useCallback(() => {
     if (!diff) return
 
     // 找到下一个有变更的行
@@ -284,9 +277,9 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
         }
       }
     }
-  }
+  }, [diff, selectedLine])
 
-  const jumpToPrevChange = () => {
+  const jumpToPrevChange = useCallback(() => {
     if (!diff) return
 
     // 找到上一个有变更的行
@@ -305,28 +298,33 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
         }
       }
     }
-  }
+  }, [diff, selectedLine])
+
+  // 键盘快捷键 - 必须在所有回调函数定义之后
+  useEffect(() => {
+    if (!isOpen) return
+    const handler = (e: KeyboardEvent) => {
+      // 在 input/select 中不触发
+      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'SELECT') return
+      switch (e.key) {
+        case 'n': jumpToNextChange(); break
+        case 'p': jumpToPrevChange(); break
+        case 'e': toggleAll(); break
+        case 'Escape': onClose(); break
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [isOpen, onClose, jumpToNextChange, jumpToPrevChange, toggleAll])
 
   if (!isOpen) return null
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'added': return 'text-green-500'
-      case 'deleted': return 'text-red-500'
-      case 'modified': return 'text-yellow-500'
-      case 'renamed': return 'text-blue-500'
-      default: return 'text-gray-500'
-    }
+    return FILE_STATUS_COLOR_MAP[status] || 'text-gray-500'
   }
 
   const getStatusBgColor = (status: string) => {
-    switch (status) {
-      case 'added': return 'bg-green-500/10'
-      case 'deleted': return 'bg-red-500/10'
-      case 'modified': return 'bg-yellow-500/10'
-      case 'renamed': return 'bg-blue-500/10'
-      default: return 'bg-gray-500/10'
-    }
+    return FILE_STATUS_BG_COLOR_MAP[status] || 'bg-gray-500/10'
   }
 
   const getStatusLabel = (status: string) => {
@@ -562,17 +560,19 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                   {expandedFiles.size < diff.files.length && diff.files.length > 5 && (
                     <button
                       onClick={() => {
-                        // 渐进式展开：每次展开 10 个
-                        const next = new Set(expandedFiles)
-                        let count = 0
-                        for (const f of diff.files) {
-                          if (!next.has(f.path)) {
-                            next.add(f.path)
-                            count++
-                            if (count >= 10) break
+                        // 渐进式展开：每次展开固定数量
+                        setExpandedFiles(prev => {
+                          const next = new Set(prev)
+                          let count = 0
+                          for (const f of diff.files) {
+                            if (!next.has(f.path)) {
+                              next.add(f.path)
+                              count++
+                              if (count >= PROGRESSIVE_EXPAND_COUNT) break
+                            }
                           }
-                        }
-                        setExpandedFiles(next)
+                          return next
+                        })
                       }}
                       className="text-xs text-purple-500 hover:text-purple-700 dark:hover:text-purple-300 flex items-center gap-0.5"
                     >
