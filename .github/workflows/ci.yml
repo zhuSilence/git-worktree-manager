@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd code
-          pnpm install
+          pnpm install --shamefully-hoist
         timeout-minutes: 15
 
       - name: Build frontend
