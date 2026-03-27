@@ -17,7 +17,9 @@
     "name": "Name",
     "status": "Status",
     "creating": "Creating...",
-    "deleting": "Deleting..."
+    "deleting": "Deleting...",
+    "copied": "Copied",
+    "clickToCopy": "Click to copy"
   },
   "app": {
     "welcome": "Welcome to Worktree Manager",
@@ -203,7 +205,8 @@
     "permissionDenied": "Permission denied",
     "openTerminalFailed": "Failed to open terminal",
     "openEditorFailed": "Failed to open editor",
-    "openFolderFailed": "Failed to open folder"
+    "openFolderFailed": "Failed to open folder",
+    "copyFailed": "Copy failed"
   },
   "update": {
     "checking": "Checking for updates...",

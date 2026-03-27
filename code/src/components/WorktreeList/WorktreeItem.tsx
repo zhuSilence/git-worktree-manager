@@ -4,7 +4,7 @@ import { Worktree } from '@/types/worktree'
 import { StatusBadge } from './StatusBadge'
 import { TagBadge, getTagDef } from './TagBadge'
 import { TagEditor } from './TagEditor'
-import { Folder, ExternalLink, Terminal, Trash2, GitCompare, GitBranch, ArrowUp, ArrowDown, Check, GitMerge, Tag, MessageSquare, Clock, AlertTriangle } from 'lucide-react'
+import { Folder, ExternalLink, Terminal, Trash2, GitCompare, GitBranch, ArrowUp, ArrowDown, Check, GitMerge, Tag, MessageSquare, Clock, AlertTriangle, Copy } from 'lucide-react'
 import { gitService } from '@/services/git'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 import { settingsStore } from '@/stores/settingsStore'
@@ -34,6 +34,18 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
   const [showBranchManager, setShowBranchManager] = useState(false)
   const [showTagEditor, setShowTagEditor] = useState(false)
   const [annotation, setAnnotation] = useState<WorktreeAnnotation | null>(null)
+  const [copiedField, setCopiedField] = useState<'branch' | 'path' | null>(null)
+
+  const handleCopy = async (text: string, field: 'branch' | 'path') => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedField(field)
+      toast.success(t('common.copied'))
+      setTimeout(() => setCopiedField(null), 2000)
+    } catch (error) {
+      handleError(error, t('errors.copyFailed'))
+    }
+  }
 
   // 加载标注信息
   useEffect(() => {
@@ -127,9 +139,23 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 min-w-0">
               <StatusBadge status={worktree.status} />
-              <span className="font-medium text-gray-900 dark:text-white truncate">
-                {worktree.branch || 'DETACHED'}
-              </span>
+              <button
+                onClick={() => worktree.branch && handleCopy(worktree.branch, 'branch')}
+                className="flex items-center gap-1 font-medium text-gray-900 dark:text-white truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors group"
+                title={worktree.branch ? t('common.clickToCopy') : undefined}
+                disabled={!worktree.branch}
+              >
+                <span className="truncate">
+                  {worktree.branch || 'DETACHED'}
+                </span>
+                {worktree.branch && (
+                  copiedField === 'branch' ? (
+                    <Check className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                  )
+                )}
+              </button>
               {worktree.isMain && (
                 <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
                   {t('worktree.main')}
@@ -201,9 +227,20 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
 
             <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 mt-1 min-w-0">
               <Folder className="w-4 h-4 flex-shrink-0" />
-              <span className="truncate" title={worktree.path}>
-                {worktree.path}
-              </span>
+              <button
+                onClick={() => handleCopy(worktree.path, 'path')}
+                className="flex items-center gap-1 truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors group"
+                title={t('common.clickToCopy')}
+              >
+                <span className="truncate">
+                  {worktree.path}
+                </span>
+                {copiedField === 'path' ? (
+                  <Check className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                )}
+              </button>
             </div>
 
             {/* 最后提交信息 */}
