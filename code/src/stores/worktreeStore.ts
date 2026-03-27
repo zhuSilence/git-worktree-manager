@@ -10,7 +10,7 @@ interface WorktreeState {
   isLoading: boolean
   error: string | null
   // 事务状态：跟踪正在进行的操作
-  pendingOperations: Set<string>
+  pendingOperations: string[]
 
   // 操作
   loadRepository: (path: string) => Promise<void>
@@ -33,34 +33,26 @@ const createTransaction = <T extends Partial<WorktreeState>>(
       set((state) => ({
         isLoading: true,
         error: null,
-        pendingOperations: new Set([...state.pendingOperations, operationId]),
+        pendingOperations: [...state.pendingOperations, operationId],
       }) as T)
     },
     // 成功完成：更新状态并清除 loading
     success: (operationId: string, updates: Partial<WorktreeState>) => {
-      set((state) => {
-        const newPending = new Set(state.pendingOperations)
-        newPending.delete(operationId)
-        return {
-          ...updates,
-          isLoading: newPending.size > 0,
-          error: null,
-          pendingOperations: newPending,
-        } as T
-      })
+      set((state) => ({
+        ...updates,
+        isLoading: state.pendingOperations.filter(id => id !== operationId).length > 0,
+        error: null,
+        pendingOperations: state.pendingOperations.filter(id => id !== operationId),
+      }) as T)
     },
     // 失败：设置错误并清除 loading
     error: (operationId: string, error: string, rollbackState?: Partial<WorktreeState>) => {
-      set((state) => {
-        const newPending = new Set(state.pendingOperations)
-        newPending.delete(operationId)
-        return {
-          ...rollbackState,
-          error,
-          isLoading: newPending.size > 0,
-          pendingOperations: newPending,
-        } as T
-      })
+      set((state) => ({
+        ...rollbackState,
+        error,
+        isLoading: state.pendingOperations.filter(id => id !== operationId).length > 0,
+        pendingOperations: state.pendingOperations.filter(id => id !== operationId),
+      }) as T)
     },
   }
 }
@@ -78,7 +70,7 @@ export const useWorktreeStore = create<WorktreeState>((set, get) => {
     currentRepoPath: null,
     isLoading: false,
     error: null,
-    pendingOperations: new Set<string>(),
+    pendingOperations: [],
 
     // 加载仓库
     loadRepository: async (path: string) => {
@@ -204,7 +196,7 @@ export const useWorktreeStore = create<WorktreeState>((set, get) => {
       set((state) => ({
         worktrees: state.worktrees.filter(w => w.path !== worktreePath),
         isLoading: true,
-        pendingOperations: new Set([...state.pendingOperations, opId]),
+        pendingOperations: [...state.pendingOperations, opId],
       }))
 
       try {

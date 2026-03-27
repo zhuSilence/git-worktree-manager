@@ -16,32 +16,28 @@ interface BatchActionsProps {
 export function BatchActions({ isOpen, onClose, worktrees, repoPath }: BatchActionsProps) {
   const { t } = useTranslation()
   const { refreshWorktrees } = useWorktreeStore()
-  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
+  const [selectedPaths, setSelectedPaths] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<{ successCount: number; failedCount: number } | null>(null)
 
   const toggleSelect = (path: string) => {
-    const newSelected = new Set(selectedPaths)
-    if (newSelected.has(path)) {
-      newSelected.delete(path)
-    } else {
-      newSelected.add(path)
-    }
-    setSelectedPaths(newSelected)
+    setSelectedPaths(prev =>
+      prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path]
+    )
   }
 
   const selectAll = () => {
     // 只选择非主 worktree
     const allPaths = worktrees.filter(w => !w.isMain).map(w => w.path)
-    setSelectedPaths(new Set(allPaths))
+    setSelectedPaths(allPaths)
   }
 
   const deselectAll = () => {
-    setSelectedPaths(new Set())
+    setSelectedPaths([])
   }
 
   const handleBatchDelete = async (force: boolean) => {
-    const selectedWorktrees = worktrees.filter(w => selectedPaths.has(w.path))
+    const selectedWorktrees = worktrees.filter(w => selectedPaths.includes(w.path))
     if (selectedWorktrees.length === 0) return
 
     const confirmMsg = force
@@ -60,7 +56,7 @@ export function BatchActions({ isOpen, onClose, worktrees, repoPath }: BatchActi
 
       if (batchResult.successCount > 0) {
         await refreshWorktrees()
-        setSelectedPaths(new Set())
+        setSelectedPaths([])
       }
     } catch (err) {
       console.error('Batch delete failed:', err)
@@ -100,7 +96,7 @@ export function BatchActions({ isOpen, onClose, worktrees, repoPath }: BatchActi
             </button>
           </div>
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            {t('common.selected', { count: selectedPaths.size })}
+            {t('common.selected', { count: selectedPaths.length })}
           </span>
         </div>
 
@@ -120,12 +116,12 @@ export function BatchActions({ isOpen, onClose, worktrees, repoPath }: BatchActi
                   onClick={() => toggleSelect(worktree.path)}
                   className={clsx(
                     'flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors',
-                    selectedPaths.has(worktree.path)
+                    selectedPaths.includes(worktree.path)
                       ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
                       : 'bg-gray-50 dark:bg-gray-900 border border-transparent hover:bg-gray-100 dark:hover:bg-gray-800'
                   )}
                 >
-                  {selectedPaths.has(worktree.path) ? (
+                  {selectedPaths.includes(worktree.path) ? (
                     <CheckSquare className="w-5 h-5 text-red-500" />
                   ) : (
                     <Square className="w-5 h-5 text-gray-400" />
@@ -156,7 +152,7 @@ export function BatchActions({ isOpen, onClose, worktrees, repoPath }: BatchActi
         <div className="flex gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={() => handleBatchDelete(false)}
-            disabled={selectedPaths.size === 0 || isLoading}
+            disabled={selectedPaths.length === 0 || isLoading}
             className="flex-1 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {isLoading ? (
@@ -168,7 +164,7 @@ export function BatchActions({ isOpen, onClose, worktrees, repoPath }: BatchActi
           </button>
           <button
             onClick={() => handleBatchDelete(true)}
-            disabled={selectedPaths.size === 0 || isLoading}
+            disabled={selectedPaths.length === 0 || isLoading}
             className="flex-1 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {t('batch.forceDelete')}
