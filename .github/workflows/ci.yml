@@ -12,7 +12,7 @@ env:
 jobs:
   test-frontend:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -39,9 +39,19 @@ jobs:
           cd code
           npx tsc --noEmit
 
+      - name: Lint
+        run: |
+          cd code
+          npm run lint || true  # 暂时不阻断CI，先收集问题
+
+      - name: Run tests
+        run: |
+          cd code
+          npm run test:run
+
   test-backend:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -68,3 +78,13 @@ jobs:
         run: |
           cd code/src-tauri
           cargo test
+
+      - name: Clippy checks
+        run: |
+          cd code/src-tauri
+          cargo clippy -- -D warnings || true  # 暂时不阻断
+
+      - name: Check formatting
+        run: |
+          cd code/src-tauri
+          cargo fmt -- --check || true
