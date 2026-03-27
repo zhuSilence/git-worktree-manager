@@ -22,10 +22,15 @@ jobs:
         with:
           node-version: 20
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Install dependencies
         run: |
           cd code
-          npm install --no-audit --no-fund
+          pnpm install
         timeout-minutes: 15
 
       - name: Build frontend
