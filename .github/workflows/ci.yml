@@ -27,7 +27,9 @@ jobs:
       - name: Install dependencies
         run: |
           cd code
-          npm ci
+          npm cache clean --force
+          npm ci --prefer-offline --no-audit
+        timeout-minutes: 10
 
       - name: Build frontend
         run: |
