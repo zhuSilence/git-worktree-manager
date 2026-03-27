@@ -1,3 +1,4 @@
+use log::debug;
 use reqwest::{
     Client,
     header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE},
@@ -192,8 +193,8 @@ impl AIService {
             base_url.to_string()
         };
 
-        println!("[call_custom] 请求 URL: {}", url);
-        println!("[call_custom] 模型: {}", config.model);
+        debug!("[call_custom] 请求 URL: {}", url);
+        debug!("[call_custom] 模型: {}", config.model);
 
         let mut headers = HeaderMap::new();
         headers.insert(
@@ -208,7 +209,7 @@ impl AIService {
             "max_tokens": 4000
         });
 
-        println!("[call_custom] 请求体: {}", body);
+        debug!("[call_custom] 发送请求（请求体已隐藏，避免泄露 API Key）");
 
         let response = self
             .client
@@ -219,7 +220,7 @@ impl AIService {
             .await?;
 
         let status = response.status();
-        println!("[call_custom] 响应状态码: {}", status);
+        debug!("[call_custom] 响应状态码: {}", status);
 
         if !status.is_success() {
             let error_text = response.text().await.unwrap_or_default();
@@ -231,7 +232,7 @@ impl AIService {
         }
 
         let response_text = response.text().await?;
-        println!("[call_custom] 响应内容: {}", response_text);
+        debug!("[call_custom] 响应内容长度: {} 字节", response_text.len());
 
         let json: Value = serde_json::from_str(&response_text)
             .map_err(|e| anyhow::anyhow!("JSON 解析失败: {}. 响应内容: {}", e, response_text))?;
