@@ -1,4 +1,6 @@
 use serde::{Deserialize, Serialize};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 /// Hotfix 流程状态
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -62,32 +64,45 @@ pub struct FinishHotfixResult {
     pub cleaned_up: bool,
 }
 
-/// Hotfix 存储位置
-pub fn get_hotfix_state_file() -> std::path::PathBuf {
+/// Hotfix 存储位置（基于仓库路径生成唯一文件名，避免多仓库冲突）
+pub fn get_hotfix_state_file(repo_path: &str) -> std::path::PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+
+    // 使用仓库路径的哈希作为文件名，支持多仓库
+    let mut hasher = DefaultHasher::new();
+    repo_path.hash(&mut hasher);
+    let hash = hasher.finish();
+
     std::path::PathBuf::from(home)
         .join(".worktree-manager")
-        .join("hotfix-state.json")
+        .join(format!("hotfix-{:016x}.json", hash))
 }
 
 /// 生成 hotfix 分支名
 /// 格式: hotfix/YYYY-MM-DD-描述
 pub fn generate_hotfix_branch_name(description: &str) -> String {
     let today = chrono::Local::now().format("%Y-%m-%d");
-    // 简化描述：只保留字母数字和连字符
+
     let simplified: String = description
         .chars()
-        .filter(|c| c.is_alphanumeric() || *c == ' ' || *c == '-')
+        .filter(|c| c.is_ascii_alphanumeric() || *c == ' ' || *c == '-')
         .collect::<String>()
         .replace(' ', "-")
         .to_lowercase();
-    
-    // 限制长度
-    let truncated = if simplified.len() > 30 {
-        &simplified[..30]
+
+    let truncated = if simplified.chars().count() > 30 {
+        simplified.chars().take(30).collect::<String>()
     } else {
-        &simplified
+        simplified.clone()
     };
-    
-    format!("hotfix/{}-{}", today, truncated.trim_matches('-'))
+
+    let trimmed = truncated.trim_matches('-');
+
+    let safe_name = if trimmed.is_empty() {
+        "fix".to_string()
+    } else {
+        trimmed.to_string()
+    };
+
+    format!("hotfix/{}-{}", today, safe_name)
 }

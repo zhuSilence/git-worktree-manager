@@ -297,11 +297,9 @@ pub async fn abort_hotfix(repo_path: String) -> Result<FinishHotfixResult, Strin
 
 /// 获取 Hotfix 状态
 #[command]
-pub async fn get_hotfix_status() -> Result<Option<HotfixInfo>, String> {
-    spawn_blocking(move || {
-        git_service::get_hotfix_status()
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())
+pub async fn get_hotfix_status(repo_path: String) -> Result<Option<HotfixInfo>, String> {
+    spawn_blocking(move || git_service::get_hotfix_status(&repo_path))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
 }

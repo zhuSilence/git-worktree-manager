@@ -222,7 +222,7 @@ export const gitService = {
   /**
    * 获取 Hotfix 状态
    */
-  async getHotfixStatus(): Promise<HotfixInfo | null> {
-    return invoke<HotfixInfo | null>('get_hotfix_status')
+  async getHotfixStatus(repoPath: string): Promise<HotfixInfo | null> {
+    return invoke<HotfixInfo | null>('get_hotfix_status', { repoPath })
   },
 }
