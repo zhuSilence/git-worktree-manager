@@ -18,17 +18,17 @@ import type { RepositoryInfo } from './types/worktree'
 
 function App() {
   const { t } = useTranslation()
-  const { currentRepo, isLoading, error, loadRepository, refreshWorktrees, worktrees } = useWorktreeStore()
+  const { currentRepo, isLoading, error, loadRepository, refreshWorktrees, worktrees, fetchAllRemote, isFetching } = useWorktreeStore()
   const { repositories, activeRepoId, setActiveRepository, validateRepositories, refreshRepositories } = useRepositoryStore()
-  const { autoRefreshInterval } = settingsStore()
+  const { autoRefreshInterval, autoFetchOnStart } = settingsStore()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showTimeline, setShowTimeline] = useState(false)
   const [diffWorktree, setDiffWorktree] = useState<{ path: string; name: string } | null>(null)
   const [mainCollapsed, setMainCollapsed] = useState(() => localStorage.getItem('main-panel-collapsed') === 'true')
   const [diffRefreshSeq, setDiffRefreshSeq] = useState(0)
+  const [hasAutoFetched, setHasAutoFetched] = useState(false)
 
-  // 搜索框 ref
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   // 聚焦搜索框
@@ -72,7 +72,13 @@ function App() {
     }
   }, [activeRepoId, loadRepository])
 
-  // 应用启动时验证所有仓库路径
+  useEffect(() => {
+    if (currentRepo && autoFetchOnStart && !hasAutoFetched) {
+      setHasAutoFetched(true)
+      fetchAllRemote()
+    }
+  }, [currentRepo, autoFetchOnStart, hasAutoFetched, fetchAllRemote])
+
   useEffect(() => {
     validateRepositories()
   }, [validateRepositories])
@@ -97,11 +103,16 @@ function App() {
         onCreateWorktree={() => setShowCreateDialog(true)}
         onOpenSettings={() => setShowSettings(true)}
         onOpenTimeline={() => setShowTimeline(true)}
-        onRefresh={async () => {
+onRefresh={async () => {
           await Promise.all([
             refreshRepositories(),
             refreshWorktrees(),
           ])
+          setDiffRefreshSeq(seq => seq + 1)
+        }}
+        onFetch={async () => {
+          await fetchAllRemote()
+          await refreshWorktrees()
           setDiffRefreshSeq(seq => seq + 1)
         }}
       />

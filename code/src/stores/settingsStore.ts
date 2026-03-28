@@ -25,22 +25,15 @@ export type TerminalType =
  * 应用设置
  */
 export interface AppSettings {
-  /** 默认 IDE */
   defaultIde: IdeType
-  /** 自定义 IDE 路径 */
   customIdePath?: string
-  /** 默认终端 */
   defaultTerminal: TerminalType
-  /** 自定义终端路径 */
   customTerminalPath?: string
-  /** 主题 */
   theme: 'light' | 'dark' | 'system'
-  /** 自动刷新间隔 (秒), 0 为禁用 */
   autoRefreshInterval: number
-  /** 是否启用空闲检测 */
   enableIdleDetection: boolean
-  /** 空闲阈值 (天) */
   idleThresholdDays: number
+  autoFetchOnStart: boolean
 }
 
 interface SettingsState extends AppSettings {
@@ -52,6 +45,7 @@ interface SettingsState extends AppSettings {
   setAutoRefreshInterval: (interval: number) => void
   setEnableIdleDetection: (enabled: boolean) => void
   setIdleThresholdDays: (days: number) => void
+  setAutoFetchOnStart: (enabled: boolean) => void
 }
 
 const defaultSettings: AppSettings = {
@@ -61,6 +55,7 @@ const defaultSettings: AppSettings = {
   autoRefreshInterval: 0,
   enableIdleDetection: true,
   idleThresholdDays: 7,
+  autoFetchOnStart: true,
 }
 
 export const settingsStore = create<SettingsState>()(
@@ -76,6 +71,7 @@ export const settingsStore = create<SettingsState>()(
       setAutoRefreshInterval: (interval) => set({ autoRefreshInterval: interval }),
       setEnableIdleDetection: (enabled) => set({ enableIdleDetection: enabled }),
       setIdleThresholdDays: (days) => set({ idleThresholdDays: days }),
+      setAutoFetchOnStart: (enabled) => set({ autoFetchOnStart: enabled }),
     }),
     {
       name: 'worktree-manager-settings',

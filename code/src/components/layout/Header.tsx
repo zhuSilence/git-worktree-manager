@@ -1,4 +1,4 @@
-import { GitBranch, Settings, RefreshCw, Plus, Clock } from 'lucide-react'
+import { GitBranch, Settings, RefreshCw, Plus, Clock, CloudDownload } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/common'
 import { useWorktreeStore } from '@/stores/worktreeStore'
@@ -8,17 +8,24 @@ interface HeaderProps {
   onOpenSettings?: () => void
   onOpenTimeline?: () => void
   onRefresh?: () => void
+  onFetch?: () => void
 }
 
-export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings, onOpenTimeline, onRefresh }) => {
+export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings, onOpenTimeline, onRefresh, onFetch }) => {
   const { t } = useTranslation()
-  const { currentRepo, refreshWorktrees, isLoading } = useWorktreeStore()
+  const { currentRepo, refreshWorktrees, isLoading, isFetching } = useWorktreeStore()
 
   const handleRefresh = async () => {
     if (onRefresh) {
       await onRefresh()
     } else {
       await refreshWorktrees()
+    }
+  }
+
+  const handleFetch = async () => {
+    if (onFetch) {
+      await onFetch()
     }
   }
 
@@ -60,6 +67,16 @@ export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings
                 title={t('timeline.title')}
               >
                 <Clock className="h-4 w-4" />
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleFetch}
+                disabled={isFetching || isLoading}
+                title={t('header.fetchRemote')}
+              >
+                <CloudDownload className={`h-4 w-4 ${isFetching ? 'animate-pulse' : ''}`} />
               </Button>
 
               <Button

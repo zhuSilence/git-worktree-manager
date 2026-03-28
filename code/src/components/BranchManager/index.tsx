@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { X, GitBranch, Plus, Download, RefreshCw, Search, ChevronDown } from 'lucide-react'
+import { X, GitBranch, Plus, Download, RefreshCw, Search, ChevronDown, CloudDownload } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { gitService } from '@/services/git'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 import { clsx } from 'clsx'
+import type { RemoteBranch } from '@/types/worktree'
 
 interface BranchManagerProps {
   isOpen: boolean
@@ -116,8 +117,8 @@ function BranchComboBox({ value, onChange, branches, placeholder, excludeCurrent
 
 export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, branches }: BranchManagerProps) {
   const { t } = useTranslation()
-  const { refreshWorktrees } = useWorktreeStore()
-  const [mode, setMode] = useState<'switch' | 'create' | 'fetch'>('switch')
+  const { refreshWorktrees, currentRepoPath } = useWorktreeStore()
+  const [mode, setMode] = useState<'switch' | 'create' | 'fetch' | 'remote'>('switch')
   const [selectedBranch, setSelectedBranch] = useState('')
   const [newBranchName, setNewBranchName] = useState('')
   const [baseBranch, setBaseBranch] = useState('')
@@ -125,6 +126,27 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
   const [localBranchName, setLocalBranchName] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [remoteBranches, setRemoteBranches] = useState<RemoteBranch[]>([])
+  const [isLoadingRemote, setIsLoadingRemote] = useState(false)
+  const [selectedRemoteBranch, setSelectedRemoteBranch] = useState('')
+
+  useEffect(() => {
+    if (isOpen && mode === 'remote' && currentRepoPath) {
+      const loadRemoteBranches = async () => {
+        if (!currentRepoPath) return
+        setIsLoadingRemote(true)
+        try {
+          const response = await gitService.listRemoteBranches(currentRepoPath)
+          setRemoteBranches(response.remoteBranches)
+        } catch (err) {
+          console.error('Failed to load remote branches:', err)
+        } finally {
+          setIsLoadingRemote(false)
+        }
+      }
+      loadRemoteBranches()
+    }
+  }, [isOpen, mode, currentRepoPath])
 
   if (!isOpen) return null
 
@@ -188,6 +210,27 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
     }
   }
 
+  const handleCheckoutRemoteBranch = async () => {
+    if (!selectedRemoteBranch) return
+    setIsLoading(true)
+    setMessage(null)
+    try {
+      const branchName = selectedRemoteBranch.replace(/^origin\//, '')
+      const result = await gitService.fetchRemoteBranch(worktreePath, branchName)
+      if (result.success) {
+        setMessage({ type: 'success', text: result.message })
+        await refreshWorktrees()
+        setTimeout(onClose, 1500)
+      } else {
+        setMessage({ type: 'error', text: result.message })
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : t('branchManager.checkoutFailed', 'Checkout failed') })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
@@ -237,6 +280,17 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
             )}
           >
             {t('branchManager.fetchRemote')}
+          </button>
+          <button
+            onClick={() => setMode('remote')}
+            className={clsx(
+              'flex-1 py-2 text-sm font-medium transition-colors',
+              mode === 'remote'
+                ? 'text-green-600 dark:text-green-400 border-b-2 border-green-500'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            )}
+          >
+            {t('branchManager.remoteBranches', '远程分支')}
           </button>
         </div>
 
@@ -339,6 +393,60 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
               >
                 {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                 {t('branchManager.fetchAndSwitch')}
+              </button>
+            </div>
+          )}
+
+          {mode === 'remote' && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                  <CloudDownload className="w-4 h-4" />
+                  {t('branchManager.selectRemoteBranch', '选择远程分支')}
+                </label>
+                {isLoadingRemote ? (
+                  <div className="flex items-center justify-center py-4">
+                    <RefreshCw className="w-5 h-5 animate-spin text-gray-400" />
+                  </div>
+                ) : (
+                  <div className="max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                    {remoteBranches.length === 0 ? (
+                      <div className="p-3 text-sm text-gray-400 text-center">
+                        {t('branchManager.noRemoteBranches', '暂无远程分支')}
+                      </div>
+                    ) : (
+                      remoteBranches.map((rb) => (
+                        <button
+                          key={rb.fullName}
+                          type="button"
+                          onClick={() => setSelectedRemoteBranch(rb.fullName)}
+                          className={clsx(
+                            'w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors truncate border-b border-gray-100 dark:border-gray-700 last:border-b-0',
+                            selectedRemoteBranch === rb.fullName
+                              ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                              : 'text-gray-700 dark:text-gray-300'
+                          )}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="truncate">{rb.fullName}</span>
+                            {rb.lastCommit && (
+                              <span className="text-xs text-gray-400 ml-2">{rb.lastCommit}</span>
+                            )}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleCheckoutRemoteBranch}
+                disabled={!selectedRemoteBranch || isLoading}
+                className="w-full py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CloudDownload className="w-4 h-4" />}
+                {t('branchManager.checkoutRemote', '检出远程分支')}
               </button>
             </div>
           )}

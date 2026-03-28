@@ -6,6 +6,7 @@ use crate::services::{
     switch_branch, create_and_switch_branch, fetch_and_checkout,
     batch_delete_worktrees, get_merged_hints, get_stale_hints,
     get_diff, get_detailed_diff, get_timeline, push, pull,
+    fetch_all, list_remote_branches,
 };
 use crate::utils::validation::validate_path;
 use tauri::command;
@@ -191,4 +192,18 @@ pub async fn push_cmd(worktree_path: String, branch: Option<String>) -> Result<c
 pub async fn pull_cmd(worktree_path: String, branch: Option<String>) -> Result<crate::models::SwitchBranchResult, String> {
     validate_path(&worktree_path).map_err(|e| e.to_string())?;
     run_blocking(move || pull(&worktree_path, branch.as_deref())).await
+}
+
+/// Fetch 所有远程分支
+#[command]
+pub async fn fetch_all_cmd(repo_path: String) -> Result<crate::models::FetchResult, String> {
+    validate_path(&repo_path).map_err(|e| e.to_string())?;
+    run_blocking(move || fetch_all(&repo_path)).await
+}
+
+/// 获取远程分支列表
+#[command]
+pub async fn list_remote_branches_cmd(repo_path: String) -> Result<crate::models::RemoteBranchListResponse, String> {
+    validate_path(&repo_path).map_err(|e| e.to_string())?;
+    run_blocking(move || list_remote_branches(&repo_path)).await
 }

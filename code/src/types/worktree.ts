@@ -337,8 +337,25 @@ export interface CommitInfo {
  * 时间线响应
  */
 export interface TimelineResponse {
-  /** 提交列表 */
   commits: CommitInfo[]
-  /** 总数 */
   totalCount: number
+}
+
+export interface RemoteBranch {
+  name: string
+  remote: string
+  fullName: string
+  lastCommit?: string
+  lastCommitDate?: string
+}
+
+export interface RemoteBranchListResponse {
+  remoteBranches: RemoteBranch[]
+  remotes: string[]
+}
+
+export interface FetchResult {
+  success: boolean
+  message: string
+  updatedRemotes: string[]
 }

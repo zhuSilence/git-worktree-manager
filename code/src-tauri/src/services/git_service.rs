@@ -1,4 +1,7 @@
-use crate::models::{Branch, BranchListResponse, RepositoryInfo, SwitchBranchResult};
+use crate::models::{
+    Branch, BranchListResponse, FetchResult, RemoteBranch, RemoteBranchListResponse,
+    RepositoryInfo, SwitchBranchResult,
+};
 use crate::utils::validation::sanitize_branch_name;
 use git2::Repository;
 use std::path::Path;
@@ -20,7 +23,8 @@ pub fn get_repository_info(repo_path: &str) -> anyhow::Result<RepositoryInfo> {
         .unwrap_or_else(|| repo_path.to_string());
 
     // 获取当前分支
-    let current_branch = repo.head()
+    let current_branch = repo
+        .head()
         .ok()
         .and_then(|h| h.shorthand().map(String::from))
         .unwrap_or_else(|| "unknown".to_string());
@@ -100,7 +104,11 @@ pub fn switch_branch(worktree_path: &str, branch_name: &str) -> anyhow::Result<S
 }
 
 /// 创建并切换到新分支
-pub fn create_and_switch_branch(worktree_path: &str, branch_name: &str, base_branch: Option<&str>) -> anyhow::Result<SwitchBranchResult> {
+pub fn create_and_switch_branch(
+    worktree_path: &str,
+    branch_name: &str,
+    base_branch: Option<&str>,
+) -> anyhow::Result<SwitchBranchResult> {
     // 验证分支名
     let branch = sanitize_branch_name(branch_name)
         .map_err(|e| anyhow::anyhow!("Invalid branch name: {}", e))?;
@@ -129,7 +137,11 @@ pub fn create_and_switch_branch(worktree_path: &str, branch_name: &str, base_bra
 }
 
 /// 拉取远程分支
-pub fn fetch_and_checkout(repo_path: &str, remote_branch: &str, local_branch: Option<&str>) -> anyhow::Result<SwitchBranchResult> {
+pub fn fetch_and_checkout(
+    repo_path: &str,
+    remote_branch: &str,
+    local_branch: Option<&str>,
+) -> anyhow::Result<SwitchBranchResult> {
     // 先 fetch
     let fetch_output = Command::new("git")
         .args(["fetch", "origin"])
@@ -146,7 +158,12 @@ pub fn fetch_and_checkout(repo_path: &str, remote_branch: &str, local_branch: Op
     // checkout 远程分支
     let local = local_branch.unwrap_or(remote_branch);
     let checkout_output = Command::new("git")
-        .args(["checkout", "-b", local, &format!("origin/{}", remote_branch)])
+        .args([
+            "checkout",
+            "-b",
+            local,
+            &format!("origin/{}", remote_branch),
+        ])
         .current_dir(repo_path)
         .output()?;
 
@@ -290,5 +307,109 @@ pub fn pull(worktree_path: &str, branch: Option<&str>) -> anyhow::Result<SwitchB
     Ok(SwitchBranchResult {
         success: true,
         message: format!("Pulled latest changes for '{}'", branch_name),
+    })
+}
+
+/// Fetch 所有远程分支
+pub fn fetch_all(repo_path: &str) -> anyhow::Result<FetchResult> {
+    // 先获取当前远程列表
+    let remote_list_output = Command::new("git")
+        .args(["remote"])
+        .current_dir(repo_path)
+        .output()?;
+
+    let remotes: Vec<String> = if remote_list_output.status.success() {
+        String::from_utf8_lossy(&remote_list_output.stdout)
+            .lines()
+            .filter(|l| !l.is_empty())
+            .map(String::from)
+            .collect()
+    } else {
+        vec!["origin".to_string()]
+    };
+
+    // 执行 git fetch --all
+    let output = Command::new("git")
+        .args(["fetch", "--all"])
+        .current_dir(repo_path)
+        .output()?;
+
+    if !output.status.success() {
+        return Ok(FetchResult {
+            success: false,
+            message: String::from_utf8_lossy(&output.stderr).to_string(),
+            updated_remotes: vec![],
+        });
+    }
+
+    Ok(FetchResult {
+        success: true,
+        message: "Successfully fetched all remotes".to_string(),
+        updated_remotes: remotes,
+    })
+}
+
+/// 获取远程分支列表
+pub fn list_remote_branches(repo_path: &str) -> anyhow::Result<RemoteBranchListResponse> {
+    let repo = Repository::open(repo_path)?;
+
+    let mut remote_branches = Vec::new();
+    let mut remotes = Vec::new();
+
+    // 获取所有远程名
+    let remote_names = repo.remotes()?;
+    for remote_name in remote_names.iter().flatten() {
+        remotes.push(remote_name.to_string());
+    }
+
+    // 获取所有远程分支引用
+    let branches = repo.branches(Some(git2::BranchType::Remote))?;
+
+    for branch_result in branches {
+        if let Ok((branch, _)) = branch_result {
+            if let Some(full_name) = branch.name()? {
+                // 跳过 HEAD 引用
+                if full_name.ends_with("/HEAD") {
+                    continue;
+                }
+
+                // 解析远程名和分支名
+                let parts: Vec<&str> = full_name.splitn(2, '/').collect();
+                let remote = parts.first().unwrap_or("").to_string();
+                let name = parts.get(1).unwrap_or(full_name).to_string();
+
+                // 获取最后提交信息
+                let (last_commit, last_commit_date) = if let Ok(reference) = branch.get() {
+                    if let Ok(commit) = reference.peel_to_commit() {
+                        let hash = commit.id().to_string();
+                        let short_hash = &hash[..7.min(hash.len())];
+                        let time = commit.time();
+                        let datetime = chrono::DateTime::from_timestamp(time.seconds(), 0)
+                            .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string());
+                        (Some(short_hash.to_string()), datetime)
+                    } else {
+                        (None, None)
+                    }
+                } else {
+                    (None, None)
+                };
+
+                remote_branches.push(RemoteBranch {
+                    name,
+                    remote,
+                    full_name: full_name.to_string(),
+                    last_commit,
+                    last_commit_date,
+                });
+            }
+        }
+    }
+
+    // 按名称排序
+    remote_branches.sort_by(|a, b| a.full_name.cmp(&b.full_name));
+
+    Ok(RemoteBranchListResponse {
+        remote_branches,
+        remotes,
     })
 }

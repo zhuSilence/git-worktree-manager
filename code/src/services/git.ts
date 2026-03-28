@@ -12,6 +12,8 @@ import type {
   BatchDeleteResult,
   WorktreeHint,
   TimelineResponse,
+  RemoteBranchListResponse,
+  FetchResult,
 } from '@/types/worktree'
 import type { IdeType, TerminalType } from '@/stores/settingsStore'
 
@@ -181,5 +183,13 @@ export const gitService = {
    */
   async pull(worktreePath: string, branch?: string): Promise<SwitchBranchResult> {
     return invoke<SwitchBranchResult>('pull_cmd', { worktreePath, branch })
+  },
+
+  async fetchAll(repoPath: string): Promise<FetchResult> {
+    return invoke<FetchResult>('fetch_all_cmd', { repoPath })
+  },
+
+  async listRemoteBranches(repoPath: string): Promise<RemoteBranchListResponse> {
+    return invoke<RemoteBranchListResponse>('list_remote_branches_cmd', { repoPath })
   },
 }
