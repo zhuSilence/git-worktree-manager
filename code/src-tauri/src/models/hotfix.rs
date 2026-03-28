@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use sha2::{Digest, Sha256};
 
 /// Hotfix 流程状态
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -66,16 +65,17 @@ pub struct FinishHotfixResult {
 
 /// Hotfix 存储位置（基于仓库路径生成唯一文件名，避免多仓库冲突）
 pub fn get_hotfix_state_file(repo_path: &str) -> std::path::PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    let data_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("worktree-manager");
 
-    // 使用仓库路径的哈希作为文件名，支持多仓库
-    let mut hasher = DefaultHasher::new();
-    repo_path.hash(&mut hasher);
-    let hash = hasher.finish();
+    // 使用 SHA-256 生成稳定的哈希值（跨 Rust 版本稳定）
+    let mut hasher = Sha256::new();
+    hasher.update(repo_path.as_bytes());
+    let hash = hasher.finalize();
+    let hash_hex = hex::encode(&hash[..8]); // 取前 8 字节（64 位）
 
-    std::path::PathBuf::from(home)
-        .join(".worktree-manager")
-        .join(format!("hotfix-{:016x}.json", hash))
+    data_dir.join(format!("hotfix-{}.json", hash_hex))
 }
 
 /// 生成 hotfix 分支名

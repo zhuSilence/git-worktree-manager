@@ -4,9 +4,10 @@ use crate::models::{
 };
 use crate::services::worktree_service::{create_worktree, delete_worktree};
 use git2::Repository;
+use log::error;
 use std::collections::HashSet;
 use std::fs;
-use std::io::{Read, Write};
+use std::io::Read;
 use std::process::Command;
 use std::sync::{LazyLock, Mutex};
 
@@ -20,7 +21,9 @@ pub fn start_hotfix(
 ) -> anyhow::Result<StartHotfixResult> {
     let repo_path_key = repo_path.to_string();
 
-    let mut lock = HOTFIX_LOCK.lock().unwrap();
+    let mut lock = HOTFIX_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     if lock.contains(&repo_path_key) {
         return Ok(StartHotfixResult {
             success: false,
@@ -32,7 +35,9 @@ pub fn start_hotfix(
     drop(lock);
 
     let _guard = scopeguard::guard((), |_| {
-        let mut lock = HOTFIX_LOCK.lock().unwrap();
+        let mut lock = HOTFIX_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         lock.remove(&repo_path_key);
     });
 
@@ -54,16 +59,31 @@ pub fn start_hotfix(
     // 确定基准分支
     let base_branch = params.base_branch.unwrap_or_else(|| "main".to_string());
 
-    // 检查分支是否已存在
+    // 检查本地分支（O(1) 哈希查找）
     let repo = Repository::open(repo_path)?;
-    let branches = repo.branches(None)?;
-    for branch_result in branches {
-        let (branch, _) = branch_result?;
-        if let Some(name) = branch.name()? {
-            if name == branch_name {
+    if repo
+        .find_branch(&branch_name, git2::BranchType::Local)
+        .is_ok()
+    {
+        return Ok(StartHotfixResult {
+            success: false,
+            message: format!("本地分支 {} 已存在", branch_name),
+            hotfix: None,
+        });
+    }
+
+    // 检查远程分支（检查所有 remote 是否有同名分支）
+    let remotes = repo.remotes()?;
+    for remote_name in &remotes {
+        if let Some(remote) = remote_name {
+            let full_branch_name = format!("{}/{}", remote, branch_name);
+            if repo
+                .find_branch(&full_branch_name, git2::BranchType::Remote)
+                .is_ok()
+            {
                 return Ok(StartHotfixResult {
                     success: false,
-                    message: format!("分支 {} 已存在", branch_name),
+                    message: format!("远程分支 {} 已存在", branch_name),
                     hotfix: None,
                 });
             }
@@ -188,8 +208,16 @@ pub fn finish_hotfix(repo_path: &str, push: bool) -> anyhow::Result<FinishHotfix
 
     // 推送（如果需要）
     if push {
+        let base_branch = &hotfix.base_branch;
+        if !is_valid_git_ref_name(base_branch) {
+            return Err(anyhow::anyhow!(
+                "Invalid branch name for push: '{}'. Branch names cannot contain special characters like ~, ^, :, ?, *, [, \\, or start with . or -",
+                base_branch
+            ));
+        }
+
         let output = Command::new("git")
-            .args(["push", "origin", &hotfix.base_branch])
+            .args(["push", "origin", base_branch])
             .current_dir(repo_path)
             .output()?;
 
@@ -212,10 +240,7 @@ pub fn finish_hotfix(repo_path: &str, push: bool) -> anyhow::Result<FinishHotfix
     // 删除 hotfix 分支
     if let Ok(mut branch) = repo.find_branch(&hotfix.branch_name, git2::BranchType::Local) {
         if let Err(e) = branch.delete() {
-            eprintln!(
-                "[Hotfix] Failed to delete branch '{}': {}",
-                hotfix.branch_name, e
-            );
+            error!("Failed to delete branch '{}': {}", hotfix.branch_name, e);
         }
     }
 
@@ -250,12 +275,12 @@ pub fn abort_hotfix(repo_path: &str) -> anyhow::Result<FinishHotfixResult> {
         }
     };
 
-    // 删除 hotfix worktree
     if let Err(e) = delete_worktree(repo_path, &hotfix.worktree_path, true) {
-        eprintln!(
-            "[Hotfix] Failed to delete worktree '{}': {}",
-            hotfix.worktree_path, e
-        );
+        return Err(anyhow::anyhow!(
+            "Failed to delete worktree '{}': {}. Abort operation cancelled to preserve state.",
+            hotfix.worktree_path,
+            e
+        ));
     }
 
     // 删除 hotfix 分支
@@ -309,8 +334,22 @@ fn save_hotfix_state(repo_path: &str, hotfix: &HotfixInfo) -> anyhow::Result<()>
     }
 
     let content = serde_json::to_string_pretty(hotfix)?;
-    let mut file = fs::File::create(&path)?;
-    file.write_all(content.as_bytes())?;
+    fs::write(&path, content.as_bytes())?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let metadata = fs::metadata(&path)?;
+        let mut permissions = metadata.permissions();
+        permissions.set_mode(0o600);
+        fs::set_permissions(&path, permissions)?;
+    }
+
+    #[cfg(windows)]
+    {
+        use log::warn;
+        warn!("File permission restrictions (0o600) are not supported on Windows. Ensure the file system ACL is properly configured.");
+    }
 
     Ok(())
 }
@@ -321,4 +360,29 @@ fn clear_hotfix_state(repo_path: &str) -> anyhow::Result<()> {
         fs::remove_file(&path)?;
     }
     Ok(())
+}
+
+fn is_valid_git_ref_name(name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    if name.starts_with('.') || name.starts_with('-') {
+        return false;
+    }
+    if name.contains("..") || name.contains('~') || name.contains('^') || name.contains(':') {
+        return false;
+    }
+    if name.contains('?') || name.contains('*') || name.contains('[') || name.contains('\\') {
+        return false;
+    }
+    if name.ends_with('/') || name.ends_with('.') {
+        return false;
+    }
+    if name.contains("//") {
+        return false;
+    }
+    if name.contains(char::is_control) {
+        return false;
+    }
+    true
 }
