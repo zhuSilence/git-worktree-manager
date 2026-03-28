@@ -359,3 +359,68 @@ export interface FetchResult {
   message: string
   updatedRemotes: string[]
 }
+
+// ============ Hotfix 类型 ============
+
+/**
+ * Hotfix 状态
+ */
+export enum HotfixStatus {
+  /** 空闲 */
+  Idle = 'idle',
+  /** 进行中 */
+  InProgress = 'inProgress',
+  /** 已完成 */
+  Completed = 'completed',
+  /** 已取消 */
+  Aborted = 'aborted',
+}
+
+/**
+ * Hotfix 信息
+ */
+export interface HotfixInfo {
+  /** 分支名 */
+  branchName: string
+  /** Worktree 路径 */
+  worktreePath: string
+  /** 开始时间 */
+  startedAt: string
+  /** 基准分支 */
+  baseBranch: string
+  /** 状态 */
+  status: HotfixStatus
+  /** 描述 */
+  description?: string
+}
+
+/**
+ * 开始 Hotfix 参数
+ */
+export interface StartHotfixParams {
+  /** 描述 */
+  description: string
+  /** 基准分支 */
+  baseBranch?: string
+  /** 自定义分支名 */
+  branchName?: string
+}
+
+/**
+ * 开始 Hotfix 结果
+ */
+export interface StartHotfixResult {
+  success: boolean
+  message: string
+  hotfix?: HotfixInfo
+}
+
+/**
+ * 完成 Hotfix 结果
+ */
+export interface FinishHotfixResult {
+  success: boolean
+  message: string
+  merged: boolean
+  cleanedUp: boolean
+}
