@@ -17,7 +17,9 @@
     "name": "Name",
     "status": "Status",
     "creating": "Creating...",
-    "deleting": "Deleting..."
+    "deleting": "Deleting...",
+    "copied": "Copied",
+    "clickToCopy": "Click to copy"
   },
   "app": {
     "welcome": "Welcome to Worktree Manager",
@@ -203,7 +205,8 @@
     "permissionDenied": "Permission denied",
     "openTerminalFailed": "Failed to open terminal",
     "openEditorFailed": "Failed to open editor",
-    "openFolderFailed": "Failed to open folder"
+    "openFolderFailed": "Failed to open folder",
+    "copyFailed": "Copy failed"
   },
   "update": {
     "checking": "Checking for updates...",
@@ -258,7 +261,15 @@
     "showFileList": "Show file list",
     "expandMore": "Expand more",
     "collapseAll": "Collapse all",
-    "expandAll": "Expand all"
+    "expandAll": "Expand all",
+    "aiReview": "AI Review",
+    "reReview": "Re-review",
+    "toggleReviewPanel": "Toggle review panel",
+    "analyzing": "Analyzing...",
+    "issues": "issues",
+    "lines": "lines",
+    "line": "Line",
+    "linesAffected": "lines affected"
   },
   "header": {
     "create": "Create"

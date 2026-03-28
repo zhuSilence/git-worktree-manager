@@ -3,6 +3,7 @@ use std::fmt;
 
 /// 统一的应用错误类型
 #[derive(Debug, Serialize)]
+#[allow(dead_code)]
 pub struct AppError {
     /// 错误代码
     pub code: ErrorCode,
@@ -16,6 +17,7 @@ pub struct AppError {
 /// 错误代码枚举
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[allow(dead_code)]
 pub enum ErrorCode {
     // Git 相关错误
     GitRepoNotFound,
@@ -41,6 +43,7 @@ pub enum ErrorCode {
 }
 
 impl AppError {
+    #[allow(dead_code)]
     pub fn new(code: ErrorCode, message: impl Into<String>) -> Self {
         Self {
             code,
@@ -49,12 +52,14 @@ impl AppError {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_details(mut self, details: impl Into<String>) -> Self {
         self.details = Some(details.into());
         self
     }
 
     // 常用错误构造器
+    #[allow(dead_code)]
     pub fn git_repo_not_found(path: &str) -> Self {
         Self::new(
             ErrorCode::GitRepoNotFound,
@@ -62,6 +67,7 @@ impl AppError {
         )
     }
 
+    #[allow(dead_code)]
     pub fn git_branch_not_found(branch: &str) -> Self {
         Self::new(
             ErrorCode::GitBranchNotFound,
@@ -69,6 +75,7 @@ impl AppError {
         )
     }
 
+    #[allow(dead_code)]
     pub fn git_worktree_not_found(path: &str) -> Self {
         Self::new(
             ErrorCode::GitWorktreeNotFound,
@@ -76,10 +83,12 @@ impl AppError {
         )
     }
 
+    #[allow(dead_code)]
     pub fn invalid_input(message: impl Into<String>) -> Self {
         Self::new(ErrorCode::InvalidInput, message)
     }
 
+    #[allow(dead_code)]
     pub fn internal(message: impl Into<String>) -> Self {
         Self::new(ErrorCode::InternalError, message)
     }
@@ -125,5 +134,24 @@ impl From<anyhow::Error> for AppError {
     }
 }
 
+impl From<serde_json::Error> for AppError {
+    fn from(err: serde_json::Error) -> Self {
+        Self::new(ErrorCode::InternalError, format!("JSON 解析错误: {}", err))
+    }
+}
+
+impl From<std::string::FromUtf8Error> for AppError {
+    fn from(err: std::string::FromUtf8Error) -> Self {
+        Self::new(ErrorCode::InternalError, format!("UTF-8 转换错误: {}", err))
+    }
+}
+
+impl From<tokio::task::JoinError> for AppError {
+    fn from(err: tokio::task::JoinError) -> Self {
+        Self::new(ErrorCode::InternalError, format!("异步任务错误: {}", err))
+    }
+}
+
 /// 用于 Tauri 命令的结果类型别名
+#[allow(dead_code)]
 pub type AppResult<T> = Result<T, AppError>;

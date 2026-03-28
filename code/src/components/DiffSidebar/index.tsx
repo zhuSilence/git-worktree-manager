@@ -1,14 +1,18 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { X, FileText, Plus, Minus, RefreshCw, GitCompare, ChevronDown, ChevronRight, Columns, AlignLeft, ArrowUp, GripVertical, ChevronsDown, LayoutList } from 'lucide-react'
+import { X, FileText, Plus, Minus, RefreshCw, GitCompare, ChevronDown, ChevronRight, Columns, AlignLeft, ArrowUp, GripVertical, ChevronsDown, LayoutList, Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { gitService } from '@/services/git'
 import type { DetailedDiffResponse, FileDiff } from '@/types/worktree'
 import { clsx } from 'clsx'
+import { aiReviewStore } from '@/stores/aiReviewStore'
+import { AIConfigPanel } from '@/components/AIConfigPanel'
 
 // 拆分的子模块
 import type { ViewMode, FileTreeNode } from './types'
 import { buildFileTree, FileTreeNodeItem } from './FileTree'
 import { UnifiedDiffView, SplitDiffView } from './DiffViews'
+import { FileReviewSummary } from './InlineReviewMarker'
+import { AIReviewPanel } from './AIReviewPanel'
 
 interface DiffSidebarProps {
   isOpen: boolean
@@ -21,11 +25,16 @@ interface DiffSidebarProps {
   refreshToken?: number
 }
 
-const MIN_WIDTH = 400
-const MAX_WIDTH = 1200
-const DEFAULT_WIDTH = 600
-const STORAGE_KEY = 'diff-sidebar-width'
-const SPLIT_MIN_WIDTH = 700
+import {
+  MIN_SIDEBAR_WIDTH as MIN_WIDTH,
+  MAX_SIDEBAR_WIDTH as MAX_WIDTH,
+  DEFAULT_SIDEBAR_WIDTH as DEFAULT_WIDTH,
+  SIDEBAR_WIDTH_STORAGE_KEY as STORAGE_KEY,
+  SPLIT_MIN_WIDTH,
+  PROGRESSIVE_EXPAND_COUNT,
+  FILE_STATUS_COLOR_MAP,
+  FILE_STATUS_BG_COLOR_MAP,
+} from './constants'
 
 export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branches = [], defaultBranch = 'main', fillWidth = false, refreshToken }: DiffSidebarProps) {
   const { t } = useTranslation()
@@ -45,8 +54,19 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
   const [showFileTree, setShowFileTree] = useState(true)
   const [activeFile, setActiveFile] = useState<string | null>(null)
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set())
+  const [showAIConfig, setShowAIConfig] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const sidebarRef = useRef<HTMLDivElement>(null)
+
+  // AI 评审状态
+  const reviewStatus = aiReviewStore((state) => state.reviewStatus)
+  const currentResult = aiReviewStore((state) => state.currentResult)
+  const performReview = aiReviewStore((state) => state.performReview)
+  const reReview = aiReviewStore((state) => state.reReview)
+  const showConfigGuide = aiReviewStore((state) => state.showConfigGuide)
+  const setShowConfigGuide = aiReviewStore((state) => state.setShowConfigGuide)
+  const ignoreIssue = aiReviewStore((state) => state.ignoreIssue)
+  const [showAIReviewPanel, setShowAIReviewPanel] = useState(false)
 
   // 拖拽处理
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -97,23 +117,6 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
     }
   }, [width, viewMode])
 
-  // 键盘快捷键
-  useEffect(() => {
-    if (!isOpen) return
-    const handler = (e: KeyboardEvent) => {
-      // 在 input/select 中不触发
-      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'SELECT') return
-      switch (e.key) {
-        case 'n': jumpToNextChange(); break
-        case 'p': jumpToPrevChange(); break
-        case 'e': toggleAll(); break
-        case 'Escape': onClose(); break
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [isOpen, diff, selectedLine, expandedFiles])
-
   useEffect(() => {
     if (isOpen) {
       fetchDiff()
@@ -136,25 +139,30 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
     }
   }
 
-  const toggleFile = (path: string) => {
-    const newExpanded = new Set(expandedFiles)
-    if (newExpanded.has(path)) {
-      newExpanded.delete(path)
-    } else {
-      newExpanded.add(path)
-    }
-    setExpandedFiles(newExpanded)
-  }
-
-  const toggleAll = () => {
-    if (diff) {
-      if (expandedFiles.size === diff.files.length) {
-        setExpandedFiles(new Set())
+  const toggleFile = useCallback((path: string) => {
+    setExpandedFiles(prev => {
+      const newExpanded = new Set(prev)
+      if (newExpanded.has(path)) {
+        newExpanded.delete(path)
       } else {
-        setExpandedFiles(new Set(diff.files.map(f => f.path)))
+        newExpanded.add(path)
       }
-    }
-  }
+      return newExpanded
+    })
+  }, [])
+
+  const toggleAll = useCallback(() => {
+    setExpandedFiles(prev => {
+      if (diff) {
+        if (prev.size === diff.files.length) {
+          return new Set()
+        } else {
+          return new Set(diff.files.map(f => f.path))
+        }
+      }
+      return prev
+    })
+  }, [diff])
 
   // 构建文件树
   const fileTree = useMemo(() => {
@@ -219,7 +227,37 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
     }
   }
 
-  const jumpToNextChange = () => {
+  // AI 评审相关函数
+  const handleStartAIReview = async () => {
+    if (!diff) return
+    await performReview({
+      worktreePath,
+      targetBranch,
+      force: false,
+    })
+  }
+
+  // 导航到指定文件和行
+  const navigateToFileLine = (filePath: string, _line: number) => {
+    if (!diff) return
+    const fileIdx = diff.files.findIndex(f => f.path === filePath || f.path.endsWith(filePath) || filePath.endsWith(f.path))
+    if (fileIdx < 0) return
+
+    const file = diff.files[fileIdx]
+    // 展开文件
+    setExpandedFiles(prev => new Set([...prev, file.path]))
+    setActiveFile(file.path)
+
+    // 滚动到文件
+    setTimeout(() => {
+      const el = document.getElementById(`file-diff-${fileIdx}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }, 50)
+  }
+
+  const jumpToNextChange = useCallback(() => {
     if (!diff) return
 
     // 找到下一个有变更的行
@@ -239,9 +277,9 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
         }
       }
     }
-  }
+  }, [diff, selectedLine])
 
-  const jumpToPrevChange = () => {
+  const jumpToPrevChange = useCallback(() => {
     if (!diff) return
 
     // 找到上一个有变更的行
@@ -260,28 +298,33 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
         }
       }
     }
-  }
+  }, [diff, selectedLine])
+
+  // 键盘快捷键 - 必须在所有回调函数定义之后
+  useEffect(() => {
+    if (!isOpen) return
+    const handler = (e: KeyboardEvent) => {
+      // 在 input/select 中不触发
+      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'SELECT') return
+      switch (e.key) {
+        case 'n': jumpToNextChange(); break
+        case 'p': jumpToPrevChange(); break
+        case 'e': toggleAll(); break
+        case 'Escape': onClose(); break
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [isOpen, onClose, jumpToNextChange, jumpToPrevChange, toggleAll])
 
   if (!isOpen) return null
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'added': return 'text-green-500'
-      case 'deleted': return 'text-red-500'
-      case 'modified': return 'text-yellow-500'
-      case 'renamed': return 'text-blue-500'
-      default: return 'text-gray-500'
-    }
+    return FILE_STATUS_COLOR_MAP[status] || 'text-gray-500'
   }
 
   const getStatusBgColor = (status: string) => {
-    switch (status) {
-      case 'added': return 'bg-green-500/10'
-      case 'deleted': return 'bg-red-500/10'
-      case 'modified': return 'bg-yellow-500/10'
-      case 'renamed': return 'bg-blue-500/10'
-      default: return 'bg-gray-500/10'
-    }
+    return FILE_STATUS_BG_COLOR_MAP[status] || 'bg-gray-500/10'
   }
 
   const getStatusLabel = (status: string) => {
@@ -326,6 +369,42 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
           </span>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
+          {/* AI 评审按钮 */}
+          <button
+            onClick={() => {
+              if (showConfigGuide) {
+                setShowAIConfig(true)
+              } else if (reviewStatus !== 'loading') {
+                if (reviewStatus === 'success' && currentResult) {
+                  // 已有结果时切换显示评审面板
+                  setShowAIReviewPanel(!showAIReviewPanel)
+                } else {
+                  handleStartAIReview()
+                }
+              }
+            }}
+            disabled={reviewStatus === 'loading'}
+            className={clsx(
+              'p-1.5 rounded transition-colors flex items-center gap-1',
+              reviewStatus === 'success' && currentResult
+                ? 'text-purple-500 bg-purple-50 dark:bg-purple-900/30'
+                : 'text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20',
+              reviewStatus === 'loading' && 'opacity-50 cursor-not-allowed'
+            )}
+            title={reviewStatus === 'success' && currentResult ? t('diff.toggleReviewPanel') : t('diff.aiReview')}
+          >
+            <Sparkles className={clsx('w-3.5 h-3.5', reviewStatus === 'loading' && 'animate-pulse')} />
+            {reviewStatus === 'loading' && (
+              <span className="text-xs">{t('diff.analyzing')}</span>
+            )}
+            {reviewStatus === 'success' && currentResult && (() => {
+              const count = currentResult.issues.filter(
+                i => !i.ignored && !i.file.endsWith('.md') && !i.file.endsWith('.markdown')
+              ).length
+              return count > 0 ? <span className="text-xs">{count}</span> : null
+            })()}
+          </button>
+
           {/* 导航按钮 */}
           <div className="flex items-center gap-1">
             <button
@@ -481,17 +560,19 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                   {expandedFiles.size < diff.files.length && diff.files.length > 5 && (
                     <button
                       onClick={() => {
-                        // 渐进式展开：每次展开 10 个
-                        const next = new Set(expandedFiles)
-                        let count = 0
-                        for (const f of diff.files) {
-                          if (!next.has(f.path)) {
-                            next.add(f.path)
-                            count++
-                            if (count >= 10) break
+                        // 渐进式展开：每次展开固定数量
+                        setExpandedFiles(prev => {
+                          const next = new Set(prev)
+                          let count = 0
+                          for (const f of diff.files) {
+                            if (!next.has(f.path)) {
+                              next.add(f.path)
+                              count++
+                              if (count >= PROGRESSIVE_EXPAND_COUNT) break
+                            }
                           }
-                        }
-                        setExpandedFiles(next)
+                          return next
+                        })
                       }}
                       className="text-xs text-purple-500 hover:text-purple-700 dark:hover:text-purple-300 flex items-center gap-0.5"
                     >
@@ -537,6 +618,9 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                         <span className="truncate text-xs text-gray-700 dark:text-gray-300 font-medium" title={file.path}>
                           {file.path}
                         </span>
+                        {/* 文件评审摘要 */}
+                        <FileReviewSummary result={currentResult} filePath={file.path} />
+
                       </div>
                       <div className="flex items-center gap-2 text-xs ml-3">
                         {file.additions > 0 && (
@@ -558,6 +642,8 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                             selectedLine={selectedLine}
                             sourceBranch={diff?.sourceBranch || worktreeName}
                             targetBranch={targetBranch}
+                            reviewResult={currentResult}
+                            filePath={file.path}
                           />
                         ) : (
                           <SplitDiffView
@@ -566,6 +652,8 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                             selectedLine={selectedLine}
                             sourceBranch={diff?.sourceBranch || worktreeName}
                             targetBranch={targetBranch}
+                            reviewResult={currentResult}
+                            filePath={file.path}
                           />
                         )}
                       </div>
@@ -578,6 +666,40 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
         )}
       </div>
       </div>
+
+      {/* AI 评审结果面板 */}
+      {showAIReviewPanel && currentResult && (
+        <div className="absolute right-0 top-0 bottom-0 w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 z-30 overflow-auto shadow-lg">
+          <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 flex items-center justify-between">
+            <span className="font-medium text-sm text-gray-900 dark:text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-purple-500" />
+              AI 评审结果
+            </span>
+            <button
+              onClick={() => setShowAIReviewPanel(false)}
+              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="p-3">
+            <AIReviewPanel
+              result={currentResult}
+              isLoading={reviewStatus === 'loading'}
+              error={aiReviewStore.getState().error}
+              onReReview={() => reReview({ worktreePath, targetBranch })}
+              onNavigateToLine={navigateToFileLine}
+              onIgnoreIssue={ignoreIssue}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* AI 配置面板 */}
+      <AIConfigPanel isOpen={showAIConfig} onClose={() => {
+        setShowAIConfig(false)
+        setShowConfigGuide(false)
+      }} />
     </div>
   )
 }
