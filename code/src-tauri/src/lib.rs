@@ -52,6 +52,8 @@ pub fn run() {
             commands::worktree::get_timeline_cmd,
             commands::worktree::push_cmd,
             commands::worktree::pull_cmd,
+            commands::worktree::fetch_all_cmd,
+            commands::worktree::list_remote_branches_cmd,
             // AI 评审命令
             commands::ai_review::save_ai_config,
             commands::ai_review::get_ai_config,

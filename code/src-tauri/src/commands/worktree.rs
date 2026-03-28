@@ -6,7 +6,7 @@ use crate::services::{
     switch_branch, create_and_switch_branch, fetch_and_checkout,
     batch_delete_worktrees, get_merged_hints, get_stale_hints,
     get_diff, get_detailed_diff, get_timeline, push, pull,
-    start_hotfix, finish_hotfix, abort_hotfix, get_hotfix_status,
+    fetch_all, list_remote_branches,
 };
 use crate::utils::validation::validate_path;
 use tauri::command;
@@ -194,38 +194,16 @@ pub async fn pull_cmd(worktree_path: String, branch: Option<String>) -> Result<c
     run_blocking(move || pull(&worktree_path, branch.as_deref())).await
 }
 
-// ============ Hotfix 相关命令 ============
-
-/// 开始 Hotfix 流程
+/// Fetch 所有远程分支
 #[command]
-pub async fn start_hotfix_cmd(
-    repo_path: String,
-    description: String,
-    base_branch: Option<String>,
-    branch_name: Option<String>,
-) -> Result<StartHotfixResult, String> {
-    let params = StartHotfixParams {
-        description,
-        base_branch,
-        branch_name,
-    };
-    run_blocking(move || start_hotfix(&repo_path, params)).await
+pub async fn fetch_all_cmd(repo_path: String) -> Result<crate::models::FetchResult, String> {
+    validate_path(&repo_path).map_err(|e| e.to_string())?;
+    run_blocking(move || fetch_all(&repo_path)).await
 }
 
-/// 完成 Hotfix 流程
+/// 获取远程分支列表
 #[command]
-pub async fn finish_hotfix_cmd(repo_path: String, push: bool) -> Result<FinishHotfixResult, String> {
-    run_blocking(move || finish_hotfix(&repo_path, push)).await
-}
-
-/// 取消 Hotfix 流程
-#[command]
-pub async fn abort_hotfix_cmd(repo_path: String) -> Result<FinishHotfixResult, String> {
-    run_blocking(move || abort_hotfix(&repo_path)).await
-}
-
-/// 获取 Hotfix 状态
-#[command]
-pub async fn get_hotfix_status_cmd(repo_path: String) -> Result<Option<HotfixInfo>, String> {
-    run_blocking(move || get_hotfix_status(&repo_path)).await
+pub async fn list_remote_branches_cmd(repo_path: String) -> Result<crate::models::RemoteBranchListResponse, String> {
+    validate_path(&repo_path).map_err(|e| e.to_string())?;
+    run_blocking(move || list_remote_branches(&repo_path)).await
 }

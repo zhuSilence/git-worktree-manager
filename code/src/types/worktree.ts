@@ -337,71 +337,25 @@ export interface CommitInfo {
  * 时间线响应
  */
 export interface TimelineResponse {
-  /** 提交列表 */
   commits: CommitInfo[]
-  /** 总数 */
   totalCount: number
 }
 
-/**
- * Hotfix 状态
- */
-export enum HotfixStatus {
-  /** 空闲 */
-  Idle = 'idle',
-  /** 进行中 */
-  InProgress = 'inProgress',
-  /** 已完成 */
-  Completed = 'completed',
-  /** 已取消 */
-  Aborted = 'aborted',
+export interface RemoteBranch {
+  name: string
+  remote: string
+  fullName: string
+  lastCommit?: string
+  lastCommitDate?: string
 }
 
-/**
- * Hotfix 信息
- */
-export interface HotfixInfo {
-  /** 分支名 */
-  branchName: string
-  /** Worktree 路径 */
-  worktreePath: string
-  /** 开始时间 */
-  startedAt: string
-  /** 基准分支 */
-  baseBranch: string
-  /** 状态 */
-  status: HotfixStatus
-  /** 描述 */
-  description?: string
+export interface RemoteBranchListResponse {
+  remoteBranches: RemoteBranch[]
+  remotes: string[]
 }
 
-/**
- * 开始 Hotfix 参数
- */
-export interface StartHotfixParams {
-  /** 描述 */
-  description: string
-  /** 基准分支 */
-  baseBranch?: string
-  /** 自定义分支名 */
-  branchName?: string
-}
-
-/**
- * 开始 Hotfix 结果
- */
-export interface StartHotfixResult {
+export interface FetchResult {
   success: boolean
   message: string
-  hotfix?: HotfixInfo
-}
-
-/**
- * 完成 Hotfix 结果
- */
-export interface FinishHotfixResult {
-  success: boolean
-  message: string
-  merged: boolean
-  cleanedUp: boolean
+  updatedRemotes: string[]
 }

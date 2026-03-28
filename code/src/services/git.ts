@@ -12,9 +12,8 @@ import type {
   BatchDeleteResult,
   WorktreeHint,
   TimelineResponse,
-  HotfixInfo,
-  StartHotfixResult,
-  FinishHotfixResult,
+  RemoteBranchListResponse,
+  FetchResult,
 } from '@/types/worktree'
 import type { IdeType, TerminalType } from '@/stores/settingsStore'
 
@@ -186,43 +185,11 @@ export const gitService = {
     return invoke<SwitchBranchResult>('pull_cmd', { worktreePath, branch })
   },
 
-  // ============ Hotfix 相关 ============
-
-  /**
-   * 开始 Hotfix 流程
-   */
-  async startHotfix(
-    repoPath: string,
-    description: string,
-    baseBranch?: string,
-    branchName?: string
-  ): Promise<StartHotfixResult> {
-    return invoke<StartHotfixResult>('start_hotfix_cmd', {
-      repoPath,
-      description,
-      baseBranch,
-      branchName,
-    })
+  async fetchAll(repoPath: string): Promise<FetchResult> {
+    return invoke<FetchResult>('fetch_all_cmd', { repoPath })
   },
 
-  /**
-   * 完成 Hotfix 流程
-   */
-  async finishHotfix(repoPath: string, push: boolean = false): Promise<FinishHotfixResult> {
-    return invoke<FinishHotfixResult>('finish_hotfix_cmd', { repoPath, push })
-  },
-
-  /**
-   * 取消 Hotfix 流程
-   */
-  async abortHotfix(repoPath: string): Promise<FinishHotfixResult> {
-    return invoke<FinishHotfixResult>('abort_hotfix_cmd', { repoPath })
-  },
-
-  /**
-   * 获取 Hotfix 状态
-   */
-  async getHotfixStatus(repoPath: string): Promise<HotfixInfo | null> {
-    return invoke<HotfixInfo | null>('get_hotfix_status_cmd', { repoPath })
+  async listRemoteBranches(repoPath: string): Promise<RemoteBranchListResponse> {
+    return invoke<RemoteBranchListResponse>('list_remote_branches_cmd', { repoPath })
   },
 }

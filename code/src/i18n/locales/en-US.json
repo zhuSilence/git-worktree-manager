@@ -43,7 +43,9 @@
     "idleThresholdDesc": "Worktrees idle for more than this many days will show an idle alert",
     "days": "days",
     "language": "Language",
-    "languageDesc": "Select interface display language"
+    "languageDesc": "Select interface display language",
+    "autoFetchOnStart": "Auto Fetch on Start",
+    "autoFetchOnStartDesc": "Automatically fetch remote branch changes when switching repositories"
   },
   "ide": {
     "vscode": "VS Code",
@@ -241,7 +243,12 @@
     "remoteBranchName": "Remote branch name",
     "localBranchNameOptional": "Local branch name (optional)",
     "fetchAndSwitch": "Fetch & Switch",
-    "fetchFailed": "Fetch failed"
+    "fetchFailed": "Fetch failed",
+    "remoteBranches": "Remote Branches",
+    "selectRemoteBranch": "Select Remote Branch",
+    "noRemoteBranches": "No remote branches",
+    "checkoutRemote": "Checkout Remote Branch",
+    "checkoutFailed": "Checkout failed"
   },
   "diff": {
     "copyLineContent": "Copy line content",
@@ -272,7 +279,8 @@
     "linesAffected": "lines affected"
   },
   "header": {
-    "create": "Create"
+    "create": "Create",
+    "fetchRemote": "Fetch Remote Branches"
   },
   "tagEditor": {
     "title": "Edit Annotation",

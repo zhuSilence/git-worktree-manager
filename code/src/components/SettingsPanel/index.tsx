@@ -54,6 +54,8 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     setEnableIdleDetection,
     idleThresholdDays,
     setIdleThresholdDays,
+    autoFetchOnStart,
+    setAutoFetchOnStart,
   } = settingsStore()
 
   const { isUpdateAvailable, updateInfo } = updateStore()
@@ -66,6 +68,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const [localTerminalPath, setLocalTerminalPath] = useState(customTerminalPath || '')
   const [localEnableIdle, setLocalEnableIdle] = useState(enableIdleDetection)
   const [localIdleDays, setLocalIdleDays] = useState(idleThresholdDays)
+  const [localAutoFetch, setLocalAutoFetch] = useState(autoFetchOnStart)
   const [localLanguage, setLocalLanguage] = useState(i18n.language || 'zh-CN')
 
   useEffect(() => {
@@ -75,8 +78,9 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     setLocalTerminalPath(customTerminalPath || '')
     setLocalEnableIdle(enableIdleDetection)
     setLocalIdleDays(idleThresholdDays)
+    setLocalAutoFetch(autoFetchOnStart)
     setLocalLanguage(i18n.language || 'zh-CN')
-  }, [defaultIde, defaultTerminal, customIdePath, customTerminalPath, enableIdleDetection, idleThresholdDays, i18n.language, isOpen])
+  }, [defaultIde, defaultTerminal, customIdePath, customTerminalPath, enableIdleDetection, idleThresholdDays, autoFetchOnStart, i18n.language, isOpen])
 
   const handleSave = () => {
     setDefaultIde(localIde)
@@ -93,6 +97,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     }
     setEnableIdleDetection(localEnableIdle)
     setIdleThresholdDays(localIdleDays)
+    setAutoFetchOnStart(localAutoFetch)
     i18n.changeLanguage(localLanguage)
     onClose()
   }
@@ -287,6 +292,28 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                 {t('settings.defaultTerminalDesc', '选择打开 worktree 时使用的终端')}
+              </p>
+            </div>
+
+            {/* 自动 Fetch 设置 */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                  <Download className="w-4 h-4" />
+                  {t('settings.autoFetchOnStart', '启动时自动 Fetch')}
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={localAutoFetch}
+                    onChange={(e) => setLocalAutoFetch(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-green-500 focus:ring-green-500"
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">{t('settings.enable')}</span>
+                </label>
+              </div>
+              <p className="mt-2 text-xs text-gray-400">
+                {t('settings.autoFetchOnStartDesc', '切换仓库时自动获取远程分支变动')}
               </p>
             </div>
 
