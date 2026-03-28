@@ -43,7 +43,9 @@
     "idleThresholdDesc": "超过此天数的 worktree 将显示空闲提醒",
     "days": "天",
     "language": "语言",
-    "languageDesc": "选择界面显示语言"
+    "languageDesc": "选择界面显示语言",
+    "autoFetchOnStart": "启动时自动 Fetch",
+    "autoFetchOnStartDesc": "切换仓库时自动获取远程分支变动"
   },
   "ide": {
     "vscode": "VS Code",
@@ -241,7 +243,12 @@
     "remoteBranchName": "远程分支名",
     "localBranchNameOptional": "本地分支名 (可选)",
     "fetchAndSwitch": "拉取并切换",
-    "fetchFailed": "拉取失败"
+    "fetchFailed": "拉取失败",
+    "remoteBranches": "远程分支",
+    "selectRemoteBranch": "选择远程分支",
+    "noRemoteBranches": "暂无远程分支",
+    "checkoutRemote": "检出远程分支",
+    "checkoutFailed": "检出失败"
   },
   "diff": {
     "copyLineContent": "复制行内容",
@@ -272,7 +279,8 @@
     "linesAffected": "行受影响"
   },
   "header": {
-    "create": "创建"
+    "create": "创建",
+    "fetchRemote": "获取远程分支"
   },
   "tagEditor": {
     "title": "编辑标注",

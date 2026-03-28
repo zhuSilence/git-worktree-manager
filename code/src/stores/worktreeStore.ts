@@ -1,22 +1,21 @@
 import { create } from 'zustand'
-import type { Worktree, WorktreeListResponse, CreateWorktreeParams, WorktreeResult, BranchListResponse, Repository } from '@/types/worktree'
+import type { Worktree, WorktreeListResponse, CreateWorktreeParams, WorktreeResult, BranchListResponse, Repository, FetchResult } from '@/types/worktree'
 import { gitService } from '@/services/git'
 
 interface WorktreeState {
-  // 状态
   worktrees: Worktree[]
   currentRepo: Repository | null
   currentRepoPath: string | null
   isLoading: boolean
+  isFetching: boolean
   error: string | null
-  // 事务状态：跟踪正在进行的操作
   pendingOperations: string[]
 
-  // 操作
   loadRepository: (path: string) => Promise<void>
   refreshWorktrees: () => Promise<void>
   createWorktree: (params: CreateWorktreeParams) => Promise<WorktreeResult>
   deleteWorktree: (worktreePath: string, force?: boolean) => Promise<WorktreeResult>
+  fetchAllRemote: () => Promise<FetchResult>
   clearError: () => void
 }
 
@@ -64,15 +63,14 @@ export const useWorktreeStore = create<WorktreeState>((set, get) => {
   const tx = createTransaction(set)
 
   return {
-    // 初始状态
     worktrees: [],
     currentRepo: null,
     currentRepoPath: null,
     isLoading: false,
+    isFetching: false,
     error: null,
     pendingOperations: [],
 
-    // 加载仓库
     loadRepository: async (path: string) => {
       const opId = generateOperationId()
       tx.start(opId)
@@ -219,6 +217,25 @@ export const useWorktreeStore = create<WorktreeState>((set, get) => {
         // 回滚状态
         tx.error(opId, message, { worktrees: previousWorktrees })
         return { success: false, message }
+      }
+    },
+
+    fetchAllRemote: async () => {
+      const { currentRepoPath } = get()
+      if (!currentRepoPath) {
+        return { success: false, message: '未选择仓库', updatedRemotes: [] }
+      }
+
+      set({ isFetching: true })
+
+      try {
+        const result = await gitService.fetchAll(currentRepoPath)
+        set({ isFetching: false })
+        return result
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Fetch 失败'
+        set({ isFetching: false, error: message })
+        return { success: false, message, updatedRemotes: [] }
       }
     },
 

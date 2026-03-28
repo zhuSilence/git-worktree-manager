@@ -300,3 +300,41 @@ pub struct TimelineResponse {
     /// 总数
     pub total_count: usize,
 }
+
+/// 远程分支信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteBranch {
+    /// 分支名 (不含 origin/ 前缀)
+    pub name: String,
+    /// 远程名 (如 origin)
+    pub remote: String,
+    /// 完整名 (如 origin/main)
+    pub full_name: String,
+    /// 最后提交 hash
+    pub last_commit: Option<String>,
+    /// 最后提交时间
+    pub last_commit_date: Option<String>,
+}
+
+/// 远程分支列表响应
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteBranchListResponse {
+    /// 远程分支列表
+    pub remote_branches: Vec<RemoteBranch>,
+    /// 远程名列表
+    pub remotes: Vec<String>,
+}
+
+/// Fetch 结果
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FetchResult {
+    /// 是否成功
+    pub success: bool,
+    /// 结果消息
+    pub message: String,
+    /// 更新的远程名列表
+    pub updated_remotes: Vec<String>,
+}
