@@ -1,4 +1,4 @@
-use crate::models::{CreateWorktreeParams, WorktreeListResponse, WorktreeResult};
+use crate::models::{CreateWorktreeParams, WorktreeListResponse, WorktreeResult, StartHotfixParams, StartHotfixResult, FinishHotfixResult, HotfixInfo};
 use crate::services::{
     list_worktrees, create_worktree, delete_worktree, prune_worktrees,
     open_in_terminal, open_in_editor, open_in_file_manager,
@@ -6,6 +6,7 @@ use crate::services::{
     switch_branch, create_and_switch_branch, fetch_and_checkout,
     batch_delete_worktrees, get_merged_hints, get_stale_hints,
     get_diff, get_detailed_diff, get_timeline, push, pull,
+    start_hotfix, finish_hotfix, abort_hotfix, get_hotfix_status,
 };
 use crate::utils::validation::validate_path;
 use tauri::command;
@@ -191,4 +192,40 @@ pub async fn push_cmd(worktree_path: String, branch: Option<String>) -> Result<c
 pub async fn pull_cmd(worktree_path: String, branch: Option<String>) -> Result<crate::models::SwitchBranchResult, String> {
     validate_path(&worktree_path).map_err(|e| e.to_string())?;
     run_blocking(move || pull(&worktree_path, branch.as_deref())).await
+}
+
+// ============ Hotfix 相关命令 ============
+
+/// 开始 Hotfix 流程
+#[command]
+pub async fn start_hotfix_cmd(
+    repo_path: String,
+    description: String,
+    base_branch: Option<String>,
+    branch_name: Option<String>,
+) -> Result<StartHotfixResult, String> {
+    let params = StartHotfixParams {
+        description,
+        base_branch,
+        branch_name,
+    };
+    run_blocking(move || start_hotfix(&repo_path, params)).await
+}
+
+/// 完成 Hotfix 流程
+#[command]
+pub async fn finish_hotfix_cmd(repo_path: String, push: bool) -> Result<FinishHotfixResult, String> {
+    run_blocking(move || finish_hotfix(&repo_path, push)).await
+}
+
+/// 取消 Hotfix 流程
+#[command]
+pub async fn abort_hotfix_cmd(repo_path: String) -> Result<FinishHotfixResult, String> {
+    run_blocking(move || abort_hotfix(&repo_path)).await
+}
+
+/// 获取 Hotfix 状态
+#[command]
+pub async fn get_hotfix_status_cmd(repo_path: String) -> Result<Option<HotfixInfo>, String> {
+    run_blocking(move || get_hotfix_status(&repo_path)).await
 }
