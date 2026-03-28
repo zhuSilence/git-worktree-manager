@@ -18,6 +18,14 @@ import type {
   StartHotfixResult,
   FinishHotfixResult,
 } from '@/types/worktree'
+import type {
+  OperationLogListResponse,
+  OperationLogFilter,
+  BackupListResponse,
+  BackupInfo,
+  RestoreBackupResult,
+  DeleteProtectionCheck,
+} from '@/types/log'
 import type { IdeType, TerminalType } from '@/stores/settingsStore'
 
 /**
@@ -234,5 +242,96 @@ export const gitService = {
    */
   async getHotfixStatus(repoPath: string): Promise<HotfixInfo | null> {
     return invoke<HotfixInfo | null>('get_hotfix_status_cmd', { repoPath })
+  },
+
+  // ============ 操作日志相关 ============
+
+  /**
+   * 获取操作日志列表
+   */
+  async listOperationLogs(filter?: OperationLogFilter): Promise<OperationLogListResponse> {
+    return invoke<OperationLogListResponse>('list_operation_logs_cmd', { filter })
+  },
+
+  /**
+   * 导出操作日志
+   */
+  async exportOperationLogs(outputPath: string): Promise<string> {
+    return invoke<string>('export_operation_logs_cmd', { outputPath })
+  },
+
+  /**
+   * 清理过期日志
+   */
+  async cleanupOldLogs(): Promise<number> {
+    return invoke<number>('cleanup_old_logs_cmd')
+  },
+
+  // ============ 删除保护相关 ============
+
+  /**
+   * 检查删除保护
+   */
+  async checkDeleteProtection(worktreePath: string, branch: string): Promise<DeleteProtectionCheck> {
+    return invoke<DeleteProtectionCheck>('check_delete_protection_cmd', { worktreePath, branch })
+  },
+
+  /**
+   * 创建备份
+   */
+  async createBackup(worktreePath: string, branch: string): Promise<BackupInfo> {
+    return invoke<BackupInfo>('create_backup_cmd', { request: { worktreePath, branch } })
+  },
+
+  /**
+   * 获取备份列表
+   */
+  async listBackups(): Promise<BackupListResponse> {
+    return invoke<BackupListResponse>('list_backups_cmd')
+  },
+
+  /**
+   * 恢复备份
+   */
+  async restoreBackup(backupId: string, targetPath?: string): Promise<RestoreBackupResult> {
+    return invoke<RestoreBackupResult>('restore_backup_cmd', { backupId, targetPath })
+  },
+
+  /**
+   * 删除备份
+   */
+  async deleteBackup(backupId: string): Promise<boolean> {
+    return invoke<boolean>('delete_backup_cmd', { backupId })
+  },
+
+  /**
+   * 清理过期备份
+   */
+  async cleanupExpiredBackups(): Promise<number> {
+    return invoke<number>('cleanup_expired_backups_cmd')
+  },
+
+  /**
+   * 获取备份详情
+   */
+  async getBackupInfo(backupId: string): Promise<BackupInfo | null> {
+    return invoke<BackupInfo | null>('get_backup_info_cmd', { backupId })
+  },
+
+  /**
+   * 删除 Worktree（带日志记录和删除保护）
+   */
+  async deleteWorktreeWithProtection(
+    repoPath: string,
+    worktreePath: string,
+    branch: string,
+    force: boolean = false
+  ): Promise<WorktreeResult> {
+    return invoke<WorktreeResult>('delete_worktree_with_protection_cmd', {
+      repoPath,
+      worktreePath,
+      branch,
+      force,
+    })
   },
 }
