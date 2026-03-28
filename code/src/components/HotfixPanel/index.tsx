@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { gitService } from '@/services/git'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 import { ConfirmDialog } from '@/components/common'
+import { validateBranchName } from '@/utils/namingSuggestion'
 import type { HotfixInfo } from '@/types/worktree'
 import { HotfixStatus } from '@/types/worktree'
 
@@ -40,6 +41,11 @@ export function HotfixPanel({ isOpen, onClose }: HotfixPanelProps) {
     }
   }, [currentRepo?.mainWorktreePath])
 
+  const handleClose = useCallback(() => {
+    onClose()
+    previousActiveElement.current?.focus()
+  }, [onClose])
+
   useEffect(() => {
     if (isOpen) {
       loadHotfixStatus()
@@ -54,12 +60,12 @@ export function HotfixPanel({ isOpen, onClose }: HotfixPanelProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen && !showAbortConfirm) {
-        onClose()
+        handleClose()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose, showAbortConfirm])
+  }, [isOpen, handleClose, showAbortConfirm])
 
   useEffect(() => {
     const handleTabKey = (e: KeyboardEvent) => {
@@ -68,6 +74,9 @@ export function HotfixPanel({ isOpen, onClose }: HotfixPanelProps) {
       const focusableElements = panelRef.current.querySelectorAll<HTMLElement>(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
       )
+
+      if (focusableElements.length === 0) return
+
       const firstElement = focusableElements[0]
       const lastElement = focusableElements[focusableElements.length - 1]
 
@@ -90,6 +99,14 @@ export function HotfixPanel({ isOpen, onClose }: HotfixPanelProps) {
     if (!currentRepo || !description.trim()) {
       setError(t('hotfix.descriptionRequired', '请输入修复描述'))
       return
+    }
+
+    if (branchName.trim()) {
+      const validation = validateBranchName(branchName.trim())
+      if (!validation.valid) {
+        setError(validation.message || t('hotfix.invalidBranchName', '分支名无效'))
+        return
+      }
     }
 
     setIsLoading(true)
@@ -182,7 +199,7 @@ return (
         <button
           type="button"
           className="absolute inset-0 bg-black/50 cursor-default"
-          onClick={onClose}
+          onClick={handleClose}
           aria-label="Close panel"
         />
         
@@ -194,7 +211,7 @@ return (
             </h2>
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded"
             >
               <X className="w-5 h-5" />
