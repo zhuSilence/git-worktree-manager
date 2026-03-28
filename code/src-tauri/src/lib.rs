@@ -42,6 +42,7 @@ pub fn run() {
             commands::worktree::get_timeline,
             commands::worktree::push,
             commands::worktree::pull,
+            commands::worktree::fetch_all_remotes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

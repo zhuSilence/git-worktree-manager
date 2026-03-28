@@ -342,3 +342,19 @@ export interface TimelineResponse {
   /** 总数 */
   totalCount: number
 }
+
+/**
+ * Fetch 远程结果
+ */
+export interface FetchResult {
+  /** 是否成功 */
+  success: boolean
+  /** Fetch 时间 (ISO 8601) */
+  fetchedAt: string
+  /** 更新的远程数量 */
+  remotesUpdated: number
+  /** 更新的分支列表 */
+  branchesUpdated: string[]
+  /** 错误信息 */
+  error?: string
+}

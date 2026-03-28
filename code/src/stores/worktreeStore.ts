@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Worktree, WorktreeListResponse, CreateWorktreeParams, WorktreeResult, BranchListResponse, Repository } from '@/types/worktree'
+import type { Worktree, WorktreeListResponse, CreateWorktreeParams, WorktreeResult, BranchListResponse, Repository, FetchResult } from '@/types/worktree'
 import { gitService } from '@/services/git'
 
 interface WorktreeState {
@@ -11,6 +11,10 @@ interface WorktreeState {
   error: string | null
   // 事务状态：跟踪正在进行的操作
   pendingOperations: Set<string>
+  // Fetch 相关状态
+  lastFetchTime: string | null
+  fetchLoading: boolean
+  fetchError: string | null
 
   // 操作
   loadRepository: (path: string) => Promise<void>
@@ -18,6 +22,8 @@ interface WorktreeState {
   createWorktree: (params: CreateWorktreeParams) => Promise<WorktreeResult>
   deleteWorktree: (worktreePath: string, force?: boolean) => Promise<WorktreeResult>
   clearError: () => void
+  // Fetch 操作
+  fetchAllRemotes: () => Promise<FetchResult | null>
 }
 
 /**
@@ -79,6 +85,9 @@ export const useWorktreeStore = create<WorktreeState>((set, get) => {
     isLoading: false,
     error: null,
     pendingOperations: new Set<string>(),
+    lastFetchTime: null,
+    fetchLoading: false,
+    fetchError: null,
 
     // 加载仓库
     loadRepository: async (path: string) => {
@@ -232,6 +241,44 @@ export const useWorktreeStore = create<WorktreeState>((set, get) => {
 
     clearError: () => {
       set({ error: null })
-    }
+    },
+
+    // Fetch 所有远程仓库
+    fetchAllRemotes: async () => {
+      const { currentRepoPath } = get()
+      if (!currentRepoPath) {
+        return null
+      }
+
+      set({ fetchLoading: true, fetchError: null })
+
+      try {
+        const result = await gitService.fetchAllRemotes(currentRepoPath)
+
+        if (result.success) {
+          set({
+            lastFetchTime: result.fetchedAt,
+            fetchLoading: false,
+            fetchError: null,
+          })
+
+          // 刷新 worktrees 以更新同步状态
+          const response = await gitService.listWorktrees(currentRepoPath)
+          set({ worktrees: response.worktrees })
+
+          return result
+        } else {
+          set({
+            fetchLoading: false,
+            fetchError: result.error || 'Fetch failed',
+          })
+          return result
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Fetch failed'
+        set({ fetchLoading: false, fetchError: message })
+        return null
+      }
+    },
   }
 })

@@ -1,4 +1,4 @@
-import { GitBranch, Settings, RefreshCw, Plus, Clock } from 'lucide-react'
+import { GitBranch, Settings, RefreshCw, Plus, Clock, DownloadCloud } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/common'
 import { useWorktreeStore } from '@/stores/worktreeStore'
@@ -12,7 +12,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings, onOpenTimeline, onRefresh }) => {
   const { t } = useTranslation()
-  const { currentRepo, refreshWorktrees, isLoading } = useWorktreeStore()
+  const { currentRepo, refreshWorktrees, isLoading, fetchAllRemotes, fetchLoading, lastFetchTime } = useWorktreeStore()
 
   const handleRefresh = async () => {
     if (onRefresh) {
@@ -20,6 +20,24 @@ export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings
     } else {
       await refreshWorktrees()
     }
+  }
+
+  const handleFetch = async () => {
+    await fetchAllRemotes()
+  }
+
+  const formatRelativeTime = (isoTime: string | null) => {
+    if (!isoTime) return ''
+    const date = new Date(isoTime)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    if (diffMins < 1) return t('fetch.justNow')
+    if (diffMins < 60) return t('fetch.minutesAgo', { count: diffMins })
+    const diffHours = Math.floor(diffMins / 60)
+    if (diffHours < 24) return t('fetch.hoursAgo', { count: diffHours })
+    const diffDays = Math.floor(diffHours / 24)
+    return t('fetch.daysAgo', { count: diffDays })
   }
 
   return (
@@ -61,6 +79,22 @@ export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings
               >
                 <Clock className="h-4 w-4" />
               </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleFetch}
+                disabled={fetchLoading}
+                title={t('fetch.fetchRemotes')}
+              >
+                <DownloadCloud className={`h-4 w-4 ${fetchLoading ? 'animate-pulse' : ''}`} />
+              </Button>
+
+              {lastFetchTime && (
+                <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
+                  {formatRelativeTime(lastFetchTime)}
+                </span>
+              )}
 
               <Button
                 variant="ghost"

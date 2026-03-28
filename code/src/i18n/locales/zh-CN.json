@@ -274,5 +274,16 @@
     "add": "添加",
     "notesLabel": "备注描述",
     "notesPlaceholder": "添加备注..."
+  },
+  "fetch": {
+    "fetchRemotes": "获取远程更新",
+    "fetching": "正在获取...",
+    "fetchSuccess": "获取成功",
+    "fetchFailed": "获取失败",
+    "justNow": "刚刚",
+    "minutesAgo": "{{count}} 分钟前",
+    "hoursAgo": "{{count}} 小时前",
+    "daysAgo": "{{count}} 天前",
+    "lastFetch": "上次同步"
   }
 }

@@ -12,6 +12,7 @@ import type {
   BatchDeleteResult,
   WorktreeHint,
   TimelineResponse,
+  FetchResult,
 } from '@/types/worktree'
 import type { IdeType, TerminalType } from '@/stores/settingsStore'
 
@@ -181,5 +182,12 @@ export const gitService = {
    */
   async pull(worktreePath: string, branch?: string): Promise<SwitchBranchResult> {
     return invoke<SwitchBranchResult>('pull', { worktreePath, branch })
+  },
+
+  /**
+   * Fetch 所有远程仓库
+   */
+  async fetchAllRemotes(repoPath: string): Promise<FetchResult> {
+    return invoke<FetchResult>('fetch_all_remotes', { repoPath })
   },
 }

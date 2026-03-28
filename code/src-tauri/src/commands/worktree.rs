@@ -249,3 +249,14 @@ pub async fn pull(worktree_path: String, branch: Option<String>) -> Result<crate
     .map_err(|e| e.to_string())?
     .map_err(|e| e.to_string())
 }
+
+/// Fetch 所有远程仓库
+#[command]
+pub async fn fetch_all_remotes(repo_path: String) -> Result<crate::models::FetchResult, String> {
+    spawn_blocking(move || {
+        git_service::fetch_all_remotes(&repo_path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}

@@ -18,7 +18,7 @@ import type { RepositoryInfo } from './types/worktree'
 
 function App() {
   const { t } = useTranslation()
-  const { currentRepo, isLoading, error, loadRepository, refreshWorktrees, worktrees } = useWorktreeStore()
+  const { currentRepo, isLoading, error, loadRepository, refreshWorktrees, worktrees, fetchAllRemotes } = useWorktreeStore()
   const { repositories, activeRepoId, setActiveRepository, validateRepositories, refreshRepositories } = useRepositoryStore()
   const { autoRefreshInterval } = settingsStore()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -30,6 +30,9 @@ function App() {
 
   // 搜索框 ref
   const searchInputRef = useRef<HTMLInputElement>(null)
+
+  // 跟踪已 fetch 的仓库，避免重复 fetch
+  const fetchedRepoIdRef = useRef<string | null>(null)
 
   // 聚焦搜索框
   const focusSearch = useCallback(() => {
@@ -71,6 +74,15 @@ function App() {
       loadRepository(activeRepoId)
     }
   }, [activeRepoId, loadRepository])
+
+  // 自动 Fetch：当仓库加载完成后自动获取远程状态
+  useEffect(() => {
+    const repoId = currentRepo?.id
+    if (repoId && !isLoading && fetchedRepoIdRef.current !== repoId) {
+      fetchedRepoIdRef.current = repoId
+      fetchAllRemotes()
+    }
+  }, [currentRepo?.id, isLoading, fetchAllRemotes])
 
   // 应用启动时验证所有仓库路径
   useEffect(() => {

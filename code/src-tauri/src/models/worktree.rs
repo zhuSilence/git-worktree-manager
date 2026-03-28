@@ -300,3 +300,20 @@ pub struct TimelineResponse {
     /// 总数
     pub total_count: usize,
 }
+
+/// Fetch 远程结果
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FetchResult {
+    /// 是否成功
+    pub success: bool,
+    /// Fetch 时间 (ISO 8601)
+    pub fetched_at: String,
+    /// 更新的远程数量
+    pub remotes_updated: usize,
+    /// 更新的分支列表
+    pub branches_updated: Vec<String>,
+    /// 错误信息
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
