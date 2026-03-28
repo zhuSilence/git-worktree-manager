@@ -293,5 +293,24 @@
     "add": "Add",
     "notesLabel": "Notes",
     "notesPlaceholder": "Add notes..."
+  },
+  "hotfix": {
+    "title": "Quick Hotfix",
+    "description": "Fix Description",
+    "descriptionPlaceholder": "e.g., Fix login page styling issue",
+    "descriptionRequired": "Please enter a fix description",
+    "baseBranch": "Base Branch",
+    "baseBranchDesc": "Hotfix will be created from this branch",
+    "branchName": "Branch Name (Optional)",
+    "branchNamePlaceholder": "Leave empty for auto-generation: hotfix/YYYY-MM-DD-description",
+    "start": "Start Hotfix",
+    "inProgress": "Hotfix In Progress",
+    "branch": "Branch",
+    "finishHint": "After fixing, click below to merge into main branch and clean up worktree.",
+    "finishAndMerge": "Finish & Merge",
+    "finishAndPush": "Finish & Push",
+    "abort": "Abort Hotfix",
+    "confirmAbort": "Are you sure you want to abort this hotfix? This will delete the hotfix branch and worktree.",
+    "help": "Hotfix workflow automatically creates branch and worktree. One-click merge and cleanup when done."
   }
 }

@@ -27,6 +27,7 @@ thiserror = "1"
 dirs = "5"
 chrono = { version = "0.4", features = ["serde"] }
 regex = "1"
+scopeguard = "1"
 reqwest = { version = "0.12", features = ["json"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"] }
 log = "0.4"
@@ -34,6 +35,8 @@ env_logger = "0.11"
 uuid = { version = "1", features = ["v4"] }
 rand = "0.8"
 base64 = "0.22"
+sha2 = "0.10"
+hex = "0.4"
 
 [profile.dev]
 opt-level = 0

@@ -4,6 +4,8 @@ use crate::models::{
 };
 use crate::utils::validation::sanitize_branch_name;
 use git2::Repository;
+use regex::Regex;
+use std::collections::HashSet;
 use std::path::Path;
 use std::process::Command;
 
@@ -374,9 +376,25 @@ pub fn list_remote_branches(repo_path: &str) -> anyhow::Result<RemoteBranchListR
                 }
 
                 // 解析远程名和分支名
-                let parts: Vec<&str> = full_name.splitn(2, '/').collect();
-                let remote = parts.first().map_or("", |v| *v).to_string();
-                let name = parts.get(1).map_or(full_name, |v| *v).to_string();
+                // 格式: refs/remotes/remote/branch/name 或 refs/heads/branch
+                let (remote, name) = if full_name.starts_with("refs/remotes/") {
+                    // 远程分支: refs/remotes/origin/feature/test
+                    // 提取 remote_name 和 branch_name
+                    let without_prefix = full_name.trim_start_matches("refs/remotes/");
+                    if let Some(pos) = without_prefix.find('/') {
+                        let remote = without_prefix[..pos].to_string();
+                        let branch_name = without_prefix[pos + 1..].to_string();
+                        (remote, branch_name)
+                    } else {
+                        ("".to_string(), full_name.to_string())
+                    }
+                } else if full_name.starts_with("refs/heads/") {
+                    // 本地分支
+                    let name = full_name.trim_start_matches("refs/heads/").to_string();
+                    ("".to_string(), name)
+                } else {
+                    ("".to_string(), full_name.to_string())
+                };
 
                 // 获取最后提交信息
                 let reference = branch.get();

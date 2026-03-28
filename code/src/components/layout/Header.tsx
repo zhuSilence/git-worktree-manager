@@ -1,4 +1,4 @@
-import { GitBranch, Settings, RefreshCw, Plus, Clock, Download } from 'lucide-react'
+import { GitBranch, Settings, RefreshCw, Plus, Clock, Download, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/common'
 import { useWorktreeStore } from '@/stores/worktreeStore'
@@ -7,11 +7,12 @@ interface HeaderProps {
   onCreateWorktree?: () => void
   onOpenSettings?: () => void
   onOpenTimeline?: () => void
+  onOpenHotfix?: () => void
   onRefresh?: () => void
   onFetch?: () => void
 }
 
-export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings, onOpenTimeline, onRefresh, onFetch }) => {
+export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings, onOpenTimeline, onOpenHotfix, onRefresh, onFetch }) => {
   const { t } = useTranslation()
   const { currentRepo, refreshWorktrees, isLoading, isFetching } = useWorktreeStore()
 
@@ -58,6 +59,18 @@ export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings
               >
                 <Plus className="h-4 w-4" />
                 <span>{t('header.create')}</span>
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onOpenHotfix}
+                disabled={isLoading}
+                className="flex items-center gap-2 text-orange-500 border-orange-300 hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                title={t('hotfix.title', '快速 Hotfix')}
+              >
+                <Zap className="h-4 w-4" />
+                <span className="hidden sm:inline">Hotfix</span>
               </Button>
 
               <Button

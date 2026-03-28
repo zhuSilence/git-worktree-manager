@@ -59,6 +59,11 @@ pub fn run() {
             commands::ai_review::get_ai_config,
             commands::ai_review::test_ai_connection,
             commands::ai_review::ai_review,
+            // Hotfix 相关命令
+            commands::worktree::start_hotfix_cmd,
+            commands::worktree::finish_hotfix_cmd,
+            commands::worktree::abort_hotfix_cmd,
+            commands::worktree::get_hotfix_status_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

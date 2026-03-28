@@ -6,6 +6,7 @@ import { Main } from './components/layout'
 import { WorktreeList } from './components/WorktreeList'
 import { CreateWorktreeDialog } from './components/CreateWorktreeDialog'
 import { SettingsPanel } from './components/SettingsPanel'
+import { HotfixPanel } from './components/HotfixPanel'
 import { Sidebar } from './components/Sidebar'
 import { DiffSidebar } from './components/DiffSidebar'
 import { Timeline } from './components/Timeline'
@@ -24,6 +25,7 @@ function App() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showTimeline, setShowTimeline] = useState(false)
+  const [showHotfix, setShowHotfix] = useState(false)
   const [diffWorktree, setDiffWorktree] = useState<{ path: string; name: string } | null>(null)
   const [mainCollapsed, setMainCollapsed] = useState(() => localStorage.getItem('main-panel-collapsed') === 'true')
   const [diffRefreshSeq, setDiffRefreshSeq] = useState(0)
@@ -103,7 +105,8 @@ function App() {
         onCreateWorktree={() => setShowCreateDialog(true)}
         onOpenSettings={() => setShowSettings(true)}
         onOpenTimeline={() => setShowTimeline(true)}
-onRefresh={async () => {
+        onOpenHotfix={() => setShowHotfix(true)}
+        onRefresh={async () => {
           await Promise.all([
             refreshRepositories(),
             refreshWorktrees(),
@@ -219,6 +222,12 @@ onRefresh={async () => {
         isOpen={showTimeline}
         onClose={() => setShowTimeline(false)}
         repoPath={currentRepo?.mainWorktreePath || null}
+      />
+
+      {/* Hotfix 面板 */}
+      <HotfixPanel
+        isOpen={showHotfix}
+        onClose={() => setShowHotfix(false)}
       />
 
       {/* Toast 通知容器 */}
