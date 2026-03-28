@@ -261,7 +261,15 @@
     "showFileList": "Show file list",
     "expandMore": "Expand more",
     "collapseAll": "Collapse all",
-    "expandAll": "Expand all"
+    "expandAll": "Expand all",
+    "aiReview": "AI Review",
+    "reReview": "Re-review",
+    "toggleReviewPanel": "Toggle review panel",
+    "analyzing": "Analyzing...",
+    "issues": "issues",
+    "lines": "lines",
+    "line": "Line",
+    "linesAffected": "lines affected"
   },
   "header": {
     "create": "Create"

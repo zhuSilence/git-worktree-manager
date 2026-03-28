@@ -261,7 +261,15 @@
     "showFileList": "显示文件列表",
     "expandMore": "展开更多",
     "collapseAll": "全部收起",
-    "expandAll": "全部展开"
+    "expandAll": "全部展开",
+    "aiReview": "AI 评审",
+    "reReview": "重新评审",
+    "toggleReviewPanel": "切换评审面板",
+    "analyzing": "分析中...",
+    "issues": "个问题",
+    "lines": "行",
+    "line": "行",
+    "linesAffected": "行受影响"
   },
   "header": {
     "create": "创建"

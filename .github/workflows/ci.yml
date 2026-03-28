@@ -12,7 +12,7 @@ env:
 jobs:
   test-frontend:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -21,13 +21,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-          cache-dependency-path: code/package-lock.json
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Install dependencies
         run: |
           cd code
-          npm ci
+          pnpm install --shamefully-hoist
+        timeout-minutes: 15
 
       - name: Build frontend
         run: |
@@ -39,9 +43,14 @@ jobs:
           cd code
           npx tsc --noEmit
 
+      - name: Lint
+        run: |
+          cd code
+          npm run lint || true  # 暂时不阻断CI，先收集问题
+
   test-backend:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -68,3 +77,13 @@ jobs:
         run: |
           cd code/src-tauri
           cargo test
+
+      - name: Clippy checks
+        run: |
+          cd code/src-tauri
+          cargo clippy -- -D warnings || true  # 暂时不阻断
+
+      - name: Check formatting
+        run: |
+          cd code/src-tauri
+          cargo fmt -- --check || true

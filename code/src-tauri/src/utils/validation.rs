@@ -3,12 +3,12 @@ use std::path::{Component, PathBuf};
 use std::sync::LazyLock;
 
 static BRANCH_NAME_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^[a-zA-Z0-9_\-/.]+$").unwrap()
+    Regex::new(r"^[a-zA-Z0-9_\-/.]+$").expect("valid branch name regex pattern")
 });
 
 #[allow(dead_code)]
 static REPO_NAME_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^[a-zA-Z0-9_\-]+$").unwrap()
+    Regex::new(r"^[a-zA-Z0-9_\-]+$").expect("valid repo name regex pattern")
 });
 
 /// 验证分支名是否安全

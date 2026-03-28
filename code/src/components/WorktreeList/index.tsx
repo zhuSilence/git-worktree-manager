@@ -63,7 +63,9 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
     }
 
     fetchMergedHints()
-  }, [currentRepo?.mainWorktreePath, currentRepo?.defaultBranch, worktrees])
+    // 依赖：只在仓库路径或默认分支变化时重新获取
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentRepo?.mainWorktreePath, currentRepo?.defaultBranch])
 
   // 创建已合并分支的 Set 用于快速查找
   const mergedBranches = useMemo(() => {

@@ -25,8 +25,8 @@ interface WorktreeItemProps {
 
 export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false, onTagsChange }: WorktreeItemProps) {
   const { t } = useTranslation()
-  const { deleteWorktree } = useWorktreeStore()
-  const { defaultIde, defaultTerminal, enableIdleDetection, idleThresholdDays } = settingsStore()
+  const { deleteWorktree, refreshWorktrees } = useWorktreeStore()
+  const { defaultIde, defaultTerminal, customIdePath, customTerminalPath, enableIdleDetection, idleThresholdDays } = settingsStore()
   const { handleError, toast } = useErrorHandler()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -59,7 +59,7 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
 
   const handleOpenInTerminal = async () => {
     try {
-      await gitService.openInTerminal(worktree.path, defaultTerminal)
+      await gitService.openInTerminal(worktree.path, defaultTerminal, customTerminalPath)
     } catch (error) {
       handleError(error, t('errors.openTerminalFailed'))
     }
@@ -67,7 +67,7 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
 
   const handleOpenInEditor = async () => {
     try {
-      await gitService.openInEditor(worktree.path, defaultIde)
+      await gitService.openInEditor(worktree.path, defaultIde, customIdePath)
     } catch (error) {
       handleError(error, t('errors.openEditorFailed'))
     }
@@ -179,8 +179,7 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
                           const result = await gitService.push(worktree.path, worktree.branch)
                           if (result.success) {
                             toast.success(t('worktree.pushSuccess'))
-                            // 刷新列表
-                            window.location.reload()
+                            await refreshWorktrees()
                           } else {
                             toast.error(`${t('worktree.pushFailed')}: ${result.message}`)
                           }
@@ -202,8 +201,7 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
                           const result = await gitService.pull(worktree.path, worktree.branch)
                           if (result.success) {
                             toast.success(t('worktree.pullSuccess'))
-                            // 刷新列表
-                            window.location.reload()
+                            await refreshWorktrees()
                           } else {
                             toast.error(`${t('worktree.pullFailed')}: ${result.message}`)
                           }
