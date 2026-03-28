@@ -105,7 +105,8 @@ function App() {
         onCreateWorktree={() => setShowCreateDialog(true)}
         onOpenSettings={() => setShowSettings(true)}
         onOpenTimeline={() => setShowTimeline(true)}
-onRefresh={async () => {
+        onOpenHotfix={() => setShowHotfix(true)}
+        onRefresh={async () => {
           await Promise.all([
             refreshRepositories(),
             refreshWorktrees(),
