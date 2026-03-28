@@ -18,7 +18,7 @@ import type { RepositoryInfo } from './types/worktree'
 
 function App() {
   const { t } = useTranslation()
-  const { currentRepo, isLoading, error, loadRepository, refreshWorktrees, worktrees, fetchAllRemote, isFetching } = useWorktreeStore()
+  const { currentRepo, isLoading, error, loadRepository, refreshWorktrees, worktrees, fetchAllRemote } = useWorktreeStore()
   const { repositories, activeRepoId, setActiveRepository, validateRepositories, refreshRepositories } = useRepositoryStore()
   const { autoRefreshInterval, autoFetchOnStart } = settingsStore()
   const [showCreateDialog, setShowCreateDialog] = useState(false)

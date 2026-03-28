@@ -375,21 +375,19 @@ pub fn list_remote_branches(repo_path: &str) -> anyhow::Result<RemoteBranchListR
 
                 // 解析远程名和分支名
                 let parts: Vec<&str> = full_name.splitn(2, '/').collect();
-                let remote = parts.first().unwrap_or("").to_string();
-                let name = parts.get(1).unwrap_or(full_name).to_string();
+                let remote = parts.first().map_or("", |v| *v).to_string();
+                let name = parts.get(1).map_or(full_name, |v| *v).to_string();
 
                 // 获取最后提交信息
-                let (last_commit, last_commit_date) = if let Ok(reference) = branch.get() {
-                    if let Ok(commit) = reference.peel_to_commit() {
-                        let hash = commit.id().to_string();
-                        let short_hash = &hash[..7.min(hash.len())];
-                        let time = commit.time();
-                        let datetime = chrono::DateTime::from_timestamp(time.seconds(), 0)
-                            .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string());
-                        (Some(short_hash.to_string()), datetime)
-                    } else {
-                        (None, None)
-                    }
+                let reference = branch.get();
+                let (last_commit, last_commit_date) = if let Ok(commit) = reference.peel_to_commit()
+                {
+                    let hash = commit.id().to_string();
+                    let short_hash = &hash[..7.min(hash.len())];
+                    let time = commit.time();
+                    let datetime = chrono::DateTime::from_timestamp(time.seconds(), 0)
+                        .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string());
+                    (Some(short_hash.to_string()), datetime)
                 } else {
                     (None, None)
                 };

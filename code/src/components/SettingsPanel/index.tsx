@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Code, Terminal, Monitor, RefreshCw, Download, Bot, ChevronRight, Clock, Globe, CloudDownload } from 'lucide-react'
+import { X, Code, Terminal, Monitor, RefreshCw, Download, Bot, ChevronRight, Clock, Globe } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { settingsStore, IdeType, TerminalType } from '@/stores/settingsStore'
 import { updateStore } from '@/stores/updateStore'
@@ -299,7 +299,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                  <CloudDownload className="w-4 h-4" />
+                  <Download className="w-4 h-4" />
                   {t('settings.autoFetchOnStart', '启动时自动 Fetch')}
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">

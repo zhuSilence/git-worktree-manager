@@ -1,4 +1,4 @@
-import { GitBranch, Settings, RefreshCw, Plus, Clock, CloudDownload } from 'lucide-react'
+import { GitBranch, Settings, RefreshCw, Plus, Clock, Download } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/common'
 import { useWorktreeStore } from '@/stores/worktreeStore'
@@ -76,7 +76,7 @@ export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings
                 disabled={isFetching || isLoading}
                 title={t('header.fetchRemote')}
               >
-                <CloudDownload className={`h-4 w-4 ${isFetching ? 'animate-pulse' : ''}`} />
+                <Download className={`h-4 w-4 ${isFetching ? 'animate-pulse' : ''}`} />
               </Button>
 
               <Button

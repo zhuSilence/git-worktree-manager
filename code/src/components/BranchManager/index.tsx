@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { X, GitBranch, Plus, Download, RefreshCw, Search, ChevronDown, CloudDownload } from 'lucide-react'
+import { X, GitBranch, Plus, Download, RefreshCw, Search, ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { gitService } from '@/services/git'
 import { useWorktreeStore } from '@/stores/worktreeStore'
@@ -401,7 +401,7 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                  <CloudDownload className="w-4 h-4" />
+                  <Download className="w-4 h-4" />
                   {t('branchManager.selectRemoteBranch', '选择远程分支')}
                 </label>
                 {isLoadingRemote ? (
@@ -445,7 +445,7 @@ export function BranchManager({ isOpen, onClose, worktreePath, worktreeBranch, b
                 disabled={!selectedRemoteBranch || isLoading}
                 className="w-full py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CloudDownload className="w-4 h-4" />}
+                {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                 {t('branchManager.checkoutRemote', '检出远程分支')}
               </button>
             </div>
