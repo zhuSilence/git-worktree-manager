@@ -1,4 +1,6 @@
-import { ReviewIssue, AIReviewResult, AINamingRequest, AINamingResponse, AINamingSuggestion } from '@/types/ai';
+import { ReviewIssue, AIReviewResult, AINamingRequest, AINamingResponse } from '@/types/ai';
+import type { AINamingSuggestion } from '@/types/ai';
+export type { AINamingSuggestion };
 import { invoke } from '@tauri-apps/api/core';
 
 /**
