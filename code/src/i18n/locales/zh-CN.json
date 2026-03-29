@@ -312,5 +312,25 @@
     "abort": "取消 Hotfix",
     "confirmAbort": "确定要取消此 Hotfix 吗？这将删除 hotfix 分支和 worktree。",
     "help": "Hotfix 流程将自动创建分支和 worktree，修复完成后一键合并回主分支并清理。"
+  },
+  "groups": {
+    "title": "分组管理",
+    "noGroups": "暂无分组",
+    "createGroup": "创建新分组",
+    "groupName": "分组名称",
+    "groupDesc": "分组描述",
+    "groupDescOptional": "分组描述（可选）",
+    "selectColor": "选择颜色",
+    "confirmDelete": "确定删除此分组吗？分组内的 worktree 将变为未分组状态。",
+    "noGroup": "未分组",
+    "setGroup": "设置分组",
+    "changeGroup": "更改分组",
+    "ungrouped": "未分组",
+    "manageGroups": "管理分组...",
+    "helpText": "为 worktree 设置分组，便于多项目并行管理。分组信息会自动保存。",
+    "feature": "功能开发",
+    "bugfix": "Bug 修复",
+    "release": "发布",
+    "other": "其他"
   }
 }

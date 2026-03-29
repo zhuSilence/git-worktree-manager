@@ -2,14 +2,18 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { WorktreeItem } from './WorktreeItem'
 import { useWorktreeStore } from '@/stores/worktreeStore'
-import { GitBranch, Plus, Search, ArrowUpDown, AlertTriangle, Trash2, PanelLeftClose, RefreshCw } from 'lucide-react'
+import { useGroupsStore } from '@/stores/groupsStore'
+import { GitBranch, Plus, Search, ArrowUpDown, AlertTriangle, Trash2, PanelLeftClose, RefreshCw, FolderOpen, ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/common'
 import { EmptyState } from '@/components/common'
+import { GroupPanel } from '@/components/GroupPanel'
 import type { Worktree, WorktreeHint } from '@/types/worktree'
+import type { WorktreeGroup } from '@/types/group'
 import { WorktreeStatus } from '@/types/worktree'
 import { HintsPanel } from '@/components/HintsPanel'
 import { BatchActions } from '@/components/BatchActions'
 import { gitService } from '@/services/git'
+import { clsx } from 'clsx'
 
 type SortField = 'name' | 'status' | 'time'
 type SortOrder = 'asc' | 'desc'
@@ -21,18 +25,34 @@ interface WorktreeListProps {
   searchInputRef?: React.RefObject<HTMLInputElement>
 }
 
+interface GroupedWorktrees {
+  group: WorktreeGroup | null
+  worktrees: Worktree[]
+  collapsed: boolean
+}
+
 export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchInputRef }: WorktreeListProps) {
   const { t } = useTranslation()
   const { worktrees, isLoading, currentRepo, refreshWorktrees } = useWorktreeStore()
+  const { groups, getWorktreeGroup, initializeDefaultGroups } = useGroupsStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
   const [showHints, setShowHints] = useState(false)
   const [showBatchActions, setShowBatchActions] = useState(false)
+  const [showGroupPanel, setShowGroupPanel] = useState(false)
   const [mergedHints, setMergedHints] = useState<WorktreeHint[]>([])
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
 
   // 用于竞态条件处理的请求版本号
   const requestVersionRef = useRef(0)
+
+  // 初始化默认分组
+  useEffect(() => {
+    if (groups.length === 0) {
+      initializeDefaultGroups()
+    }
+  }, [groups.length, initializeDefaultGroups])
 
   // 获取分支列表
   const branches = currentRepo?.branches || []
@@ -118,6 +138,53 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
     return result
   }, [worktrees, searchQuery, sortField, sortOrder])
 
+  // 按分组归类 worktrees
+  const groupedWorktrees = useMemo((): GroupedWorktrees[] => {
+    const repoPath = currentRepo?.path || ''
+    const grouped: Map<string | null, Worktree[]> = new Map()
+
+    // 初始化所有分组
+    groups.forEach(g => grouped.set(g.id, []))
+    grouped.set(null, []) // 未分组
+
+    // 归类 worktrees
+    filteredAndSortedWorktrees.forEach(wt => {
+      const groupId = getWorktreeGroup(repoPath, wt.id)?.id || null
+      const list = grouped.get(groupId) || []
+      list.push(wt)
+      grouped.set(groupId, list)
+    })
+
+    // 构建结果
+    const result: GroupedWorktrees[] = []
+
+    // 先添加分组（按 order 排序）
+    groups
+      .sort((a, b) => a.order - b.order)
+      .forEach(g => {
+        const worktreesInGroup = grouped.get(g.id) || []
+        if (worktreesInGroup.length > 0) {
+          result.push({
+            group: g,
+            worktrees: worktreesInGroup,
+            collapsed: collapsedGroups.has(g.id),
+          })
+        }
+      })
+
+    // 最后添加未分组
+    const ungrouped = grouped.get(null) || []
+    if (ungrouped.length > 0) {
+      result.push({
+        group: null,
+        worktrees: ungrouped,
+        collapsed: collapsedGroups.has('ungrouped'),
+      })
+    }
+
+    return result
+  }, [filteredAndSortedWorktrees, groups, getWorktreeGroup, currentRepo?.path, collapsedGroups])
+
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
@@ -125,6 +192,18 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
       setSortField(field)
       setSortOrder('asc')
     }
+  }
+
+  const toggleGroupCollapse = (groupId: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(groupId)) {
+        next.delete(groupId)
+      } else {
+        next.add(groupId)
+      }
+      return next
+    })
   }
 
   if (isLoading) {
@@ -156,6 +235,8 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
       />
     )
   }
+
+  const repoPath = currentRepo?.path || ''
 
   return (
     <div className="p-4">
@@ -211,6 +292,15 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
 
+          {/* 分组管理按钮 */}
+          <button
+            onClick={() => setShowGroupPanel(true)}
+            className="p-1.5 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+            title={t('groups.title')}
+          >
+            <FolderOpen className="w-4 h-4" />
+          </button>
+
           {/* 批量删除按钮 */}
           {worktrees.filter(w => !w.isMain).length > 1 && (
             <button
@@ -242,16 +332,57 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
         </div>
       </div>
 
-      {/* 列表 */}
-      <div className="space-y-2">
-        {filteredAndSortedWorktrees.map((worktree) => (
-          <WorktreeItem
-            key={worktree.path}
-            worktree={worktree}
-            branches={branches}
-            onShowDiff={onShowDiff}
-            isMerged={mergedBranches.has(worktree.branch)}
-          />
+      {/* 分组列表 */}
+      <div className="space-y-4">
+        {groupedWorktrees.map(({ group, worktrees, collapsed }) => (
+          <div key={group?.id || 'ungrouped'}>
+            {/* 分组标题 */}
+            <button
+              onClick={() => toggleGroupCollapse(group?.id || 'ungrouped')}
+              className="w-full flex items-center gap-2 px-2 py-1.5 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            >
+              {collapsed ? (
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              )}
+              {group ? (
+                <>
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: group.color }}
+                  />
+                  <span className="text-gray-700 dark:text-gray-300">{group.name}</span>
+                </>
+              ) : (
+                <>
+                  <FolderOpen className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-500 dark:text-gray-400">{t('groups.ungrouped')}</span>
+                </>
+              )}
+              <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">
+                {worktrees.length}
+              </span>
+            </button>
+
+            {/* 分组内的 worktrees */}
+            {!collapsed && (
+              <div className="space-y-2 mt-2">
+                {worktrees.map((worktree) => (
+                  <WorktreeItem
+                    key={worktree.path}
+                    worktree={worktree}
+                    branches={branches}
+                    repoPath={repoPath}
+                    currentGroupId={getWorktreeGroup(repoPath, worktree.id)?.id}
+                    onShowDiff={onShowDiff}
+                    isMerged={mergedBranches.has(worktree.branch)}
+                    onOpenGroupPanel={() => setShowGroupPanel(true)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         ))}
       </div>
 
@@ -278,6 +409,12 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
         onClose={() => setShowBatchActions(false)}
         worktrees={worktrees}
         repoPath={currentRepo?.mainWorktreePath || ''}
+      />
+
+      {/* 分组管理面板 */}
+      <GroupPanel
+        isOpen={showGroupPanel}
+        onClose={() => setShowGroupPanel(false)}
       />
     </div>
   )
