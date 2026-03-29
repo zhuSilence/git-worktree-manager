@@ -125,6 +125,7 @@
     "name": "Worktree 名称",
     "namePlaceholder": "例如: feature/new-feature 或粘贴 Issue 链接",
     "namingSuggestion": "命名建议",
+    "aiNamingSuggestion": "AI 命名建议",
     "baseBranch": "基础分支",
     "currentBranch": "(当前)",
     "createNewBranch": "创建新分支 (使用 Worktree 名称)",

@@ -429,3 +429,22 @@ pub fn list_remote_branches(repo_path: &str) -> anyhow::Result<RemoteBranchListR
         remotes,
     })
 }
+
+/// 获取最近提交历史（用于 AI 命名建议）
+pub fn get_recent_commits(repo_path: &str, count: u32) -> anyhow::Result<String> {
+    let output = Command::new("git")
+        .args([
+            "log",
+            "--oneline",
+            "--no-decorate",
+            format!("--{}", count).as_str(),
+        ])
+        .current_dir(repo_path)
+        .output()?;
+
+    if !output.status.success() {
+        return Ok(String::new());
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
