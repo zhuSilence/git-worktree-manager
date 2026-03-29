@@ -312,5 +312,25 @@
     "abort": "Abort Hotfix",
     "confirmAbort": "Are you sure you want to abort this hotfix? This will delete the hotfix branch and worktree.",
     "help": "Hotfix workflow automatically creates branch and worktree. One-click merge and cleanup when done."
+  },
+  "groups": {
+    "title": "Group Management",
+    "noGroups": "No groups",
+    "createGroup": "Create New Group",
+    "groupName": "Group Name",
+    "groupDesc": "Group Description",
+    "groupDescOptional": "Group description (optional)",
+    "selectColor": "Select Color",
+    "confirmDelete": "Are you sure you want to delete this group? Worktrees in this group will become ungrouped.",
+    "noGroup": "No Group",
+    "setGroup": "Set Group",
+    "changeGroup": "Change Group",
+    "ungrouped": "Ungrouped",
+    "manageGroups": "Manage Groups...",
+    "helpText": "Set groups for worktrees to manage multiple projects more efficiently. Group settings are automatically saved.",
+    "feature": "Feature Development",
+    "bugfix": "Bug Fixes",
+    "release": "Release",
+    "other": "Other"
   }
 }

@@ -4,9 +4,11 @@ import { Worktree } from '@/types/worktree'
 import { StatusBadge } from './StatusBadge'
 import { TagBadge, getTagDef } from './TagBadge'
 import { TagEditor } from './TagEditor'
+import { GroupSelector } from '@/components/GroupPanel/GroupSelector'
 import { Folder, ExternalLink, Terminal, Trash2, GitCompare, GitBranch, ArrowUp, ArrowDown, Check, GitMerge, Tag, MessageSquare, Clock, AlertTriangle, Copy } from 'lucide-react'
 import { gitService } from '@/services/git'
 import { useWorktreeStore } from '@/stores/worktreeStore'
+import { useGroupsStore } from '@/stores/groupsStore'
 import { settingsStore } from '@/stores/settingsStore'
 import { BranchManager } from '@/components/BranchManager'
 import { getAnnotation, saveAnnotation, PRESET_TAGS } from '@/services/annotations'
@@ -18,14 +20,18 @@ import { clsx } from 'clsx'
 interface WorktreeItemProps {
   worktree: Worktree
   branches: { name: string; isCurrent: boolean }[]
+  repoPath: string
+  currentGroupId?: string | null
   onShowDiff?: (path: string, name: string) => void
   isMerged?: boolean
   onTagsChange?: () => void
+  onOpenGroupPanel?: () => void
 }
 
-export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onShowDiff, isMerged = false, onTagsChange }: WorktreeItemProps) {
+export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, repoPath, currentGroupId, onShowDiff, isMerged = false, onTagsChange, onOpenGroupPanel }: WorktreeItemProps) {
   const { t } = useTranslation()
   const { deleteWorktree, refreshWorktrees } = useWorktreeStore()
+  const { setWorktreeGroup } = useGroupsStore()
   const { defaultIde, defaultTerminal, customIdePath, customTerminalPath, enableIdleDetection, idleThresholdDays } = settingsStore()
   const { handleError, toast } = useErrorHandler()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -270,6 +276,17 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, onS
                 })}
               </div>
             )}
+
+            {/* 分组选择器 */}
+            <div className="mt-2">
+              <GroupSelector
+                repoPath={repoPath}
+                worktreeId={worktree.id}
+                currentGroupId={currentGroupId ?? null}
+                onSelect={(groupId) => setWorktreeGroup(repoPath, worktree.id, groupId)}
+                onOpenPanel={onOpenGroupPanel}
+              />
+            </div>
 
             {/* 备注显示 */}
             {annotation && annotation.notes && (
