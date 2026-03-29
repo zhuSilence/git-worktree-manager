@@ -13,8 +13,6 @@ import { WorktreeStatus } from '@/types/worktree'
 import { HintsPanel } from '@/components/HintsPanel'
 import { BatchActions } from '@/components/BatchActions'
 import { gitService } from '@/services/git'
-import { clsx } from 'clsx'
-
 type SortField = 'name' | 'status' | 'time'
 type SortOrder = 'asc' | 'desc'
 

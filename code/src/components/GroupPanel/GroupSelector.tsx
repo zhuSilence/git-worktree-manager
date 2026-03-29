@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useGroupsStore } from '@/stores/groupsStore'
-import type { WorktreeGroup } from '@/types/group'
 import { FolderOpen, Check, X, Plus, ChevronRight } from 'lucide-react'
 import { clsx } from 'clsx'
 

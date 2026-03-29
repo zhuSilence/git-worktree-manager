@@ -282,7 +282,7 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, rep
               <GroupSelector
                 repoPath={repoPath}
                 worktreeId={worktree.id}
-                currentGroupId={currentGroupId}
+                currentGroupId={currentGroupId ?? null}
                 onSelect={(groupId) => setWorktreeGroup(repoPath, worktree.id, groupId)}
                 onOpenPanel={onOpenGroupPanel}
               />
