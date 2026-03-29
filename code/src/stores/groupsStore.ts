@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { WorktreeGroup, WorktreeGrouping, GroupsConfig, AutoGroupRule } from '@/types/group'
+import type { WorktreeGroup, WorktreeGrouping, AutoGroupRule } from '@/types/group'
 import { DEFAULT_GROUPS } from '@/types/group'
 
 interface GroupsState {
