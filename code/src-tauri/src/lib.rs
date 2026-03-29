@@ -64,6 +64,18 @@ pub fn run() {
             commands::worktree::finish_hotfix_cmd,
             commands::worktree::abort_hotfix_cmd,
             commands::worktree::get_hotfix_status_cmd,
+            // 操作日志和删除保护命令
+            commands::log::list_operation_logs_cmd,
+            commands::log::export_operation_logs_cmd,
+            commands::log::cleanup_old_logs_cmd,
+            commands::log::check_delete_protection_cmd,
+            commands::log::create_backup_cmd,
+            commands::log::list_backups_cmd,
+            commands::log::restore_backup_cmd,
+            commands::log::delete_backup_cmd,
+            commands::log::cleanup_expired_backups_cmd,
+            commands::log::get_backup_info_cmd,
+            commands::log::delete_worktree_with_protection_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

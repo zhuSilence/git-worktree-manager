@@ -164,7 +164,7 @@ fn get_sync_status(repo: &Repository, branch_name: &str) -> anyhow::Result<SyncS
 }
 
 /// 获取 worktree 状态
-fn get_worktree_status(repo: &Repository) -> anyhow::Result<WorktreeStatus> {
+pub fn get_worktree_status(repo: &Repository) -> anyhow::Result<WorktreeStatus> {
     // 检查是否为 detached HEAD 状态
     if repo.head_detached()? {
         return Ok(WorktreeStatus::Detached);
