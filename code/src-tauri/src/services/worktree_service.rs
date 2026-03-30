@@ -240,19 +240,10 @@ pub fn create_worktree(
     });
 
     // 验证路径
-    let validated_path = validate_path(&target_path)
+    let _validated_path = validate_path(&target_path)
         .map_err(|e| anyhow::anyhow!("Invalid path: {}", e))?;
 
-    // 检查路径是否存在
-    if validated_path.exists() {
-        return Ok(WorktreeResult {
-            success: false,
-            message: format!("Path already exists: {}", target_path),
-            worktree: None,
-        });
-    }
-
-    // 创建 worktree
+    // 创建 worktree（依赖 git worktree add 命令自身的错误返回来判断路径是否存在）
     let branch_name = params.new_branch.clone().unwrap_or(branch_name);
 
     // 使用 git worktree add 命令（更可靠）

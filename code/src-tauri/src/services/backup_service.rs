@@ -55,11 +55,14 @@ fn read_all_backups() -> anyhow::Result<Vec<BackupInfo>> {
     Ok(backups)
 }
 
-/// 写入备份元数据
+/// 写入备份元数据（原子写入）
 fn write_backups(backups: &[BackupInfo]) -> anyhow::Result<()> {
     ensure_backup_dir()?;
     let meta_file = get_backup_meta_file();
-    let file = File::create(&meta_file)?;
+
+    // 原子写入：先写入临时文件，成功后重命名
+    let tmp_file = meta_file.with_extension("jsonl.tmp");
+    let file = File::create(&tmp_file)?;
     let mut writer = BufWriter::new(file);
 
     for backup in backups {
@@ -68,6 +71,9 @@ fn write_backups(backups: &[BackupInfo]) -> anyhow::Result<()> {
         writer.write_all(b"\n")?;
     }
     writer.flush()?;
+
+    // 原子重命名
+    std::fs::rename(&tmp_file, &meta_file)?;
     Ok(())
 }
 
@@ -99,21 +105,73 @@ pub fn check_delete_protection(worktree_path: &str, branch: &str) -> anyhow::Res
     })
 }
 
+/// 获取 stash 列表（返回 stash ref 和消息的列表）
+fn get_stash_list(worktree_path: &str) -> anyhow::Result<Vec<(String, String)>> {
+    let output = Command::new("git")
+        .args(["stash", "list"])
+        .current_dir(worktree_path)
+        .output()?;
+
+    if !output.status.success() {
+        return Ok(Vec::new());
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stashes: Vec<(String, String)> = stdout
+        .lines()
+        .filter_map(|line| {
+            // 格式: stash@{0}: On branch: message
+            // 或: stash@{0}: WIP on branch: message
+            let parts: Vec<&str> = line.splitn(2, ':').collect();
+            if parts.len() >= 2 {
+                let ref_part = parts[0].trim().to_string();
+                let msg_part = parts[1..].join(":").trim().to_string();
+                Some((ref_part, msg_part))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    Ok(stashes)
+}
+
 /// 创建备份
 pub fn create_backup(worktree_path: &str, branch: &str) -> anyhow::Result<BackupInfo> {
     ensure_backup_dir()?;
 
+    let backup_marker = format!("backup-{}", branch);
+
+    // 记录 stash 前的 stash 列表
+    let stashes_before = get_stash_list(worktree_path)?;
+    let stash_count_before = stashes_before.len();
+
     // 创建 git stash
     let output = Command::new("git")
-        .args(["stash", "push", "-m", &format!("backup-{}", branch)])
+        .args(["stash", "push", "-m", &backup_marker])
         .current_dir(worktree_path)
         .output()?;
 
-    // 获取 stash ref
+    // 获取正确的 stash ref
     let stash_ref = if output.status.success() {
-        // stash 输出格式: "Saved working directory and index state On branch: backup-xxx"
-        // 我们需要获取 stash@{0} 这样的 ref
-        "stash@{0}".to_string()
+        // 获取 stash 后的列表，找到新创建的 stash
+        let stashes_after = get_stash_list(worktree_path)?;
+
+        if stashes_after.len() > stash_count_before {
+            // 新增了 stash，找到匹配我们标记的那个
+            let found = stashes_after.iter().find(|(_, msg)| msg.contains(&backup_marker));
+            if let Some((ref_str, _)) = found {
+                ref_str.clone()
+            } else {
+                // 如果没找到匹配的，取最新的（第一个）
+                stashes_after.first()
+                    .map(|(ref_str, _)| ref_str.clone())
+                    .unwrap_or_else(|| "stash@{0}".to_string())
+            }
+        } else {
+            // stash 数量没变，可能是没有 changes
+            "no-stash".to_string()
+        }
     } else {
         // 没有 changes 或失败
         "no-stash".to_string()
@@ -171,10 +229,10 @@ pub fn list_backups() -> anyhow::Result<BackupListResponse> {
 /// 恢复备份
 pub fn restore_backup(backup_id: &str, target_path: Option<&str>) -> anyhow::Result<RestoreBackupResult> {
     let backups = read_all_backups()?;
-    
+
     // 先找到备份的索引和克隆数据
     let backup_index = backups.iter().position(|b| b.id == backup_id);
-    
+
     if backup_index.is_none() {
         return Ok(RestoreBackupResult {
             success: false,
@@ -197,8 +255,11 @@ pub fn restore_backup(backup_id: &str, target_path: Option<&str>) -> anyhow::Res
     // 确定恢复目标路径
     let restore_path = target_path.unwrap_or(&backup.original_path);
 
-    // 检查目标路径是否存在
-    if !PathBuf::from(restore_path).exists() {
+    // 路径验证：规范化路径并检查合法性
+    let restore_path_buf = PathBuf::from(restore_path);
+
+    // 检查路径是否存在
+    if !restore_path_buf.exists() {
         return Ok(RestoreBackupResult {
             success: false,
             message: format!("目标路径不存在: {}", restore_path),
@@ -206,10 +267,43 @@ pub fn restore_backup(backup_id: &str, target_path: Option<&str>) -> anyhow::Res
         });
     }
 
+    // 规范化路径，防止路径遍历攻击
+    let canonical_path = match std::fs::canonicalize(&restore_path_buf) {
+        Ok(p) => p,
+        Err(e) => {
+            return Ok(RestoreBackupResult {
+                success: false,
+                message: format!("无效的恢复路径: {}", e),
+                restored_path: None,
+            });
+        }
+    };
+
+    // 验证路径是一个目录（worktree 应该是目录）
+    if !canonical_path.is_dir() {
+        return Ok(RestoreBackupResult {
+            success: false,
+            message: "目标路径不是一个目录".to_string(),
+            restored_path: None,
+        });
+    }
+
+    // 验证路径是一个 git 仓库
+    let git_dir = canonical_path.join(".git");
+    if !git_dir.exists() {
+        return Ok(RestoreBackupResult {
+            success: false,
+            message: "目标路径不是一个 git worktree".to_string(),
+            restored_path: None,
+        });
+    }
+
+    let canonical_str = canonical_path.to_string_lossy().to_string();
+
     // 应用 stash
     let output = Command::new("git")
         .args(["stash", "pop", &backup.stash_ref])
-        .current_dir(restore_path)
+        .current_dir(&canonical_path)
         .output()?;
 
     if !output.status.success() {
@@ -219,9 +313,6 @@ pub fn restore_backup(backup_id: &str, target_path: Option<&str>) -> anyhow::Res
             restored_path: None,
         });
     }
-
-    // 保存恢复路径用于返回消息
-    let restored_path_str = restore_path.to_string();
 
     // 更新备份状态
     let updated: Vec<BackupInfo> = backups
@@ -242,8 +333,8 @@ pub fn restore_backup(backup_id: &str, target_path: Option<&str>) -> anyhow::Res
 
     Ok(RestoreBackupResult {
         success: true,
-        message: format!("成功恢复备份到 {}", restored_path_str),
-        restored_path: Some(restored_path_str),
+        message: format!("成功恢复备份到 {}", canonical_str),
+        restored_path: Some(canonical_str),
     })
 }
 

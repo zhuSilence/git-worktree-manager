@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Bot,
   Key,
@@ -39,6 +39,11 @@ export function AIConfigPanel({ isOpen, onClose }: AIConfigPanelProps) {
   const [testError, setTestError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // 同步全局 config 变化到本地 state
+  useEffect(() => {
+    setLocalConfig(config);
+  }, [config]);
 
   const handleProviderChange = (provider: AIProvider) => {
     const option = PROVIDER_OPTIONS.find((o) => o.value === provider)!;

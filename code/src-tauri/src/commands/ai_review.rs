@@ -2,44 +2,93 @@ use crate::models::{AIConfig, AIProvider, AIReviewRequest, AIReviewResponse, Det
 use crate::services::ai_service::AIService;
 use crate::services::{get_diff, get_detailed_diff};
 use crate::utils::validation::validate_path;
-use base64::{Engine as _, engine::general_purpose};
 use log::debug;
+use serde::{Deserialize, Serialize};
 
-const OBFUSCATION_KEY: &[u8] = b"git-worktree-manager-secret-key!"; // 32字节
+const SERVICE_NAME: &str = "git-worktree-manager";
 
-/// 混淆加密（Base64 + XOR）
-fn obfuscate(data: &str) -> String {
-    let bytes: Vec<u8> = data.bytes()
-        .enumerate()
-        .map(|(i, b)| b ^ OBFUSCATION_KEY[i % OBFUSCATION_KEY.len()])
-        .collect();
-    general_purpose::STANDARD.encode(&bytes)
+/// 用于存储到文件的配置（不包含敏感信息）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AIConfigStored {
+    pub provider: AIProvider,
+    pub base_url: Option<String>,
+    pub model: String,
+    pub language: String,
+    pub auto_review: bool,
 }
 
-/// 解混淆（Base64 + XOR）
-fn deobfuscate(encoded: &str) -> Result<String, String> {
-    let bytes = general_purpose::STANDARD.decode(encoded)
-        .map_err(|e| format!("Decode error: {}", e))?;
-    let original: Vec<u8> = bytes.iter()
-        .enumerate()
-        .map(|(i, &b)| b ^ OBFUSCATION_KEY[i % OBFUSCATION_KEY.len()])
-        .collect();
-    String::from_utf8(original).map_err(|e| format!("UTF8 error: {}", e))
+impl Default for AIConfigStored {
+    fn default() -> Self {
+        Self {
+            provider: AIProvider::OpenAI,
+            base_url: None,
+            model: "gpt-4o-mini".to_string(),
+            language: "zh".to_string(),
+            auto_review: false,
+        }
+    }
+}
+
+impl From<&AIConfig> for AIConfigStored {
+    fn from(config: &AIConfig) -> Self {
+        Self {
+            provider: config.provider.clone(),
+            base_url: config.base_url.clone(),
+            model: config.model.clone(),
+            language: config.language.clone(),
+            auto_review: config.auto_review,
+        }
+    }
+}
+
+/// 将 API Key 存储到系统钥匙链
+fn store_api_key(provider: &str, key: &str) -> Result<(), String> {
+    let entry = keyring::Entry::new(SERVICE_NAME, provider)
+        .map_err(|e| format!("Failed to create keyring entry: {}", e))?;
+    entry.set_password(key)
+        .map_err(|e| format!("Failed to store API key: {}", e))?;
+    Ok(())
+}
+
+/// 从系统钥匙链获取 API Key
+fn retrieve_api_key(provider: &str) -> Result<Option<String>, String> {
+    let entry = keyring::Entry::new(SERVICE_NAME, provider)
+        .map_err(|e| format!("Failed to create keyring entry: {}", e))?;
+    match entry.get_password() {
+        Ok(key) => Ok(Some(key)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(format!("Failed to retrieve API key: {}", e)),
+    }
+}
+
+/// 从系统钥匙链删除 API Key
+fn delete_api_key(provider: &str) -> Result<(), String> {
+    let entry = keyring::Entry::new(SERVICE_NAME, provider)
+        .map_err(|e| format!("Failed to create keyring entry: {}", e))?;
+    match entry.delete_credential() {
+        Ok(()) => Ok(()),
+        Err(keyring::Error::NoEntry) => Ok(()), // Already deleted
+        Err(e) => Err(format!("Failed to delete API key: {}", e)),
+    }
 }
 
 /// 保存 AI 配置
 #[tauri::command]
 pub async fn save_ai_config(config: AIConfig) -> Result<(), String> {
-    // 存储配置到本地文件，对 api_key 进行加密
-    let config_path = get_config_path()?;
-
-    // 克隆配置并加密 api_key
-    let mut config_to_save = config.clone();
-    if !config_to_save.api_key.is_empty() {
-        config_to_save.api_key = obfuscate(&config_to_save.api_key);
+    // 将 API Key 存储到系统钥匙链
+    let provider_str = format!("{:?}", config.provider).to_lowercase();
+    if !config.api_key.is_empty() {
+        store_api_key(&provider_str, &config.api_key)?;
+    } else {
+        // 如果 API Key 为空，则删除钥匙链中的旧密钥
+        let _ = delete_api_key(&provider_str);
     }
 
-    let json = serde_json::to_string(&config_to_save).map_err(|e| e.to_string())?;
+    // 将非敏感配置存储到本地文件
+    let config_path = get_config_path()?;
+    let config_stored = AIConfigStored::from(&config);
+    let json = serde_json::to_string(&config_stored).map_err(|e| e.to_string())?;
     tokio::task::spawn_blocking(move || std::fs::write(&config_path, json))
         .await
         .map_err(|e| format!("Task join error: {}", e))?
@@ -58,15 +107,26 @@ pub async fn get_ai_config() -> Result<AIConfig, String> {
 
     match content {
         Ok(content) => {
-            let mut config: AIConfig = serde_json::from_str(&content).map_err(|e| e.to_string())?;
-
-            // 尝试解密 api_key（如果看起来像加密数据则解密，否则保持原样）
-            if !config.api_key.is_empty() {
-                // 检查是否是 Base64 编码的加密数据（向后兼容：如果解密失败则保持原值）
-                if let Ok(decrypted) = deobfuscate(&config.api_key) {
-                    config.api_key = decrypted;
+            // 先尝试解析新格式（不含 api_key）
+            let mut config: AIConfig = if let Ok(stored) = serde_json::from_str::<AIConfigStored>(&content) {
+                // 从新格式配置加载
+                AIConfig {
+                    provider: stored.provider,
+                    api_key: String::new(),
+                    base_url: stored.base_url,
+                    model: stored.model,
+                    language: stored.language,
+                    auto_review: stored.auto_review,
                 }
-                // 如果解密失败，说明是旧版明文配置，保持原值，下次保存时会自动加密
+            } else {
+                // 向后兼容：尝试解析旧格式（含 api_key）
+                serde_json::from_str(&content).map_err(|e| e.to_string())?
+            };
+
+            // 从系统钥匙链获取 API Key
+            let provider_str = format!("{:?}", config.provider).to_lowercase();
+            if let Some(key) = retrieve_api_key(&provider_str)? {
+                config.api_key = key;
             }
 
             Ok(config)

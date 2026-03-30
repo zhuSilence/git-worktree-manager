@@ -4,8 +4,6 @@ use crate::models::{
 };
 use crate::utils::validation::sanitize_branch_name;
 use git2::Repository;
-use regex::Regex;
-use std::collections::HashSet;
 use std::path::Path;
 use std::process::Command;
 

@@ -61,6 +61,9 @@ pub struct FinishHotfixResult {
     pub message: String,
     pub merged: bool,
     pub cleaned_up: bool,
+    /// 清理过程中的警告信息
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
 }
 
 /// Hotfix 存储位置（基于仓库路径生成唯一文件名，避免多仓库冲突）

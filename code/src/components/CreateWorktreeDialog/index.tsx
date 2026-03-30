@@ -97,8 +97,14 @@ export function CreateWorktreeDialog({ isOpen, onClose }: CreateWorktreeDialogPr
       return
     }
 
+    // 检查 mainWorktreePath 是否存在
+    if (!currentRepo?.mainWorktreePath) {
+      setError(t('createWorktree.errorNoMainWorktree', '主 worktree 路径不存在，请先选择仓库'))
+      return
+    }
+
     // 构建目标路径
-    const targetPath = customPath.trim() || `${currentRepo?.mainWorktreePath}-${name.replace(/\//g, '-')}`
+    const targetPath = customPath.trim() || `${currentRepo.mainWorktreePath}-${name.replace(/\//g, '-')}`
 
     const result = await createWorktree({
       name: name.trim(),

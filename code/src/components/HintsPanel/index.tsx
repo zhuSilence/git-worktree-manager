@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { X, AlertTriangle, Clock, Trash2, RefreshCw, Info } from 'lucide-react'
 import { gitService } from '@/services/git'
@@ -21,13 +21,7 @@ export function HintsPanel({ isOpen, onClose, repoPath, mainBranch }: HintsPanel
   const [isLoading, setIsLoading] = useState(false)
   const [staleDays, setStaleDays] = useState(30)
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchHints()
-    }
-  }, [isOpen, repoPath, mainBranch, staleDays])
-
-  const fetchHints = async () => {
+  const fetchHints = useCallback(async () => {
     setIsLoading(true)
     try {
       const [merged, stale] = await Promise.all([
@@ -41,7 +35,13 @@ export function HintsPanel({ isOpen, onClose, repoPath, mainBranch }: HintsPanel
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [repoPath, mainBranch, staleDays])
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchHints()
+    }
+  }, [isOpen, fetchHints])
 
   const handleDeleteMerged = async (branch: string, worktreeId: string) => {
     if (!confirm(t('hints.confirmDeleteMerged', { branch }))) return

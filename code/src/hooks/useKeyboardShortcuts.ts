@@ -12,7 +12,7 @@ interface KeyboardShortcutsConfig {
 
 /**
  * 全局快捷键 Hook
- * 
+ *
  * 快捷键映射：
  * - Cmd/Ctrl + N: 创建新 worktree
  * - Cmd/Ctrl + R: 刷新 worktree 列表
@@ -40,7 +40,7 @@ export function useKeyboardShortcuts({
     if (!enabled) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+      const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent)
       const cmdKey = isMac ? e.metaKey : e.ctrlKey
 
       // Escape - 关闭对话框（优先级最高）

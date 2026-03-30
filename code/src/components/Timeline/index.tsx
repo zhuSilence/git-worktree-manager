@@ -56,7 +56,7 @@ export function Timeline({ isOpen, onClose, repoPath }: TimelineProps) {
     }
 
     loadData()
-  }, [isOpen, repoPath, timeRangeParams])
+  }, [isOpen, repoPath, timeRangeParams, t])
 
   // 按日期分组提交
   const groupedCommits = useMemo(() => {

@@ -48,7 +48,13 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
   const [width, setWidth] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
     const maxW = typeof window !== 'undefined' ? window.innerWidth - 350 : MAX_WIDTH
-    return saved ? Math.min(maxW, Math.max(MIN_WIDTH, Number(saved))) : DEFAULT_WIDTH
+    if (saved) {
+      const parsed = parseInt(saved, 10)
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return Math.min(maxW, Math.max(MIN_WIDTH, parsed))
+      }
+    }
+    return DEFAULT_WIDTH
   })
   const [isDragging, setIsDragging] = useState(false)
   const [showFileTree, setShowFileTree] = useState(true)
@@ -57,6 +63,8 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
   const [showAIConfig, setShowAIConfig] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const sidebarRef = useRef<HTMLDivElement>(null)
+  // 用于保存 setTimeout 的 timer ID，组件卸载时清理
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout>[]>([])
 
   // AI 评审状态
   const reviewStatus = aiReviewStore((state) => state.reviewStatus)
@@ -67,6 +75,14 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
   const setShowConfigGuide = aiReviewStore((state) => state.setShowConfigGuide)
   const ignoreIssue = aiReviewStore((state) => state.ignoreIssue)
   const [showAIReviewPanel, setShowAIReviewPanel] = useState(false)
+
+  // 清理所有 scroll timer（防止内存泄漏）
+  useEffect(() => {
+    return () => {
+      scrollTimerRef.current.forEach(clearTimeout)
+      scrollTimerRef.current = []
+    }
+  }, [])
 
   // 拖拽处理
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -170,6 +186,13 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
     return buildFileTree(diff.files)
   }, [diff])
 
+  // diff 变为 null 时重置展开状态
+  useEffect(() => {
+    if (!diff) {
+      setExpandedDirs(new Set())
+    }
+  }, [diff])
+
   // diff 加载后自动展开所有目录
   useEffect(() => {
     if (!diff) return
@@ -210,12 +233,13 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
     if (fileIdx < 0) return
     setActiveFile(path)
     setExpandedFiles(prev => new Set([...prev, path]))
-    setTimeout(() => {
+    const timerId = setTimeout(() => {
       const el = document.getElementById(`file-diff-${fileIdx}`)
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }
     }, 50)
+    scrollTimerRef.current.push(timerId)
   }
 
   const scrollToLine = (fileIdx: number, hunkIdx: number, lineIdx: number) => {
@@ -240,7 +264,12 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
   // 导航到指定文件和行
   const navigateToFileLine = (filePath: string, _line: number) => {
     if (!diff) return
-    const fileIdx = diff.files.findIndex(f => f.path === filePath || f.path.endsWith(filePath) || filePath.endsWith(f.path))
+    // 使用更精确的路径匹配：完整匹配或带路径分隔符的后缀匹配
+    const fileIdx = diff.files.findIndex(f =>
+      f.path === filePath ||
+      f.path.endsWith('/' + filePath) ||
+      filePath.endsWith('/' + f.path)
+    )
     if (fileIdx < 0) return
 
     const file = diff.files[fileIdx]
@@ -249,12 +278,13 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
     setActiveFile(file.path)
 
     // 滚动到文件
-    setTimeout(() => {
+    const timerId = setTimeout(() => {
       const el = document.getElementById(`file-diff-${fileIdx}`)
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }
     }, 50)
+    scrollTimerRef.current.push(timerId)
   }
 
   const jumpToNextChange = useCallback(() => {
@@ -304,8 +334,12 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
   useEffect(() => {
     if (!isOpen) return
     const handler = (e: KeyboardEvent) => {
-      // 在 input/select 中不触发
-      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'SELECT') return
+      // 在 input/textarea/select 或可编辑元素中不触发
+      const target = e.target as HTMLElement
+      const tagName = target.tagName
+      if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || target.isContentEditable) {
+        return
+      }
       switch (e.key) {
         case 'n': jumpToNextChange(); break
         case 'p': jumpToPrevChange(); break

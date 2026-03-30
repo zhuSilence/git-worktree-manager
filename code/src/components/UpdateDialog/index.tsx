@@ -34,7 +34,7 @@ export function UpdateDialog({ isOpen, onClose }: UpdateDialogProps) {
         }
       })
     }
-  }, [isOpen])
+  }, [isOpen, checkForUpdate, error])
 
   useEffect(() => {
     if (error) {

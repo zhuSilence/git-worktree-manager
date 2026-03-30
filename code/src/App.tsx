@@ -29,7 +29,7 @@ function App() {
   const [diffWorktree, setDiffWorktree] = useState<{ path: string; name: string } | null>(null)
   const [mainCollapsed, setMainCollapsed] = useState(() => localStorage.getItem('main-panel-collapsed') === 'true')
   const [diffRefreshSeq, setDiffRefreshSeq] = useState(0)
-  const [hasAutoFetched, setHasAutoFetched] = useState(false)
+  const hasAutoFetched = useRef(false)
 
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -75,11 +75,12 @@ function App() {
   }, [activeRepoId, loadRepository])
 
   useEffect(() => {
-    if (currentRepo && autoFetchOnStart && !hasAutoFetched) {
-      setHasAutoFetched(true)
+    if (currentRepo && autoFetchOnStart && !hasAutoFetched.current) {
+      hasAutoFetched.current = true
       fetchAllRemote()
     }
-  }, [currentRepo, autoFetchOnStart, hasAutoFetched, fetchAllRemote])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentRepo, autoFetchOnStart])
 
   useEffect(() => {
     validateRepositories()

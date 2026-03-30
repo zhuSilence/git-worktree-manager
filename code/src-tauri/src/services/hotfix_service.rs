@@ -1,10 +1,9 @@
 use crate::models::{
     generate_hotfix_branch_name, get_hotfix_state_file, CreateWorktreeParams, FinishHotfixResult,
-    HotfixInfo, HotfixStatus, StartHotfixParams, StartHotfixResult, WorktreeResult,
+    HotfixInfo, HotfixStatus, StartHotfixParams, StartHotfixResult,
 };
 use crate::services::worktree_service::{create_worktree, delete_worktree};
 use git2::Repository;
-use log::error;
 use std::collections::HashSet;
 use std::fs;
 use std::io::Read;
@@ -21,9 +20,10 @@ pub fn start_hotfix(
 ) -> anyhow::Result<StartHotfixResult> {
     let repo_path_key = repo_path.to_string();
 
+    // 使用 try_lock 避免投毒问题，更清晰地报告并发状态
     let mut lock = HOTFIX_LOCK
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+        .try_lock()
+        .map_err(|_| anyhow::anyhow!("Another hotfix operation is in progress"))?;
     if lock.contains(&repo_path_key) {
         return Ok(StartHotfixResult {
             success: false,
@@ -35,10 +35,10 @@ pub fn start_hotfix(
     drop(lock);
 
     let _guard = scopeguard::guard((), |_| {
-        let mut lock = HOTFIX_LOCK
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        lock.remove(&repo_path_key);
+        // 使用 try_lock 避免投毒问题
+        if let Ok(mut lock) = HOTFIX_LOCK.try_lock() {
+            lock.remove(&repo_path_key);
+        }
     });
 
     if let Some(state) = load_hotfix_state(repo_path)? {
@@ -142,6 +142,7 @@ pub fn finish_hotfix(repo_path: &str, push: bool) -> anyhow::Result<FinishHotfix
                 message: "没有进行中的 Hotfix".to_string(),
                 merged: false,
                 cleaned_up: false,
+                warnings: Vec::new(),
             });
         }
     };
@@ -159,6 +160,7 @@ pub fn finish_hotfix(repo_path: &str, push: bool) -> anyhow::Result<FinishHotfix
             message: "Hotfix worktree 有未提交的更改，请先提交或暂存".to_string(),
             merged: false,
             cleaned_up: false,
+            warnings: Vec::new(),
         });
     }
 
@@ -188,6 +190,7 @@ pub fn finish_hotfix(repo_path: &str, push: bool) -> anyhow::Result<FinishHotfix
             message: "合并存在冲突，请手动解决".to_string(),
             merged: false,
             cleaned_up: false,
+            warnings: Vec::new(),
         });
     }
 
@@ -211,7 +214,7 @@ pub fn finish_hotfix(repo_path: &str, push: bool) -> anyhow::Result<FinishHotfix
         let base_branch = &hotfix.base_branch;
         if !is_valid_git_ref_name(base_branch) {
             return Err(anyhow::anyhow!(
-                "Invalid branch name for push: '{}'. Branch names cannot contain special characters like ~, ^, :, ?, *, [, \\, or start with . or -",
+                "Invalid branch name for push: '\'{}\''. Branch names cannot contain special characters like ~, ^, :, ?, *, [, \\, or start with . or -",
                 base_branch
             ));
         }
@@ -230,33 +233,58 @@ pub fn finish_hotfix(repo_path: &str, push: bool) -> anyhow::Result<FinishHotfix
                 ),
                 merged: true,
                 cleaned_up: false,
+                warnings: Vec::new(),
             });
         }
     }
 
+    // 收集清理过程中的警告
+    let mut warnings: Vec<String> = Vec::new();
+    let mut cleanup_success = true;
+
     // 删除 hotfix worktree
     let delete_result = delete_worktree(repo_path, &hotfix.worktree_path, false);
+    if let Err(e) = &delete_result {
+        warnings.push(format!("删除 worktree 失败: {}", e));
+        cleanup_success = false;
+    }
 
     // 删除 hotfix 分支
     if let Ok(mut branch) = repo.find_branch(&hotfix.branch_name, git2::BranchType::Local) {
         if let Err(e) = branch.delete() {
-            error!("Failed to delete branch '{}': {}", hotfix.branch_name, e);
+            warnings.push(format!("删除分支 '{}' 失败: {}", hotfix.branch_name, e));
+            cleanup_success = false;
         }
     }
 
-    // 更新状态
-    let mut completed = hotfix;
-    completed.status = HotfixStatus::Completed;
-    clear_hotfix_state(repo_path)?;
+    // 仅在所有清理步骤成功后清除状态文件
+    if cleanup_success {
+        clear_hotfix_state(repo_path)?;
+    } else {
+        // 清理失败，保留状态文件以便后续处理
+        warnings.push("清理未完成，Hotfix 状态已保留".to_string());
+    }
+
+    let message = if warnings.is_empty() {
+        format!(
+            "Hotfix {} 已合并到 {}",
+            hotfix.branch_name, hotfix.base_branch
+        )
+    } else {
+        format!(
+            "Hotfix {} 已合并到 {}，但有 {} 个警告",
+            hotfix.branch_name,
+            hotfix.base_branch,
+            warnings.len()
+        )
+    };
 
     Ok(FinishHotfixResult {
         success: true,
-        message: format!(
-            "Hotfix {} 已合并到 {}",
-            completed.branch_name, completed.base_branch
-        ),
+        message,
         merged: true,
-        cleaned_up: delete_result.is_ok(),
+        cleaned_up: cleanup_success,
+        warnings,
     })
 }
 
@@ -271,6 +299,7 @@ pub fn abort_hotfix(repo_path: &str) -> anyhow::Result<FinishHotfixResult> {
                 message: "没有进行中的 Hotfix".to_string(),
                 merged: false,
                 cleaned_up: false,
+                warnings: vec![],
             });
         }
     };
@@ -303,6 +332,7 @@ pub fn abort_hotfix(repo_path: &str) -> anyhow::Result<FinishHotfixResult> {
         message: format!("Hotfix {} 已取消", hotfix.branch_name),
         merged: false,
         cleaned_up: true,
+        warnings: vec![],
     })
 }
 

@@ -8,9 +8,8 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // 初始化日志系统
-    env_logger::Builder::new()
-        .filter_level(log::LevelFilter::Info)
+    // 初始化日志系统，支持通过环境变量 RUST_LOG 配置日志级别
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .init();
     info!("Git Worktree Manager starting...");
 

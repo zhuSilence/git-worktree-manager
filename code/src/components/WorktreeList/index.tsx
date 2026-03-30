@@ -112,7 +112,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
         case 'name':
           comparison = a.name.localeCompare(b.name)
           break
-        case 'status':
+        case 'status': {
           // 状态优先级: conflict > dirty > detached > clean > unknown
           const statusOrder: Record<string, number> = {
             [WorktreeStatus.Conflicted]: 0,
@@ -124,6 +124,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
           }
           comparison = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
           break
+        }
         case 'time':
           // 按最后提交时间排序 (没有时间信息的按 id 排序)
           comparison = a.id.localeCompare(b.id)
