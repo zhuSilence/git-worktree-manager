@@ -125,6 +125,7 @@
     "name": "Worktree Name",
     "namePlaceholder": "e.g. feature/new-feature or paste Issue link",
     "namingSuggestion": "Naming Suggestions",
+    "aiNamingSuggestion": "AI Naming Suggestions",
     "baseBranch": "Base Branch",
     "currentBranch": "(current)",
     "createNewBranch": "Create new branch (using Worktree name)",

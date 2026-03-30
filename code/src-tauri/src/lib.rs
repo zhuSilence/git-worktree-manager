@@ -59,6 +59,7 @@ pub fn run() {
             commands::ai_review::get_ai_config,
             commands::ai_review::test_ai_connection,
             commands::ai_review::ai_review,
+            commands::ai_review::ai_naming_suggestion,
             // Hotfix 相关命令
             commands::worktree::start_hotfix_cmd,
             commands::worktree::finish_hotfix_cmd,

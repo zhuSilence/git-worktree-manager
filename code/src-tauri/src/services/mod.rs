@@ -17,6 +17,7 @@ pub use editor_service::{open_in_editor, open_in_file_manager, open_in_terminal}
 pub use git_service::{
     create_and_switch_branch, fetch_and_checkout, is_git_repo, list_branches,
     pull, push, switch_branch, get_repository_info, fetch_all, list_remote_branches,
+    get_recent_commits,
 };
 pub use hotfix_service::{
     start_hotfix, finish_hotfix, abort_hotfix, get_hotfix_status,

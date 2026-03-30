@@ -1,6 +1,6 @@
-use crate::models::{AIConfig, AIProvider, AIReviewRequest, AIReviewResponse, DetailedDiffResponse, AITestConnectionResponse};
+use crate::models::{AIConfig, AIProvider, AIReviewRequest, AIReviewResponse, DetailedDiffResponse, AITestConnectionResponse, AINamingRequest, AINamingResponse};
 use crate::services::ai_service::AIService;
-use crate::services::{get_diff, get_detailed_diff};
+use crate::services::{get_diff, get_detailed_diff, get_recent_commits};
 use crate::utils::validation::validate_path;
 use base64::{Engine as _, engine::general_purpose};
 use log::debug;
@@ -270,4 +270,76 @@ fn get_config_path() -> Result<std::path::PathBuf, String> {
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     }
     Ok(dir.join("ai-config.json"))
+}
+
+/// AI 命名建议
+#[tauri::command]
+pub async fn ai_naming_suggestion(request: AINamingRequest) -> Result<AINamingResponse, String> {
+    // 验证路径参数
+    validate_path(&request.repo_path).map_err(|e| e.to_string())?;
+
+    debug!("[ai_naming_suggestion] 开始生成建议: repo_path={}", request.repo_path);
+
+    // 1. 获取 AI 配置
+    let config = match get_ai_config().await {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            return Ok(AINamingResponse {
+                success: false,
+                suggestions: None,
+                error: Some(format!("配置加载失败: {}", e)),
+            });
+        }
+    };
+
+    if config.api_key.is_empty() && config.provider != AIProvider::Ollama {
+        return Ok(AINamingResponse {
+            success: false,
+            suggestions: None,
+            error: Some("请先配置 API Key".to_string()),
+        });
+    }
+
+    // 2. 获取最近提交历史
+    let recent_commits = match get_recent_commits(&request.repo_path, request.commit_count) {
+        Ok(commits) => commits,
+        Err(e) => {
+            return Ok(AINamingResponse {
+                success: false,
+                suggestions: None,
+                error: Some(format!("获取提交历史失败: {}", e)),
+            });
+        }
+    };
+
+    if recent_commits.is_empty() {
+        return Ok(AINamingResponse {
+            success: false,
+            suggestions: None,
+            error: Some("仓库没有提交历史".to_string()),
+        });
+    }
+
+    // 3. 调用 AI 服务
+    let service = AIService::new();
+    match service.generate_naming_suggestions(
+        &config,
+        &recent_commits,
+        request.user_input.as_deref(),
+        &config.language,
+    ).await {
+        Ok(response) => {
+            debug!("[ai_naming_suggestion] AI 建议生成成功");
+            Ok(response)
+        }
+        Err(e) => {
+            let error_msg = e.to_string();
+            debug!("[ai_naming_suggestion] AI 建议生成失败: {}", error_msg);
+            Ok(AINamingResponse {
+                success: false,
+                suggestions: None,
+                error: Some(format!("AI 服务调用失败: {}", error_msg)),
+            })
+        }
+    }
 }

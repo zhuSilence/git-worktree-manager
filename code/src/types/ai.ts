@@ -165,3 +165,39 @@ export interface ReviewDiffStats {
   /** 修改文件数 */
   changedFiles: number;
 }
+
+/**
+ * AI 命名建议请求
+ */
+export interface AINamingRequest {
+  /** 仓库路径 */
+  repoPath: string;
+  /** 用户输入（可选） */
+  userInput?: string;
+  /** 最近提交数量 */
+  commitCount?: number;
+}
+
+/**
+ * AI 命名建议
+ */
+export interface AINamingSuggestion {
+  /** 建议的名称 */
+  name: string;
+  /** 建议类型 */
+  suggestionType: string;
+  /** 理由/说明 */
+  reason: string;
+}
+
+/**
+ * AI 命名建议响应
+ */
+export interface AINamingResponse {
+  /** 是否成功 */
+  success: boolean;
+  /** 建议列表 */
+  suggestions?: AINamingSuggestion[];
+  /** 错误信息 */
+  error?: string;
+}
