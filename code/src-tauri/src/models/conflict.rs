@@ -46,7 +46,7 @@ pub struct FileChangeInfo {
 }
 
 /// 冲突检测结果响应
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConflictDetectionResponse {
     /// 检测是否成功

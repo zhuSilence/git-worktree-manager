@@ -94,7 +94,7 @@ export function ConflictPanel({ isOpen, onClose, repoPath, mainBranch }: Conflic
   if (!isOpen) return null
 
   const totalConflicts = result?.conflicts.length || 0
-  const hasHighRisk = result?.highRiskCount > 0
+  const hasHighRisk = (result?.highRiskCount ?? 0) > 0
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
