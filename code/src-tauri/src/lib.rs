@@ -3,6 +3,7 @@ mod models;
 mod services;
 mod utils;
 
+use commands::conflict::ConflictState;
 use log::{error, info};
 use tauri::Manager;
 
@@ -19,6 +20,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .manage(ConflictState::default())
         .setup(|app| {
             #[cfg(debug_assertions)]
             {
@@ -77,6 +79,10 @@ pub fn run() {
             commands::log::cleanup_expired_backups_cmd,
             commands::log::get_backup_info_cmd,
             commands::log::delete_worktree_with_protection_cmd,
+            // 冲突检测命令
+            commands::conflict::check_conflicts,
+            commands::conflict::get_file_conflict_preview,
+            commands::conflict::get_last_conflict_detection,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

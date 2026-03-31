@@ -333,5 +333,27 @@
     "bugfix": "Bug Fixes",
     "release": "Release",
     "other": "Other"
+  },
+  "conflicts": {
+    "title": "Conflict Detection",
+    "noData": "Not detected",
+    "noConflicts": "No potential conflicts detected",
+    "allGood": "All branches are working well, safe to merge",
+    "detectedAt": "Detected at",
+    "high": "high",
+    "medium": "medium",
+    "low": "low",
+    "highRisk": "High Risk",
+    "mediumRisk": "Medium Risk",
+    "lowRisk": "Low Risk",
+    "modifiedBy": "Modified by",
+    "viewPreview": "View details",
+    "preview": "Preview",
+    "previewFailed": "Failed to get preview",
+    "loadingPreview": "Loading...",
+    "checkConflicts": "Check Conflicts",
+    "autoScan": "Auto Background Scan",
+    "scanInterval": "Scan Interval",
+    "scanIntervalDesc": "Time interval for automatic conflict detection (minutes)"
   }
 }

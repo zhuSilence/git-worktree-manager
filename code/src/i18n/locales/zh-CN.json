@@ -333,5 +333,27 @@
     "bugfix": "Bug 修复",
     "release": "发布",
     "other": "其他"
+  },
+  "conflicts": {
+    "title": "冲突预警",
+    "noData": "未检测",
+    "noConflicts": "未检测到潜在冲突",
+    "allGood": "当前各分支工作良好，可以放心合并",
+    "detectedAt": "检测时间",
+    "high": "高风险",
+    "medium": "中风险",
+    "low": "低风险",
+    "highRisk": "高风险",
+    "mediumRisk": "中风险",
+    "lowRisk": "低风险",
+    "modifiedBy": "被以下分支修改",
+    "viewPreview": "查看详情",
+    "preview": "预览",
+    "previewFailed": "获取预览失败",
+    "loadingPreview": "加载中...",
+    "checkConflicts": "检测冲突",
+    "autoScan": "后台自动检测",
+    "scanInterval": "检测间隔",
+    "scanIntervalDesc": "自动检测冲突的时间间隔（分钟）"
   }
 }

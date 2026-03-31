@@ -1,4 +1,5 @@
 export * from './ai'
+export * from './conflict'
 export * from './log'
 export * from './worktree'
 export * from './config'
