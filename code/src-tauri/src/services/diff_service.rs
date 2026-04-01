@@ -1,4 +1,5 @@
 use crate::models::{DiffStats, DiffResponse, DiffLine, DiffHunk, FileDiff, DetailedDiffResponse, CommitInfo, TimelineResponse};
+use crate::utils::validation::sanitize_branch_name;
 use git2::Repository;
 use std::process::Command;
 use std::sync::LazyLock;
@@ -27,6 +28,9 @@ fn find_target_commit<'a>(repo: &'a Repository, target_branch: &str) -> anyhow::
 
 /// 获取 worktree 与目标分支的 diff
 pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<DiffResponse> {
+    // 验证 target_branch 参数，防止注入攻击
+    sanitize_branch_name(target_branch).map_err(|e| anyhow::anyhow!("{}", e))?;
+
     let repo = Repository::open(worktree_path)?;
 
     // 获取当前分支名
@@ -167,6 +171,9 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
 
 /// 获取详细的 diff 内容（包含代码行）
 pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<DetailedDiffResponse> {
+    // 验证 target_branch 参数，防止注入攻击
+    sanitize_branch_name(target_branch).map_err(|e| anyhow::anyhow!("{}", e))?;
+
     let repo = Repository::open(worktree_path)?;
 
     // 获取当前分支名

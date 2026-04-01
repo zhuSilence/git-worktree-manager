@@ -17,6 +17,9 @@ interface ToastState {
   clearToasts: () => void
 }
 
+// 存储定时器 ID 的 Map，用于清理
+const toastTimers = new Map<string, NodeJS.Timeout>()
+
 export const useToastStore = create<ToastState>((set, get) => ({
   toasts: [],
 
@@ -31,21 +34,33 @@ export const useToastStore = create<ToastState>((set, get) => ({
     // 自动移除
     const duration = toast.duration ?? (toast.type === 'error' ? 5000 : 3000)
     if (duration > 0) {
-      setTimeout(() => {
+      const timerId = setTimeout(() => {
         get().removeToast(id)
       }, duration)
+      toastTimers.set(id, timerId)
     }
 
     return id
   },
 
   removeToast: (id) => {
+    // 清除对应的定时器
+    const timerId = toastTimers.get(id)
+    if (timerId) {
+      clearTimeout(timerId)
+      toastTimers.delete(id)
+    }
     set((state) => ({
       toasts: state.toasts.filter((t) => t.id !== id),
     }))
   },
 
   clearToasts: () => {
+    // 清除所有定时器
+    toastTimers.forEach((timerId) => {
+      clearTimeout(timerId)
+    })
+    toastTimers.clear()
     set({ toasts: [] })
   },
 }))

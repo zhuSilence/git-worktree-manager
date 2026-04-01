@@ -102,11 +102,6 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
       document.addEventListener('mouseup', handleMouseUp)
       document.body.style.cursor = 'ew-resize'
       document.body.style.userSelect = 'none'
-    } else {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
     }
 
     return () => {

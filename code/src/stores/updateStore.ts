@@ -83,8 +83,8 @@ export const updateStore = create<UpdateState>((set, get) => ({
               break
             case 'Progress':
               {
-                const downloaded = event.data.chunkLength
-                const currentDownloaded = get().downloaded + downloaded
+                const chunkLength = event.data.chunkLength
+                const currentDownloaded = get().downloaded + chunkLength
                 const contentLength = get().contentLength
                 const progress = contentLength > 0 ? (currentDownloaded / contentLength) * 100 : 0
                 set({

@@ -33,6 +33,9 @@ export const useRepositoryStore = create<RepositoryState>()(
       addRepository: async (path: string) => {
         set({ isLoading: true, error: null })
         
+        // 保存初始状态用于回滚
+        const initialActiveRepoId = get().activeRepoId
+        
         try {
           // 检查是否是 Git 仓库
           const isRepo = await gitService.isGitRepo(path)
@@ -68,7 +71,8 @@ export const useRepositoryStore = create<RepositoryState>()(
           const message = error instanceof Error ? error.message : '添加仓库失败'
           set({ 
             error: message, 
-            isLoading: false 
+            isLoading: false,
+            activeRepoId: initialActiveRepoId,
           })
           return null
         }

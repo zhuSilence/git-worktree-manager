@@ -183,8 +183,8 @@ pub fn restore_backup(backup_id: &str, target_path: Option<&str>) -> anyhow::Res
         });
     }
 
-    let idx = backup_index.unwrap();
-    let backup = &backups[idx];
+    let idx = backup_index.ok_or_else(|| anyhow::anyhow!("Backup not found: {}", backup_id))?;
+    let backup = backups.get(idx).ok_or_else(|| anyhow::anyhow!("Invalid backup index: {}", idx))?;
 
     if backup.stash_ref == "no-stash" {
         return Ok(RestoreBackupResult {
