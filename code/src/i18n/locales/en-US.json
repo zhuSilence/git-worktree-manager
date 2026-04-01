@@ -159,6 +159,28 @@
     "daysNotUpdated": "{{days}} days not updated",
     "inactiveDays": "{{days}} days"
   },
+  "conflict": {
+    "title": "Conflict Warning",
+    "noConflicts": "No conflict risks",
+    "allClear": "All worktree file changes do not conflict",
+    "highRisk": "High Risk",
+    "mediumRisk": "Medium Risk",
+    "lowRisk": "Low Risk",
+    "detectedAt": "Detected at",
+    "preview": "View details",
+    "previewTitle": "Conflict Preview",
+    "noChanges": "(No changes)",
+    "riskLevel": {
+      "high": "High Risk",
+      "medium": "Medium Risk",
+      "low": "Low Risk"
+    },
+    "changeType": {
+      "added": "Added",
+      "deleted": "Deleted",
+      "modified": "Modified"
+    }
+  },
   "batch": {
     "title": "Batch Delete",
     "confirmDelete": "Are you sure you want to delete {{count}} worktrees?",

@@ -7,6 +7,7 @@ import { WorktreeList } from './components/WorktreeList'
 import { CreateWorktreeDialog } from './components/CreateWorktreeDialog'
 import { SettingsPanel } from './components/SettingsPanel'
 import { HotfixPanel } from './components/HotfixPanel'
+import { ConflictPanel } from './components/ConflictPanel'
 import { Sidebar } from './components/Sidebar'
 import { DiffSidebar } from './components/DiffSidebar'
 import { Timeline } from './components/Timeline'
@@ -26,6 +27,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [showTimeline, setShowTimeline] = useState(false)
   const [showHotfix, setShowHotfix] = useState(false)
+  const [showConflict, setShowConflict] = useState(false)
   const [diffWorktree, setDiffWorktree] = useState<{ path: string; name: string } | null>(null)
   const [mainCollapsed, setMainCollapsed] = useState(() => localStorage.getItem('main-panel-collapsed') === 'true')
   const [diffRefreshSeq, setDiffRefreshSeq] = useState(0)
@@ -106,6 +108,7 @@ function App() {
         onOpenSettings={() => setShowSettings(true)}
         onOpenTimeline={() => setShowTimeline(true)}
         onOpenHotfix={() => setShowHotfix(true)}
+        onOpenConflict={() => setShowConflict(true)}
         onRefresh={async () => {
           await Promise.all([
             refreshRepositories(),
@@ -228,6 +231,13 @@ function App() {
       <HotfixPanel
         isOpen={showHotfix}
         onClose={() => setShowHotfix(false)}
+      />
+
+      {/* 冲突预警面板 */}
+      <ConflictPanel
+        isOpen={showConflict}
+        onClose={() => setShowConflict(false)}
+        repoPath={currentRepo?.id || ''}
       />
 
       {/* Toast 通知容器 */}

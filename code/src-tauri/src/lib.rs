@@ -81,6 +81,9 @@ pub fn run() {
             commands::log::cleanup_expired_backups_cmd,
             commands::log::get_backup_info_cmd,
             commands::log::delete_worktree_with_protection_cmd,
+            // 冲突预警命令
+            commands::conflict::detect_conflicts_cmd,
+            commands::conflict::get_conflict_preview_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -28,6 +28,10 @@ import type {
   RestoreBackupResult,
   DeleteProtectionCheck,
 } from '@/types/log'
+import type {
+  ConflictDetectionResponse,
+  ConflictPreviewResponse,
+} from '@/types/conflict'
 import type { IdeType, TerminalType } from '@/stores/settingsStore'
 
 /**
@@ -357,6 +361,25 @@ export const gitService = {
       worktreePath,
       branch,
       force,
+    })
+  },
+
+  // ============ 冲突预警相关 ============
+
+  /**
+   * 检测 worktree 之间的冲突
+   */
+  async detectConflicts(repoPath: string): Promise<ConflictDetectionResponse> {
+    return invoke<ConflictDetectionResponse>('detect_conflicts_cmd', { repoPath })
+  },
+
+  /**
+   * 获取冲突文件预览
+   */
+  async getConflictPreview(repoPath: string, filePath: string): Promise<ConflictPreviewResponse> {
+    return invoke<ConflictPreviewResponse>('get_conflict_preview_cmd', {
+      repoPath,
+      filePath,
     })
   },
 }

@@ -1,4 +1,4 @@
-import { GitBranch, Settings, RefreshCw, Plus, Clock, Download, Zap } from 'lucide-react'
+import { GitBranch, Settings, RefreshCw, Plus, Clock, Download, Zap, AlertTriangle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/common'
 import { useWorktreeStore } from '@/stores/worktreeStore'
@@ -8,11 +8,12 @@ interface HeaderProps {
   onOpenSettings?: () => void
   onOpenTimeline?: () => void
   onOpenHotfix?: () => void
+  onOpenConflict?: () => void
   onRefresh?: () => void
   onFetch?: () => void
 }
 
-export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings, onOpenTimeline, onOpenHotfix, onRefresh, onFetch }) => {
+export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings, onOpenTimeline, onOpenHotfix, onOpenConflict, onRefresh, onFetch }) => {
   const { t } = useTranslation()
   const { currentRepo, refreshWorktrees, isLoading, isFetching } = useWorktreeStore()
 
@@ -71,6 +72,15 @@ export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings
               >
                 <Zap className="h-4 w-4" />
                 <span className="hidden sm:inline">Hotfix</span>
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onOpenConflict}
+                title={t('conflict.title', '冲突预警')}
+              >
+                <AlertTriangle className="h-4 w-4" />
               </Button>
 
               <Button

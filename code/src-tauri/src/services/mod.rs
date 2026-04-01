@@ -1,5 +1,6 @@
 pub mod ai_service;
 pub mod backup_service;
+pub mod conflict_service;
 pub mod diff_service;
 pub mod editor_service;
 pub mod git_service;
@@ -13,6 +14,7 @@ pub use backup_service::{
     check_delete_protection, create_backup, list_backups, restore_backup,
     delete_backup, cleanup_expired_backups, get_backup_info,
 };
+pub use conflict_service::{detect_conflicts, get_conflict_preview};
 pub use diff_service::{get_diff, get_detailed_diff, get_timeline};
 pub use editor_service::{open_in_editor, open_in_file_manager, open_in_terminal};
 pub use git_service::{

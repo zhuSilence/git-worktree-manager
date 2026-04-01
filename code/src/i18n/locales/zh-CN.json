@@ -159,6 +159,28 @@
     "daysNotUpdated": "{{days}} 天未更新",
     "inactiveDays": "{{days}} 天"
   },
+  "conflict": {
+    "title": "冲突预警",
+    "noConflicts": "无冲突风险",
+    "allClear": "所有 worktree 文件变更互不冲突",
+    "highRisk": "高风险",
+    "mediumRisk": "中风险",
+    "lowRisk": "低风险",
+    "detectedAt": "检测时间",
+    "preview": "查看详情",
+    "previewTitle": "冲突预览",
+    "noChanges": "(无变更内容)",
+    "riskLevel": {
+      "high": "高风险",
+      "medium": "中风险",
+      "low": "低风险"
+    },
+    "changeType": {
+      "added": "新增",
+      "deleted": "删除",
+      "modified": "修改"
+    }
+  },
   "batch": {
     "title": "批量删除",
     "confirmDelete": "确定删除 {{count}} 个 worktree 吗？",
