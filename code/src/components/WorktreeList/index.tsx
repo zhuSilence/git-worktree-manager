@@ -81,8 +81,6 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
     }
 
     fetchMergedHints()
-    // 依赖：只在仓库路径或默认分支变化时重新获取
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentRepo?.mainWorktreePath, currentRepo?.defaultBranch])
 
   // 创建已合并分支的 Set 用于快速查找
@@ -114,15 +112,17 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
           break
         case 'status':
           // 状态优先级: conflict > dirty > detached > clean > unknown
-          const statusOrder: Record<string, number> = {
-            [WorktreeStatus.Conflicted]: 0,
-            [WorktreeStatus.Dirty]: 1,
-            [WorktreeStatus.Detached]: 2,
-            [WorktreeStatus.Unpushed]: 3,
-            [WorktreeStatus.Clean]: 4,
-            [WorktreeStatus.Unknown]: 5,
+          {
+            const statusOrder: Record<string, number> = {
+              [WorktreeStatus.Conflicted]: 0,
+              [WorktreeStatus.Dirty]: 1,
+              [WorktreeStatus.Detached]: 2,
+              [WorktreeStatus.Unpushed]: 3,
+              [WorktreeStatus.Clean]: 4,
+              [WorktreeStatus.Unknown]: 5,
+            }
+            comparison = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
           }
-          comparison = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
           break
         case 'time':
           // 按最后提交时间排序 (没有时间信息的按 id 排序)

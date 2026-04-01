@@ -25,7 +25,7 @@ export function buildFileTree(files: FileDiff[]): FileTreeNode[] {
           fullPath: parts.slice(0, i + 1).join('/'),
           isFile: isLast,
           children: [],
-          ...(isLast ? { status: file.status, additions: file.additions, deletions: file.deletions } : {}),
+          ...(isLast ? { status: file.status, additions: file.additions, deletions: file.deletions, source: file.source } : {}),
         }
         current.children.push(child)
       }
@@ -109,6 +109,17 @@ export function FileTreeNodeItem({
         />
         <FileText className="w-3 h-3 text-gray-400 flex-shrink-0" />
         <span className="truncate font-medium">{node.name}</span>
+        {/* 变更来源标签 */}
+        {node.source && node.source !== 'committed' && (
+          <span className={clsx(
+            'text-[10px] px-1 rounded ml-1',
+            node.source === 'untracked'
+              ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+              : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+          )}>
+            {node.source === 'untracked' ? '未跟踪' : '工作区'}
+          </span>
+        )}
       </button>
     )
   }

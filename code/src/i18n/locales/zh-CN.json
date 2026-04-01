@@ -118,6 +118,7 @@
     "editTagsAndNotes": "编辑标签和备注",
     "branchManager": "分支管理",
     "viewDiff": "查看与主分支差异",
+    "mergeToMain": "合并到主分支",
     "deleteFailed": "删除失败"
   },
   "createWorktree": {
@@ -274,6 +275,7 @@
     "reReview": "重新评审",
     "toggleReviewPanel": "切换评审面板",
     "analyzing": "分析中...",
+    "mergeToTarget": "合并到 {{branch}}",
     "issues": "个问题",
     "lines": "行",
     "line": "行",
@@ -313,6 +315,23 @@
     "abort": "取消 Hotfix",
     "confirmAbort": "确定要取消此 Hotfix 吗？这将删除 hotfix 分支和 worktree。",
     "help": "Hotfix 流程将自动创建分支和 worktree，修复完成后一键合并回主分支并清理。"
+  },
+  "merge": {
+    "title": "合并分支",
+    "sourceBranch": "源分支",
+    "targetBranch": "目标分支",
+    "noAvailableTargets": "没有可用的目标分支",
+    "autoPush": "合并后自动推送到远程",
+    "merge": "执行合并",
+    "success": "合并成功",
+    "failed": "合并失败",
+    "unknownError": "未知错误",
+    "abortFailed": "中止合并失败",
+    "completeFailed": "完成合并失败",
+    "abort": "中止合并",
+    "complete": "完成合并",
+    "conflictFiles": "冲突文件",
+    "conflictHint": "请在目标 worktree 中手动解决冲突，然后点击「完成合并」"
   },
   "groups": {
     "title": "分组管理",

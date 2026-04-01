@@ -201,6 +201,8 @@ pub struct FileDiff {
     pub additions: usize,
     /// 删除行数
     pub deletions: usize,
+    /// 变更来源: committed(分支差异), unstaged(工作区修改), untracked(未跟踪文件)
+    pub source: String,
 }
 
 /// 详细 Diff 响应

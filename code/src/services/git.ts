@@ -17,6 +17,8 @@ import type {
   HotfixInfo,
   StartHotfixResult,
   FinishHotfixResult,
+  MergeParams,
+  MergeResult,
 } from '@/types/worktree'
 import type {
   OperationLogListResponse,
@@ -242,6 +244,29 @@ export const gitService = {
    */
   async getHotfixStatus(repoPath: string): Promise<HotfixInfo | null> {
     return invoke<HotfixInfo | null>('get_hotfix_status_cmd', { repoPath })
+  },
+
+  // ============ 合并相关 ============
+
+  /**
+   * 在目标 worktree 中合并源分支
+   */
+  async mergeBranch(params: MergeParams): Promise<MergeResult> {
+    return invoke<MergeResult>('merge_branch_cmd', { params })
+  },
+
+  /**
+   * 中止合并
+   */
+  async abortMerge(worktreePath: string): Promise<boolean> {
+    return invoke<boolean>('abort_merge_cmd', { worktreePath })
+  },
+
+  /**
+   * 完成合并（冲突解决后）
+   */
+  async completeMerge(worktreePath: string, message?: string): Promise<MergeResult> {
+    return invoke<MergeResult>('complete_merge_cmd', { worktreePath, message })
   },
 
   // ============ 操作日志相关 ============

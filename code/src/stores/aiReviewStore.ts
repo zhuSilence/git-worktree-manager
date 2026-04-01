@@ -144,7 +144,7 @@ export const aiReviewStore = create<AIReviewStoreState & AIReviewStoreActions>()
             errorMessage = err;
           } else if (err && typeof err === 'object') {
             // 尝试提取错误信息
-            errorMessage = (err as any).message || (err as any).error || JSON.stringify(err);
+            errorMessage = (err as Record<string, unknown>).message as string || (err as Record<string, unknown>).error as string || JSON.stringify(err);
           }
           set({
             reviewStatus: 'error',

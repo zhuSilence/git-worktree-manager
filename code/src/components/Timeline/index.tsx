@@ -56,6 +56,7 @@ export function Timeline({ isOpen, onClose, repoPath }: TimelineProps) {
     }
 
     loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- t is stable from i18next, loadData defined inline with all deps
   }, [isOpen, repoPath, timeRangeParams])
 
   // 按日期分组提交

@@ -16,6 +16,7 @@ import { checkIdleStatus } from '@/utils/idleDetection'
 import { useErrorHandler } from '@/hooks/useToast'
 import type { WorktreeAnnotation, TagDefinition } from '@/types/annotation'
 import { clsx } from 'clsx'
+import { MergePanel } from '@/components/MergePanel'
 
 interface WorktreeItemProps {
   worktree: Worktree
@@ -41,6 +42,17 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, rep
   const [showTagEditor, setShowTagEditor] = useState(false)
   const [annotation, setAnnotation] = useState<WorktreeAnnotation | null>(null)
   const [copiedField, setCopiedField] = useState<'branch' | 'path' | null>(null)
+  const [showMergePanel, setShowMergePanel] = useState(false)
+  const [allWorktrees, setAllWorktrees] = useState<Worktree[]>([])
+
+  // 加载所有 worktrees 用于合并面板
+  useEffect(() => {
+    if (showMergePanel) {
+      gitService.listWorktrees(repoPath).then((response) => {
+        setAllWorktrees(response.worktrees)
+      })
+    }
+  }, [showMergePanel, repoPath])
 
   const handleCopy = async (text: string, field: 'branch' | 'path') => {
     try {
@@ -336,6 +348,15 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, rep
             >
               <GitBranch className="w-4 h-4" />
             </button>
+            {!worktree.isMain && (
+              <button
+                onClick={() => setShowMergePanel(true)}
+                className="p-2 text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                title={t('worktree.mergeToMain')}
+              >
+                <GitMerge className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={() => onShowDiff?.(worktree.path, worktree.name)}
               className="p-2 text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
@@ -432,6 +453,19 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, rep
         branch={worktree.branch}
         annotation={annotation}
         onSave={handleSaveTags}
+      />
+
+      {/* 合并面板 */}
+      <MergePanel
+        isOpen={showMergePanel}
+        onClose={() => setShowMergePanel(false)}
+        repoPath={repoPath}
+        sourceWorktree={worktree}
+        targetWorktrees={allWorktrees.filter(w => w.path !== worktree.path)}
+        onMergeComplete={() => {
+          refreshWorktrees()
+          toast.success(t('merge.success'))
+        }}
       />
     </>
   )

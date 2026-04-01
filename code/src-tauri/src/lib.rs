@@ -65,6 +65,10 @@ pub fn run() {
             commands::worktree::finish_hotfix_cmd,
             commands::worktree::abort_hotfix_cmd,
             commands::worktree::get_hotfix_status_cmd,
+            // 合并相关命令
+            commands::merge::merge_branch_cmd,
+            commands::merge::abort_merge_cmd,
+            commands::merge::complete_merge_cmd,
             // 操作日志和删除保护命令
             commands::log::list_operation_logs_cmd,
             commands::log::export_operation_logs_cmd,

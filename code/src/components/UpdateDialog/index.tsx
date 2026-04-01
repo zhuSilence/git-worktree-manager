@@ -34,6 +34,7 @@ export function UpdateDialog({ isOpen, onClose }: UpdateDialogProps) {
         }
       })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- checkForUpdate is stable from store, error checked separately in another useEffect
   }, [isOpen])
 
   useEffect(() => {

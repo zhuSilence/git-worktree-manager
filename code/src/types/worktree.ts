@@ -226,6 +226,8 @@ export interface FileDiff {
   additions: number
   /** 删除行数 */
   deletions: number
+  /** 变更来源: committed(分支差异), unstaged(工作区修改), untracked(未跟踪文件) */
+  source: 'committed' | 'unstaged' | 'untracked'
 }
 
 /**
@@ -423,4 +425,66 @@ export interface FinishHotfixResult {
   message: string
   merged: boolean
   cleanedUp: boolean
+}
+
+// ============ 合并相关类型 ============
+
+/**
+ * 合并参数
+ */
+export interface MergeParams {
+  /** 仓库路径 */
+  repoPath: string
+  /** 目标 worktree 路径 */
+  targetWorktreePath: string
+  /** 源分支名 */
+  sourceBranch: string
+  /** 是否自动推送 */
+  autoPush: boolean
+  /** 是否删除源 worktree */
+  autoDeleteSource: boolean
+}
+
+/**
+ * 合并状态
+ */
+export enum MergeStatus {
+  /** 合并完成 */
+  Completed = 'completed',
+  /** 存在冲突 */
+  HasConflicts = 'hasConflicts',
+  /** 失败 */
+  Failed = 'failed',
+  /** 已中止 */
+  Aborted = 'aborted',
+}
+
+/**
+ * 冲突文件信息
+ */
+export interface ConflictFile {
+  /** 文件路径 */
+  path: string
+  /** 本地版本 OID */
+  ourOid?: string
+  /** 远程版本 OID */
+  theirOid?: string
+}
+
+/**
+ * 合并结果
+ */
+export interface MergeResult {
+  /** 是否成功 */
+  success: boolean
+  /** 合并状态 */
+  status: MergeStatus
+  /** 结果消息 */
+  message: string
+  /** 提交 ID（合并成功时） */
+  commitId?: string
+  /** 冲突文件列表 */
+  conflicts: ConflictFile[]
+  /** 目标分支名 */
+  targetBranch: string
 }

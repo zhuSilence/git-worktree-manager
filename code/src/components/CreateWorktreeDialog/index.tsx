@@ -50,8 +50,6 @@ export function CreateWorktreeDialog({ isOpen, onClose }: CreateWorktreeDialogPr
       const current = currentRepo.branches.find(b => b.isCurrent)
       setBaseBranch(current?.name || currentRepo.branches[0]?.name || '')
     }
-    // 依赖：只在 currentRepo 变化时执行
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentRepo])
 
   // 以前这里会读取剪贴板以给出命名提示
