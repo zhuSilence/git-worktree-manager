@@ -5,7 +5,7 @@ use reqwest::{
 };
 use serde_json::{json, Value};
 
-use crate::models::{AIConfig, AIProvider, AIReviewResult, ReviewIssue, ReviewImprovement, ReviewHighlight};
+use crate::models::{AIConfig, AIProvider, AIReviewResult, ReviewIssue, ReviewImprovement, ReviewHighlight, AINamingSuggestion, AINamingResponse};
 
 const MAX_DIFF_TOKENS: usize = 8000;
 const OPENAI_API_URL: &str = "https://api.openai.com/v1/chat/completions";
@@ -406,5 +406,96 @@ impl AIService {
 impl Default for AIService {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl AIService {
+    /// 生成 AI 命名建议
+    pub async fn generate_naming_suggestions(
+        &self,
+        config: &AIConfig,
+        recent_commits: &str,
+        user_input: Option<&str>,
+        language: &str,
+    ) -> anyhow::Result<AINamingResponse> {
+        let prompt = self.build_naming_prompt(recent_commits, user_input, language);
+
+        let response = match config.provider {
+            AIProvider::OpenAI => self.call_openai(config, &prompt).await?,
+            AIProvider::Claude => self.call_claude(config, &prompt).await?,
+            AIProvider::Ollama => self.call_ollama(config, &prompt).await?,
+            AIProvider::Custom => self.call_custom(config, &prompt).await?,
+        };
+
+        let suggestions = self.parse_naming_response(&response)?;
+
+        Ok(AINamingResponse {
+            success: true,
+            suggestions: Some(suggestions),
+            error: None,
+        })
+    }
+
+    /// 构建命名建议 prompt
+    fn build_naming_prompt(&self, recent_commits: &str, user_input: Option<&str>, language: &str) -> String {
+        let lang_text = if language == "zh" { "中文" } else { "English" };
+        let user_context = user_input
+            .map(|s| format!("\n用户已输入: {}", s))
+            .unwrap_or_default();
+
+        format!(
+            r#"你是一位 Git 分支命名专家。根据最近的提交历史，建议合适的 worktree/分支名称。
+
+## 提交历史（最近）
+{recent_commits}
+{user_context}
+
+## 命名规则
+1. 使用前缀: feature/, bugfix/, hotfix/, refactor/, test/, docs/
+2. 名称简短但有意义，能反映工作内容
+3. 使用小写字母和连字符，避免特殊字符
+4. 如果有 issue 相关，包含 issue 编号
+
+## 输出要求
+用{lang}回复，严格按 JSON 格式输出（不要包含 markdown 代码块标记）：
+{{
+  "suggestions": [
+    {{
+      "name": "建议的分支名",
+      "suggestion_type": "类型说明（如：基于最近提交、基于用户输入、遵循惯例）",
+      "reason": "选择此名称的理由"
+    }}
+  ]
+}}
+
+提供 3-5 个建议，优先考虑最近提交的内容。"#,
+            recent_commits = recent_commits,
+            user_context = user_context,
+            lang = lang_text
+        )
+    }
+
+    /// 解析命名建议响应
+    fn parse_naming_response(&self, response: &str) -> anyhow::Result<Vec<AINamingSuggestion>> {
+        let json_str = self.extract_json(response);
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)?;
+
+        let suggestions: Vec<AINamingSuggestion> = parsed["suggestions"]
+            .as_array()
+            .unwrap_or(&vec![])
+            .iter()
+            .filter_map(|v| {
+                let name = v["name"].as_str()?.to_string();
+                let suggestion_type = v["suggestion_type"].as_str().unwrap_or("基于最近提交").to_string();
+                let reason = v["reason"].as_str().unwrap_or("").to_string();
+                Some(AINamingSuggestion {
+                    name,
+                    suggestion_type,
+                    reason,
+                })
+            })
+            .collect();
+
+        Ok(suggestions)
     }
 }

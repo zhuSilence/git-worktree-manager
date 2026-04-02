@@ -19,9 +19,23 @@ import type { RepositoryInfo } from './types/worktree'
 
 function App() {
   const { t } = useTranslation()
-  const { currentRepo, isLoading, error, loadRepository, refreshWorktrees, worktrees, fetchAllRemote } = useWorktreeStore()
-  const { repositories, activeRepoId, setActiveRepository, validateRepositories, refreshRepositories } = useRepositoryStore()
-  const { autoRefreshInterval, autoFetchOnStart } = settingsStore()
+  // 使用选择器模式订阅单个状态，避免不必要的重渲染
+  const currentRepo = useWorktreeStore(state => state.currentRepo)
+  const isLoading = useWorktreeStore(state => state.isLoading)
+  const error = useWorktreeStore(state => state.error)
+  const loadRepository = useWorktreeStore(state => state.loadRepository)
+  const refreshWorktrees = useWorktreeStore(state => state.refreshWorktrees)
+  const worktrees = useWorktreeStore(state => state.worktrees)
+  const fetchAllRemote = useWorktreeStore(state => state.fetchAllRemote)
+
+  const repositories = useRepositoryStore(state => state.repositories)
+  const activeRepoId = useRepositoryStore(state => state.activeRepoId)
+  const setActiveRepository = useRepositoryStore(state => state.setActiveRepository)
+  const validateRepositories = useRepositoryStore(state => state.validateRepositories)
+  const refreshRepositories = useRepositoryStore(state => state.refreshRepositories)
+
+  const autoRefreshInterval = settingsStore(state => state.autoRefreshInterval)
+  const autoFetchOnStart = settingsStore(state => state.autoFetchOnStart)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showTimeline, setShowTimeline] = useState(false)

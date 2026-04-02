@@ -83,9 +83,14 @@ pub fn open_in_terminal(path: &str, terminal: Option<String>, custom_path: Optio
 
         match terminal_type.as_str() {
             "powershell" => {
-                // PowerShell: 使用转义后的路径
+                // PowerShell: 使用安全的参数传递方式
+                // 通过 -EncodedCommand 或显式参数传递避免命令注入
                 Command::new("powershell")
-                    .args(["-Command", &format!("Start-Process powershell -ArgumentList '-NoExit', '-Command', {}", escaped_path)])
+                    .args([
+                        "-NoExit",
+                        "-Command",
+                        &format!("Set-Location -LiteralPath \"{}\"", path.replace("\"", "\"\"")),
+                    ])
                     .spawn()?;
             }
             "wt" => {
@@ -95,9 +100,9 @@ pub fn open_in_terminal(path: &str, terminal: Option<String>, custom_path: Optio
                     .spawn()?;
             }
             _ => {
-                // 默认 CMD: 使用转义后的路径
+                // 默认 CMD: 使用双引号包裹路径并使用 /d 参数支持路径切换
                 Command::new("cmd")
-                    .args(["/C", "start", "cmd", "/K", &format!("cd {}", escaped_path)])
+                    .args(["/C", "start", "cmd", "/K", &format!("cd /d \"{}\"", path.replace("\"", "\"\""))])
                     .spawn()?;
             }
         }

@@ -54,4 +54,7 @@ strip = true
 
 [lints.clippy]
 unwrap_used = "warn"
-expect_used = "allow"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"

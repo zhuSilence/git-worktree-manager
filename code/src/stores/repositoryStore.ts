@@ -32,14 +32,17 @@ export const useRepositoryStore = create<RepositoryState>()(
       // 添加仓库
       addRepository: async (path: string) => {
         set({ isLoading: true, error: null })
-
+        
+        // 保存初始状态用于回滚
+        const initialActiveRepoId = get().activeRepoId
+        
         try {
           // 检查是否是 Git 仓库
           const isRepo = await gitService.isGitRepo(path)
           if (!isRepo) {
-            set({
-              error: '选择的目录不是 Git 仓库',
-              isLoading: false
+            set({ 
+              error: '选择的目录不是 Git 仓库', 
+              isLoading: false 
             })
             return null
           }
@@ -47,28 +50,29 @@ export const useRepositoryStore = create<RepositoryState>()(
           // 检查是否已存在
           const existing = get().repositories.find(r => r.path === path)
           if (existing) {
-            set({
+            set({ 
               activeRepoId: existing.id,
-              isLoading: false
+              isLoading: false 
             })
             return existing
           }
 
           // 获取仓库信息
           const repoInfo = await gitService.getRepositoryInfo(path)
-
+          
           set(state => ({
             repositories: [...state.repositories, repoInfo],
             activeRepoId: repoInfo.id,
             isLoading: false
           }))
-
+          
           return repoInfo
         } catch (error) {
           const message = error instanceof Error ? error.message : '添加仓库失败'
-          set({
-            error: message,
-            isLoading: false
+          set({ 
+            error: message, 
+            isLoading: false,
+            activeRepoId: initialActiveRepoId,
           })
           return null
         }
@@ -78,10 +82,10 @@ export const useRepositoryStore = create<RepositoryState>()(
       removeRepository: (id: string) => {
         set(state => {
           const newRepos = state.repositories.filter(r => r.id !== id)
-          const newActiveId = state.activeRepoId === id
-            ? (newRepos[0]?.id ?? null)
+          const newActiveId = state.activeRepoId === id 
+            ? (newRepos[0]?.id ?? null) 
             : state.activeRepoId
-
+          
           return {
             repositories: newRepos,
             activeRepoId: newActiveId
@@ -102,7 +106,7 @@ export const useRepositoryStore = create<RepositoryState>()(
         set({ isLoading: true })
 
         try {
-          const results = await Promise.allSettled(
+          const refreshedRepos = await Promise.all(
             repositories.map(async (repo) => {
               try {
                 const isRepo = await gitService.isGitRepo(repo.path)
@@ -116,15 +120,6 @@ export const useRepositoryStore = create<RepositoryState>()(
               }
             })
           )
-
-          const refreshedRepos = results.map((result, i) => {
-            if (result.status === 'fulfilled') {
-              return result.value
-            } else {
-              console.warn(`Failed to refresh repository ${repositories[i].name}:`, result.reason)
-              return { ...repositories[i], isPathValid: false }
-            }
-          })
 
           set({
             repositories: refreshedRepos,
@@ -143,7 +138,7 @@ export const useRepositoryStore = create<RepositoryState>()(
         const { repositories } = get()
         if (repositories.length === 0) return
 
-        const results = await Promise.allSettled(
+        const validatedRepos = await Promise.all(
           repositories.map(async (repo) => {
             try {
               const isRepo = await gitService.isGitRepo(repo.path)
@@ -153,15 +148,6 @@ export const useRepositoryStore = create<RepositoryState>()(
             }
           })
         )
-
-        const validatedRepos = results.map((result, i) => {
-          if (result.status === 'fulfilled') {
-            return result.value
-          } else {
-            console.warn(`Failed to validate repository ${repositories[i].name}:`, result.reason)
-            return { ...repositories[i], isPathValid: false }
-          }
-        })
 
         set({ repositories: validatedRepos })
       },

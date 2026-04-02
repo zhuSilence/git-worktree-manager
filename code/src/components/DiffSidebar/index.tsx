@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { X, FileText, Plus, Minus, RefreshCw, GitCompare, ChevronDown, ChevronRight, Columns, AlignLeft, ArrowUp, GripVertical, ChevronsDown, LayoutList, Sparkles } from 'lucide-react'
+import { X, FileText, Plus, Minus, RefreshCw, GitCompare, GitMerge, ChevronDown, ChevronRight, Columns, AlignLeft, ArrowUp, GripVertical, ChevronsDown, LayoutList, Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { gitService } from '@/services/git'
 import type { DetailedDiffResponse, FileDiff } from '@/types/worktree'
+import { WorktreeStatus } from '@/types/worktree'
 import { clsx } from 'clsx'
 import { aiReviewStore } from '@/stores/aiReviewStore'
 import { AIConfigPanel } from '@/components/AIConfigPanel'
+import { MergePanel } from '@/components/MergePanel'
+import { useWorktreeStore } from '@/stores/worktreeStore'
 
 // 拆分的子模块
 import type { ViewMode, FileTreeNode } from './types'
@@ -61,10 +64,14 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
   const [activeFile, setActiveFile] = useState<string | null>(null)
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set())
   const [showAIConfig, setShowAIConfig] = useState(false)
+  const [showMergePanel, setShowMergePanel] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const sidebarRef = useRef<HTMLDivElement>(null)
   // 用于保存 setTimeout 的 timer ID，组件卸载时清理
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout>[]>([])
+
+  // 获取当前仓库信息
+  const { currentRepo, worktrees, refreshWorktrees } = useWorktreeStore()
 
   // AI 评审状态
   const reviewStatus = aiReviewStore((state) => state.reviewStatus)
@@ -111,11 +118,6 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
       document.addEventListener('mouseup', handleMouseUp)
       document.body.style.cursor = 'ew-resize'
       document.body.style.userSelect = 'none'
-    } else {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
     }
 
     return () => {
@@ -137,9 +139,10 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
     if (isOpen) {
       fetchDiff()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchDiff defined below, stable due to its dependencies being in this array
   }, [isOpen, worktreePath, targetBranch, refreshToken])
 
-  const fetchDiff = async () => {
+  const fetchDiff = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     setSelectedLine(null)
@@ -153,7 +156,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [worktreePath, targetBranch, t])
 
   const toggleFile = useCallback((path: string) => {
     setExpandedFiles(prev => {
@@ -439,6 +442,15 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
             })()}
           </button>
 
+          {/* 合并按钮 */}
+          <button
+            onClick={() => setShowMergePanel(true)}
+            className="p-1.5 rounded transition-colors flex items-center gap-1 text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+            title={t('diff.mergeToTarget', { branch: targetBranch })}
+          >
+            <GitMerge className="w-3.5 h-3.5" />
+          </button>
+
           {/* 导航按钮 */}
           <div className="flex items-center gap-1">
             <button
@@ -649,6 +661,17 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                         <span className={clsx('text-xs font-medium px-1 py-0.5 rounded', getStatusColor(file.status), getStatusBgColor(file.status))}>
                           {getStatusLabel(file.status)}
                         </span>
+                        {/* 变更来源标签 */}
+                        {file.source && file.source !== 'committed' && (
+                          <span className={clsx(
+                            'text-xs px-1 py-0.5 rounded',
+                            file.source === 'untracked'
+                              ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                              : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                          )}>
+                            {file.source === 'untracked' ? '未跟踪' : '工作区'}
+                          </span>
+                        )}
                         <span className="truncate text-xs text-gray-700 dark:text-gray-300 font-medium" title={file.path}>
                           {file.path}
                         </span>
@@ -734,6 +757,31 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
         setShowAIConfig(false)
         setShowConfigGuide(false)
       }} />
+
+      {/* 合并面板 */}
+      {currentRepo && (
+        <MergePanel
+          isOpen={showMergePanel}
+          onClose={() => setShowMergePanel(false)}
+          repoPath={currentRepo.path}
+          sourceWorktree={{
+            id: worktreePath,
+            name: worktreeName,
+            branch: diff?.sourceBranch || worktreeName,
+            path: worktreePath,
+            status: WorktreeStatus.Clean,
+            lastCommit: { hash: '', message: '', author: '', relativeTime: '' },
+            lastActiveAt: null,
+            isMain: false,
+            syncStatus: { ahead: 0, behind: 0, hasRemote: false },
+          }}
+          targetWorktrees={worktrees.filter(w => w.path !== worktreePath)}
+          onMergeComplete={() => {
+            refreshWorktrees()
+            fetchDiff()
+          }}
+        />
+      )}
     </div>
   )
 }

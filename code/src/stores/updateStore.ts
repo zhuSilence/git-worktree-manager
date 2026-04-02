@@ -78,25 +78,24 @@ export const updateStore = create<UpdateState>((set, get) => ({
       if (update) {
         await update.downloadAndInstall((event) => {
           switch (event.event) {
-            case 'Started': {
+            case 'Started':
               set({ contentLength: event.data.contentLength || 0 })
               break
-            }
-            case 'Progress': {
-              const downloaded = event.data.chunkLength
-              const currentDownloaded = get().downloaded + downloaded
-              const contentLength = get().contentLength
-              const progress = contentLength > 0 ? (currentDownloaded / contentLength) * 100 : 0
-              set({
-                downloaded: currentDownloaded,
-                downloadProgress: Math.min(progress, 100),
-              })
+            case 'Progress':
+              {
+                const chunkLength = event.data.chunkLength
+                const currentDownloaded = get().downloaded + chunkLength
+                const contentLength = get().contentLength
+                const progress = contentLength > 0 ? (currentDownloaded / contentLength) * 100 : 0
+                set({
+                  downloaded: currentDownloaded,
+                  downloadProgress: Math.min(progress, 100),
+                })
+              }
               break
-            }
-            case 'Finished': {
+            case 'Finished':
               set({ downloadProgress: 100 })
               break
-            }
           }
         })
 

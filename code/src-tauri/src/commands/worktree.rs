@@ -10,20 +10,8 @@ use crate::services::{
     start_hotfix, finish_hotfix, abort_hotfix, get_hotfix_status,
 };
 use crate::utils::validation::validate_path;
+use super::run_blocking;
 use tauri::command;
-use tauri::async_runtime::spawn_blocking;
-
-/// 辅助函数：包装同步操作为异步，统一处理错误转换
-async fn run_blocking<F, T>(f: F) -> Result<T, String>
-where
-    F: FnOnce() -> anyhow::Result<T> + Send + 'static,
-    T: Send + 'static,
-{
-    spawn_blocking(f)
-        .await
-        .map_err(|e| format!("Task join error: {}", e))?
-        .map_err(|e| e.to_string())
-}
 
 /// 获取 Worktree 列表
 #[command]

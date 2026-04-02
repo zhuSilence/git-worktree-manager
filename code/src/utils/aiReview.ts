@@ -1,4 +1,7 @@
-import { ReviewIssue, AIReviewResult } from '@/types/ai';
+import { ReviewIssue, AIReviewResult, AINamingRequest, AINamingResponse } from '@/types/ai';
+import type { AINamingSuggestion } from '@/types/ai';
+export type { AINamingSuggestion };
+import { invoke } from '@tauri-apps/api/core';
 
 /**
  * 规范化文件路径（去除开头的 code/ 等前缀）
@@ -191,4 +194,11 @@ export function getFileReviewSummary(result: AIReviewResult | null, filePath: st
     warnings: issues.filter((i) => i.severity === 'warning').length,
     infos: issues.filter((i) => i.severity === 'info').length,
   };
+}
+
+/**
+ * 获取 AI 命名建议
+ */
+export async function getAINamingSuggestions(request: AINamingRequest): Promise<AINamingResponse> {
+  return await invoke<AINamingResponse>('ai_naming_suggestion', { request });
 }

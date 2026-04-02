@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ✨ Added
+
+- AI 代码评审功能 (Issue #31)
+  - 支持多 AI 提供商（OpenAI/Claude/Ollama/自定义端点）
+  - API Key 加密存储（XOR + Base64）
+  - 自动评审代码变更，识别潜在问题
+  - 提供改进建议和代码亮点
+  - 可配置评审语言（中文/英文）
+- AI 命名建议功能 (Issue #22)
+  - 基于仓库提交历史生成智能命名建议
+  - 支持用户输入引导生成
+  - 在创建 worktree 时获取 AI 建议
+- Worktree 分组功能 (#15)
+  - 创建、编辑、删除自定义分组
+  - 预设分组（功能开发/Bug修复/发布/其他）
+  - 9 种预设颜色可选
+  - 分组描述支持
+- 分支合并功能
+  - MergePanel 组件，可视化合并操作
+  - 将源分支合并到目标 worktree
+  - 冲突检测和冲突文件列表展示
+  - 支持中止合并（abort）和完成合并（complete）
+  - 可选自动推送
+- 操作日志与删除保护
+  - 操作日志记录（创建/删除/切换等）
+  - 日志导出功能
+  - 删除前自动检查保护
+  - 备份创建和恢复机制
+  - 过期备份自动清理
+- Diff 源标签
+  - 区分三种变更来源：committed（分支差异）、unstaged（工作区修改）、untracked（未跟踪文件）
+  - 在 Diff 文件树中显示来源标签
+
 ## [0.0.9] - 2026-03-24
 
 ### 🔧 Changed

@@ -10,33 +10,6 @@ import {
 import { aiService } from '@/services/ai';
 
 /**
- * 缓存过期时间（30分钟）
- */
-const CACHE_TTL = 30 * 60 * 1000;
-
-/**
- * 缓存的评审结果
- */
-interface CachedReview {
-  result: AIReviewResult;
-  timestamp: number;
-}
-
-/**
- * 解析错误信息
- */
-function parseError(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  if (typeof err === 'string') return err;
-  if (err && typeof err === 'object') {
-    const obj = err as Record<string, unknown>;
-    if (typeof obj.message === 'string') return obj.message;
-    if (typeof obj.error === 'string') return obj.error;
-  }
-  return 'Unknown error occurred';
-}
-
-/**
  * 生成缓存键
  */
 const getCacheKey = (worktreePath: string, branch: string): string =>
@@ -56,7 +29,7 @@ interface AIReviewStoreState {
   showConfigGuide: boolean;
 
   // 评审历史缓存
-  reviewHistory: Record<string, CachedReview>;
+  reviewHistory: Record<string, AIReviewResult>;
 }
 
 /**
@@ -130,16 +103,12 @@ export const aiReviewStore = create<AIReviewStoreState & AIReviewStoreActions>()
           const cacheKey = getCacheKey(worktreePath, targetBranch);
           const cached = reviewHistory[cacheKey];
           if (cached) {
-            // 检查缓存是否过期
-            const isExpired = Date.now() - cached.timestamp > CACHE_TTL;
-            if (!isExpired) {
-              set({
-                currentResult: cached.result,
-                reviewStatus: 'success',
-                error: null,
-              });
-              return;
-            }
+            set({
+              currentResult: cached,
+              reviewStatus: 'success',
+              error: null,
+            });
+            return;
           }
         }
 
@@ -151,17 +120,13 @@ export const aiReviewStore = create<AIReviewStoreState & AIReviewStoreActions>()
           if (response.success && response.result) {
             // 更新当前结果和缓存
             const cacheKey = getCacheKey(worktreePath, targetBranch);
-            const cachedReview: CachedReview = {
-              result: response.result,
-              timestamp: Date.now(),
-            };
             set({
               currentResult: response.result,
               reviewStatus: 'success',
               error: null,
               reviewHistory: {
                 ...reviewHistory,
-                [cacheKey]: cachedReview,
+                [cacheKey]: response.result,
               },
             });
           } else {
@@ -172,9 +137,18 @@ export const aiReviewStore = create<AIReviewStoreState & AIReviewStoreActions>()
           }
         } catch (err) {
           console.error('[AI Review] Error:', err);
+          let errorMessage = '未知错误';
+          if (err instanceof Error) {
+            errorMessage = err.message;
+          } else if (typeof err === 'string') {
+            errorMessage = err;
+          } else if (err && typeof err === 'object') {
+            // 尝试提取错误信息
+            errorMessage = (err as Record<string, unknown>).message as string || (err as Record<string, unknown>).error as string || JSON.stringify(err);
+          }
           set({
             reviewStatus: 'error',
-            error: parseError(err),
+            error: errorMessage,
           });
         }
       },
@@ -207,16 +181,11 @@ export const aiReviewStore = create<AIReviewStoreState & AIReviewStoreActions>()
 
           // 更新当前结果和缓存
           const cacheKey = getCacheKey(currentResult.worktreePath, currentResult.targetBranch);
-          const existingCache = reviewHistory[cacheKey];
-          const cachedReview: CachedReview = {
-            result: updatedResult,
-            timestamp: existingCache?.timestamp ?? Date.now(),
-          };
           set({
             currentResult: updatedResult,
             reviewHistory: {
               ...reviewHistory,
-              [cacheKey]: cachedReview,
+              [cacheKey]: updatedResult,
             },
           });
         }
@@ -233,16 +202,11 @@ export const aiReviewStore = create<AIReviewStoreState & AIReviewStoreActions>()
 
           // 更新当前结果和缓存
           const cacheKey = getCacheKey(currentResult.worktreePath, currentResult.targetBranch);
-          const existingCache = reviewHistory[cacheKey];
-          const cachedReview: CachedReview = {
-            result: updatedResult,
-            timestamp: existingCache?.timestamp ?? Date.now(),
-          };
           set({
             currentResult: updatedResult,
             reviewHistory: {
               ...reviewHistory,
-              [cacheKey]: cachedReview,
+              [cacheKey]: updatedResult,
             },
           });
         }
@@ -257,13 +221,7 @@ export const aiReviewStore = create<AIReviewStoreState & AIReviewStoreActions>()
       getCachedReview: (worktreePath, branch) => {
         const { reviewHistory } = get();
         const cacheKey = getCacheKey(worktreePath, branch);
-        const cached = reviewHistory[cacheKey];
-        if (!cached) return undefined;
-        // 检查缓存是否过期
-        if (Date.now() - cached.timestamp > CACHE_TTL) {
-          return undefined;
-        }
-        return cached.result;
+        return reviewHistory[cacheKey];
       },
 
       clearHistory: () => {

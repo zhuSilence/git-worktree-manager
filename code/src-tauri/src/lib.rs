@@ -8,9 +8,8 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // 初始化日志系统，支持通过环境变量 RUST_LOG 配置日志级别
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
-        .init();
+    // 初始化日志系统（支持 RUST_LOG 环境变量配置，默认 info）
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     info!("Git Worktree Manager starting...");
 
     tauri::Builder::default()
@@ -58,11 +57,16 @@ pub fn run() {
             commands::ai_review::get_ai_config,
             commands::ai_review::test_ai_connection,
             commands::ai_review::ai_review,
+            commands::ai_review::ai_naming_suggestion,
             // Hotfix 相关命令
             commands::worktree::start_hotfix_cmd,
             commands::worktree::finish_hotfix_cmd,
             commands::worktree::abort_hotfix_cmd,
             commands::worktree::get_hotfix_status_cmd,
+            // 合并相关命令
+            commands::merge::merge_branch_cmd,
+            commands::merge::abort_merge_cmd,
+            commands::merge::complete_merge_cmd,
             // 操作日志和删除保护命令
             commands::log::list_operation_logs_cmd,
             commands::log::export_operation_logs_cmd,

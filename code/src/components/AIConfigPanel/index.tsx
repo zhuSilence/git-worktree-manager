@@ -68,6 +68,7 @@ export function AIConfigPanel({ isOpen, onClose }: AIConfigPanelProps) {
     setTestResult(null);
     setTestError(null);
 
+    // eslint-disable-next-line no-console
     console.log('[AI 测试连接] 开始测试:', {
       provider: localConfig.provider,
       baseUrl: localConfig.baseUrl,
@@ -77,6 +78,7 @@ export function AIConfigPanel({ isOpen, onClose }: AIConfigPanelProps) {
 
     try {
       const response = await aiService.testConnection(localConfig);
+      // eslint-disable-next-line no-console
       console.log('[AI 测试连接] 响应:', response);
       setTestResult(response.success);
       if (!response.success && response.error) {

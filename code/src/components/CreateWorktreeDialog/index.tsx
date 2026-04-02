@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useDeferredValue } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X, FolderOpen, Lightbulb, Github } from 'lucide-react'
+import { X, FolderOpen, Lightbulb, Github, Sparkles, Loader2 } from 'lucide-react'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 import { generateSuggestions, validateBranchName, NamingSuggestion } from '@/utils/namingSuggestion'
+import { getAINamingSuggestions, AINamingSuggestion } from '@/utils/aiReview'
 import { clsx } from 'clsx'
 
 interface CreateWorktreeDialogProps {
@@ -21,6 +22,9 @@ export function CreateWorktreeDialog({ isOpen, onClose }: CreateWorktreeDialogPr
   const [error, setError] = useState('')
   const [clipboardHint, setClipboardHint] = useState<string | null>(null)
   const [isReady, setIsReady] = useState(false)
+  const [aiSuggestions, setAiSuggestions] = useState<AINamingSuggestion[]>([])
+  const [isAiLoading, setIsAiLoading] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
 
   // 弹窗打开后延迟标记为就绪，避免初始渲染阻塞
   useEffect(() => {
@@ -46,8 +50,6 @@ export function CreateWorktreeDialog({ isOpen, onClose }: CreateWorktreeDialogPr
       const current = currentRepo.branches.find(b => b.isCurrent)
       setBaseBranch(current?.name || currentRepo.branches[0]?.name || '')
     }
-    // 依赖：只在 currentRepo 变化时执行
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentRepo])
 
   // 以前这里会读取剪贴板以给出命名提示
@@ -64,6 +66,39 @@ export function CreateWorktreeDialog({ isOpen, onClose }: CreateWorktreeDialogPr
     setError('')
     setCreateNewBranch(true)
     setClipboardHint(null)
+    setAiSuggestions([])
+    setAiError(null)
+  }
+
+  // 获取 AI 命名建议
+  const fetchAiSuggestions = async () => {
+    if (!currentRepo?.mainWorktreePath) return
+
+    setIsAiLoading(true)
+    setAiError(null)
+
+    try {
+      const response = await getAINamingSuggestions({
+        repoPath: currentRepo.mainWorktreePath,
+        userInput: name || undefined,
+        commitCount: 10,
+      })
+
+      if (response.success && response.suggestions) {
+        setAiSuggestions(response.suggestions)
+      } else {
+        setAiError(response.error || '获取 AI 建议失败')
+      }
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : '未知错误')
+    } finally {
+      setIsAiLoading(false)
+    }
+  }
+
+  // 应用 AI 建议
+  const applyAiSuggestion = (suggestion: AINamingSuggestion) => {
+    setName(suggestion.name)
   }
 
   // 关闭对话框
@@ -200,6 +235,66 @@ export function CreateWorktreeDialog({ isOpen, onClose }: CreateWorktreeDialogPr
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* AI 命名建议 */}
+          {currentRepo?.mainWorktreePath && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                  <Sparkles className="w-4 h-4 text-purple-500" />
+                  {t('createWorktree.aiNamingSuggestion') || 'AI 命名建议'}
+                </label>
+                <button
+                  type="button"
+                  onClick={fetchAiSuggestions}
+                  disabled={isAiLoading}
+                  className="text-xs text-purple-500 hover:text-purple-600 flex items-center gap-1 disabled:opacity-50"
+                >
+                  {isAiLoading ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3 h-3" />
+                  )}
+                  {isAiLoading ? '生成中...' : '获取建议'}
+                </button>
+              </div>
+
+              {aiError && (
+                <p className="text-xs text-red-500 mb-2">{aiError}</p>
+              )}
+
+              {aiSuggestions.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {aiSuggestions.slice(0, 5).map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => applyAiSuggestion(suggestion)}
+                      className={clsx(
+                        'px-2 py-1 text-xs rounded border transition-colors',
+                        'hover:bg-purple-50 dark:hover:bg-purple-900/20',
+                        name === suggestion.name
+                          ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
+                          : 'border-purple-200 dark:border-purple-700 text-purple-600 dark:text-purple-400'
+                      )}
+                      title={suggestion.reason}
+                    >
+                      {suggestion.name}
+                      {suggestion.suggestionType && (
+                        <span className="ml-1 text-purple-400">
+                          ({suggestion.suggestionType})
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {aiSuggestions.length === 0 && !aiError && !isAiLoading && (
+                <p className="text-xs text-gray-400">点击"获取建议"让 AI 分析最近提交并推荐名称</p>
+              )}
             </div>
           )}
 

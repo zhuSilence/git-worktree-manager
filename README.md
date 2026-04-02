@@ -23,13 +23,15 @@
 - **快捷操作** - 一键在 IDE、终端、文件管理器中打开
 - **状态展示** - Clean/Dirty/Conflict/Detached 状态可视化
 - **搜索排序** - 按名称、状态快速筛选
-- **Diff 对比** - PR 风格差异对比（仅显示当前分支引入的更改，统一/拆分双视图）
+- **Diff 对比** - PR 风格差异对比（显示 committed/unstaged/untracked 三种来源，统一/拆分双视图）
 - **键盘快捷键** - 全键盘操作支持，提升开发效率
 
 ### 🚀 增强功能 (P1)
 
 - **多仓库管理** - 侧边栏仓库列表，快速切换，支持持久化存储
 - **分支管理** - 切换、创建、拉取远程分支
+- **分支合并** - 将源分支合并到目标 worktree，支持冲突检测和中止/完成操作
+- **Worktree 分组** - 创建分组管理 worktree，预设颜色，快速分类
 - **设置中心** - 自定义默认 IDE 和终端
 
 ### 🔮 高级功能 (P2)
@@ -41,6 +43,13 @@
 - **标签与备注** - 为 worktree 添加自定义标签和备注
 - **空闲检测** - 自动检测长时间未使用的 worktree
 - **智能命名** - 基于命名规范给出分支命名建议
+- **操作日志与删除保护** - 记录操作历史，删除前自动备份，支持恢复
+- **Hotfix 流程** - 一键开始/完成/取消 hotfix 工作流
+
+### 🤖 AI 功能 (P3)
+
+- **AI 代码评审** - 支持多 AI 提供商（OpenAI/Claude/Ollama/自定义），自动评审代码变更，识别潜在问题和改进建议
+- **AI 命名建议** - 基于仓库提交历史和用户输入，智能生成分支/worktree 命名建议
 
 ---
 
@@ -188,14 +197,46 @@ npm run tauri:build
 - **创建分支** - 创建并切换到新分支
 - **拉取远程** - Fetch 并 checkout 远程分支
 
-### 5. 智能提示
+### 5. 分支合并
+
+点击 worktree 卡片上的 **合并图标**：
+
+- **选择目标分支** - 选择要合并到哪个 worktree/分支
+- **执行合并** - 将当前分支合并到目标分支
+- **处理冲突** - 冲突时显示冲突文件列表，支持中止或解决后完成
+
+### 6. Worktree 分组
+
+通过分组功能管理 worktree：
+
+- **预设分组** - 功能开发、Bug 修复、发布、其他
+- **自定义分组** - 创建新分组，设置颜色和描述
+- **快速分类** - 将 worktree 拖入对应分组
+
+### 7. 智能提示
 
 点击工具栏的 **警告图标**，查看：
 
 - **已合并分支** - 可以安全删除
 - **陈旧分支** - 长期未更新的分支
 
-### 6. 键盘快捷键
+### 8. Hotfix 流程
+
+点击工具栏的 **Hotfix 图标**，启动紧急修复流程：
+
+- **开始 Hotfix** - 自动创建 hotfix 分支和 worktree
+- **完成 Hotfix** - 合并回主分支并清理
+- **取消 Hotfix** - 中止当前 hotfix 流程
+
+### 9. AI 功能
+
+点击工具栏的 **AI 图标**，配置和使用 AI 功能：
+
+- **配置 AI** - 选择提供商（OpenAI/Claude/Ollama），设置 API Key
+- **代码评审** - 对当前 Diff 进行 AI 评审，获取改进建议
+- **命名建议** - 创建 worktree 时获取 AI 生成的命名建议
+
+### 10. 键盘快捷键
 
 支持全局键盘快捷键，无需鼠标即可完成常用操作：
 
@@ -242,28 +283,44 @@ git-worktree-manager/
 │   │   ├── components/         # React 组件
 │   │   │   ├── Sidebar/        # 左侧仓库列表
 │   │   │   ├── WorktreeList/   # Worktree 列表
-│   │   │   ├── DiffSidebar/    # Diff 对比面板
+│   │   │   ├── DiffSidebar/    # Diff 对比面板（含 DiffAlgorithm/DiffViews/FileTree/SyntaxHighlighter）
 │   │   │   ├── BranchManager/  # 分支管理
+│   │   │   ├── MergePanel/     # 分支合并面板
+│   │   │   ├── GroupPanel/     # Worktree 分组管理
+│   │   │   ├── AIConfigPanel/  # AI 配置面板
+│   │   │   ├── HotfixPanel/    # Hotfix 流程面板
+│   │   │   ├── Timeline/       # 提交历史时间线
 │   │   │   ├── HintsPanel/     # 智能提示
 │   │   │   ├── BatchActions/   # 批量操作
 │   │   │   └── SettingsPanel/  # 设置面板
-│   │   ├── stores/             # Zustand 状态
-│   │   ├── services/           # API 服务
-│   │   └── types/              # TypeScript 类型
+│   │   ├── stores/             # Zustand 状态（worktreeStore/repositoryStore/settingsStore/groupsStore）
+│   │   ├── services/           # API 服务（git.ts/ai.ts/shell.ts）
+│   │   ├── types/              # TypeScript 类型（worktree/ai/group/log/config）
+│   │   ├── hooks/              # 自定义 Hooks（useKeyboardShortcuts/useErrorHandler）
+│   │   └── i18n/               # 国际化
 │   │
 │   └── src-tauri/              # Tauri 后端
 │       ├── src/
 │       │   ├── commands/       # Tauri 命令
+│       │   │   ├── worktree.rs # Worktree CRUD、分支操作、Diff、Push/Pull
+│       │   │   ├── merge.rs    # 分支合并（merge/abort/complete）
+│       │   │   ├── log.rs      # 操作日志、删除保护、备份管理
+│       │   │   └── ai_review.rs # AI 评审、命名建议、配置管理
 │       │   ├── models/         # 数据模型
-│       │   ├── services/       # 业务逻辑
-│       │   └── utils/          # 工具函数
+│       │   ├── services/       # 业务逻辑（git_service/ai_service/shell_service）
+│       │   └── utils/          # 工具函数（validation）
 │       └── tauri.conf.json     # Tauri 配置
 │
-├── 01-市场分析.md
 ├── 02-PRD.md                   # 产品需求文档
 ├── 03-技术方案.md              # 技术设计文档
 ├── 04-测试用例.md              # 测试用例
-└── 05-测试报告.md              # 测试报告
+├── 05-测试报告.md              # 测试报告
+├── 06-回归测试报告.md          # 回归测试报告
+├── 07-自动更新方案.md          # 自动更新方案
+├── 08-AI评审PRD.md            # AI 评审功能需求
+├── 09-AI评审技术方案.md        # AI 评审技术方案
+├── CHANGELOG.md                # 变更日志
+└── README.md                   # 项目说明
 ```
 
 ---

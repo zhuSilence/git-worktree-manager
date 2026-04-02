@@ -42,7 +42,6 @@ function BranchComboBox({ value, onChange, branches, placeholder, excludeCurrent
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const filtered = useMemo(() => {

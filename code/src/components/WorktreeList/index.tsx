@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { WorktreeItem } from './WorktreeItem'
 import { useWorktreeStore } from '@/stores/worktreeStore'
@@ -32,7 +32,12 @@ interface GroupedWorktrees {
 export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchInputRef }: WorktreeListProps) {
   const { t } = useTranslation()
   const { worktrees, isLoading, currentRepo, refreshWorktrees } = useWorktreeStore()
-  const { groups, getWorktreeGroup, initializeDefaultGroups } = useGroupsStore()
+  const groups = useGroupsStore(state => state.groups)
+  const getWorktreeGroup = useGroupsStore(state => state.getWorktreeGroup)
+  const initializeDefaultGroups = useGroupsStore(state => state.initializeDefaultGroups)
+
+  // 提取 repoPath 为独立变量，避免 currentRepo 对象引用变化导致 useMemo 重算
+  const repoPath = currentRepo?.path || ''
   const [searchQuery, setSearchQuery] = useState('')
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
@@ -51,6 +56,11 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
       initializeDefaultGroups()
     }
   }, [groups.length, initializeDefaultGroups])
+
+  // 使用 useCallback 稳定 getWorktreeGroupForPath 的引用
+  const getWorktreeGroupForPath = useCallback((worktreeId: string) => {
+    return getWorktreeGroup(repoPath, worktreeId)
+  }, [getWorktreeGroup, repoPath])
 
   // 获取分支列表
   const branches = currentRepo?.branches || []
@@ -81,8 +91,6 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
     }
 
     fetchMergedHints()
-    // 依赖：只在仓库路径或默认分支变化时重新获取
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentRepo?.mainWorktreePath, currentRepo?.defaultBranch])
 
   // 创建已合并分支的 Set 用于快速查找
@@ -114,15 +122,17 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
           break
         case 'status': {
           // 状态优先级: conflict > dirty > detached > clean > unknown
-          const statusOrder: Record<string, number> = {
-            [WorktreeStatus.Conflicted]: 0,
-            [WorktreeStatus.Dirty]: 1,
-            [WorktreeStatus.Detached]: 2,
-            [WorktreeStatus.Unpushed]: 3,
-            [WorktreeStatus.Clean]: 4,
-            [WorktreeStatus.Unknown]: 5,
+          {
+            const statusOrder: Record<string, number> = {
+              [WorktreeStatus.Conflicted]: 0,
+              [WorktreeStatus.Dirty]: 1,
+              [WorktreeStatus.Detached]: 2,
+              [WorktreeStatus.Unpushed]: 3,
+              [WorktreeStatus.Clean]: 4,
+              [WorktreeStatus.Unknown]: 5,
+            }
+            comparison = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
           }
-          comparison = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
           break
         }
         case 'time':
@@ -139,7 +149,6 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
 
   // 按分组归类 worktrees
   const groupedWorktrees = useMemo((): GroupedWorktrees[] => {
-    const repoPath = currentRepo?.path || ''
     const grouped: Map<string | null, Worktree[]> = new Map()
 
     // 初始化所有分组
@@ -148,7 +157,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
 
     // 归类 worktrees
     filteredAndSortedWorktrees.forEach(wt => {
-      const groupId = getWorktreeGroup(repoPath, wt.id)?.id || null
+      const groupId = getWorktreeGroupForPath(wt.id)?.id || null
       const list = grouped.get(groupId) || []
       list.push(wt)
       grouped.set(groupId, list)
@@ -182,7 +191,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
     }
 
     return result
-  }, [filteredAndSortedWorktrees, groups, getWorktreeGroup, currentRepo?.path, collapsedGroups])
+  }, [filteredAndSortedWorktrees, groups, getWorktreeGroupForPath, collapsedGroups])
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -234,8 +243,6 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
       />
     )
   }
-
-  const repoPath = currentRepo?.path || ''
 
   return (
     <div className="p-4">
@@ -373,7 +380,7 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
                     worktree={worktree}
                     branches={branches}
                     repoPath={repoPath}
-                    currentGroupId={getWorktreeGroup(repoPath, worktree.id)?.id}
+                    currentGroupId={getWorktreeGroupForPath(worktree.id)?.id}
                     onShowDiff={onShowDiff}
                     isMerged={mergedBranches.has(worktree.branch)}
                     onOpenGroupPanel={() => setShowGroupPanel(true)}

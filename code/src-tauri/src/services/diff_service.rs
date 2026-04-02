@@ -1,13 +1,10 @@
 use crate::models::{DiffStats, DiffResponse, DiffLine, DiffHunk, FileDiff, DetailedDiffResponse, CommitInfo, TimelineResponse};
+use crate::utils::validation::sanitize_branch_name;
 use git2::Repository;
 use std::process::Command;
 use std::sync::LazyLock;
 use regex::Regex;
 use super::worktree_service::list_worktrees;
-
-/// Diff 输出限制常量，防止大仓库 diff 导致内存溢出
-const MAX_DIFF_FILES: usize = 1000;
-const MAX_DIFF_LINES: usize = 100_000;
 
 static HUNK_HEADER_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@").expect("valid hunk header regex pattern")
@@ -31,6 +28,9 @@ fn find_target_commit<'a>(repo: &'a Repository, target_branch: &str) -> anyhow::
 
 /// 获取 worktree 与目标分支的 diff
 pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<DiffResponse> {
+    // 验证 target_branch 参数，防止注入攻击
+    sanitize_branch_name(target_branch).map_err(|e| anyhow::anyhow!("{}", e))?;
+
     let repo = Repository::open(worktree_path)?;
 
     // 获取当前分支名
@@ -47,7 +47,6 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
     let mut files_map: std::collections::HashMap<String, DiffStats> = std::collections::HashMap::new();
     let mut total_additions = 0;
     let mut total_deletions = 0;
-    let mut truncated = false;
 
     // 1. 获取分支间的提交差异（三点语法）
     let output = Command::new("git")
@@ -58,12 +57,6 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         for line in stdout.lines() {
-            // 检查文件数量限制
-            if files_map.len() >= MAX_DIFF_FILES {
-                truncated = true;
-                break;
-            }
-
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 3 {
                 let additions = parts[0].parse::<usize>().unwrap_or(0);
@@ -91,53 +84,72 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
         }
     }
 
-    // 2. 获取工作区未提交的变更
-    if !truncated {
-        let worktree_output = Command::new("git")
-            .args(["-c", "core.quotepath=false", "diff", "--numstat", "HEAD"])
-            .current_dir(worktree_path)
-            .output()?;
+    // 2. 获取工作区未提交的变更（包含已跟踪文件的修改）
+    let worktree_output = Command::new("git")
+        .args(["-c", "core.quotepath=false", "diff", "--numstat", "HEAD"])
+        .current_dir(worktree_path)
+        .output()?;
 
-        if worktree_output.status.success() {
-            let stdout = String::from_utf8_lossy(&worktree_output.stdout);
-            for line in stdout.lines() {
-                // 检查文件数量限制
-                if files_map.len() >= MAX_DIFF_FILES {
-                    truncated = true;
-                    break;
-                }
+    if worktree_output.status.success() {
+        let stdout = String::from_utf8_lossy(&worktree_output.stdout);
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 3 {
+                let additions = parts[0].parse::<usize>().unwrap_or(0);
+                let deletions = parts[1].parse::<usize>().unwrap_or(0);
+                let path = parts[2].to_string();
 
-                let parts: Vec<&str> = line.split_whitespace().collect();
-                if parts.len() >= 3 {
-                    let additions = parts[0].parse::<usize>().unwrap_or(0);
-                    let deletions = parts[1].parse::<usize>().unwrap_or(0);
-                    let path = parts[2].to_string();
-
-                    // 合并到现有文件或新增
-                    if let Some(existing) = files_map.get_mut(&path) {
-                        existing.additions += additions;
-                        existing.deletions += deletions;
+                // 合并到现有文件或新增
+                if let Some(existing) = files_map.get_mut(&path) {
+                    existing.additions += additions;
+                    existing.deletions += deletions;
+                } else {
+                    let status = if additions > 0 && deletions == 0 {
+                        "added"
+                    } else if additions == 0 && deletions > 0 {
+                        "deleted"
                     } else {
-                        let status = if additions > 0 && deletions == 0 {
-                            "added"
-                        } else if additions == 0 && deletions > 0 {
-                            "deleted"
-                        } else {
-                            "modified"
-                        };
+                        "modified"
+                    };
 
-                        files_map.insert(path.clone(), DiffStats {
-                            path,
-                            additions,
-                            deletions,
-                            status: status.to_string(),
-                        });
-                    }
-
-                    total_additions += additions;
-                    total_deletions += deletions;
+                    files_map.insert(path.clone(), DiffStats {
+                        path,
+                        additions,
+                        deletions,
+                        status: status.to_string(),
+                    });
                 }
+
+                total_additions += additions;
+                total_deletions += deletions;
             }
+        }
+    }
+
+    // 3. 获取未跟踪的新文件（Untracked files）
+    let untracked_output = Command::new("git")
+        .args(["-c", "core.quotepath=false", "ls-files", "--others", "--exclude-standard"])
+        .current_dir(worktree_path)
+        .output()?;
+
+    if untracked_output.status.success() {
+        let stdout = String::from_utf8_lossy(&untracked_output.stdout);
+        for path in stdout.lines() {
+            if path.is_empty() || files_map.contains_key(path) {
+                continue;
+            }
+            // 获取未跟踪文件的行数作为 additions
+            let line_count = std::fs::read_to_string(std::path::Path::new(worktree_path).join(path))
+                .map(|content| content.lines().count())
+                .unwrap_or(0);
+
+            files_map.insert(path.to_string(), DiffStats {
+                path: path.to_string(),
+                additions: line_count,
+                deletions: 0,
+                status: "added".to_string(),
+            });
+            total_additions += line_count;
         }
     }
 
@@ -146,16 +158,6 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
     files.sort_by(|a, b| {
         (b.additions + b.deletions).cmp(&(a.additions + a.deletions))
     });
-
-    // 如果被截断，在文件列表末尾添加提示
-    if truncated {
-        files.push(DiffStats {
-            path: "... (diff truncated: too many files)".to_string(),
-            additions: 0,
-            deletions: 0,
-            status: "truncated".to_string(),
-        });
-    }
 
     Ok(DiffResponse {
         source_branch,
@@ -169,6 +171,9 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
 
 /// 获取详细的 diff 内容（包含代码行）
 pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<DetailedDiffResponse> {
+    // 验证 target_branch 参数，防止注入攻击
+    sanitize_branch_name(target_branch).map_err(|e| anyhow::anyhow!("{}", e))?;
+
     let repo = Repository::open(worktree_path)?;
 
     // 获取当前分支名
@@ -184,21 +189,13 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
     let mut files_map: std::collections::HashMap<String, FileDiff> = std::collections::HashMap::new();
     let mut total_additions = 0;
     let mut total_deletions = 0;
-    let mut total_lines = 0;
-    let mut truncated = false;
 
     // 辅助函数：解析 diff 输出
-    let parse_diff_output = |stdout: &str, files_map: &mut std::collections::HashMap<String, FileDiff>, total_additions: &mut usize, total_deletions: &mut usize, total_lines: &mut usize, truncated: &mut bool| {
+    let parse_diff_output = |stdout: &str, files_map: &mut std::collections::HashMap<String, FileDiff>, total_additions: &mut usize, total_deletions: &mut usize, source: &str| {
         let mut current_file: Option<FileDiff> = None;
         let mut current_hunk: Option<DiffHunk> = None;
 
         for line in stdout.lines() {
-            // 检查行数限制
-            if *total_lines >= MAX_DIFF_LINES {
-                *truncated = true;
-                return;
-            }
-
             // 文件头
             if line.starts_with("diff --git ") {
                 // 保存上一个文件
@@ -206,16 +203,15 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
                     if let Some(hunk) = current_hunk.take() {
                         file.hunks.push(hunk);
                     }
-                    // 检查文件数量限制
-                    if files_map.len() >= MAX_DIFF_FILES {
-                        *truncated = true;
-                        return;
-                    }
                     // 合并到 files_map
                     if let Some(existing) = files_map.get_mut(&file.path) {
                         existing.hunks.extend(file.hunks);
                         existing.additions += file.additions;
                         existing.deletions += file.deletions;
+                        // 如果已存在，更新 source 为优先级更高的（committed > unstaged > untracked）
+                        if existing.source == "untracked" || existing.source == "unstaged" {
+                            existing.source = file.source;
+                        }
                     } else {
                         files_map.insert(file.path.clone(), file);
                     }
@@ -232,6 +228,7 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
                         hunks: Vec::new(),
                         additions: 0,
                         deletions: 0,
+                        source: source.to_string(),
                     });
                 }
                 current_hunk = None;
@@ -293,7 +290,6 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
                         });
                         file.additions += 1;
                         *total_additions += 1;
-                        *total_lines += 1;
                     }
                 }
             }
@@ -308,7 +304,6 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
                         });
                         file.deletions += 1;
                         *total_deletions += 1;
-                        *total_lines += 1;
                     }
                 }
             }
@@ -324,7 +319,6 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
                             new_line: Some(hunk.new_start + ctx_count + add_count),
                             content: line[1..].to_string(),
                         });
-                        *total_lines += 1;
                     }
                 }
             }
@@ -335,20 +329,21 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
             if let Some(hunk) = current_hunk {
                 file.hunks.push(hunk);
             }
-            // 检查文件数量限制
-            if files_map.len() < MAX_DIFF_FILES {
-                if let Some(existing) = files_map.get_mut(&file.path) {
-                    existing.hunks.extend(file.hunks);
-                    existing.additions += file.additions;
-                    existing.deletions += file.deletions;
-                } else {
-                    files_map.insert(file.path.clone(), file);
+            if let Some(existing) = files_map.get_mut(&file.path) {
+                existing.hunks.extend(file.hunks);
+                existing.additions += file.additions;
+                existing.deletions += file.deletions;
+                // 如果已存在，更新 source 为优先级更高的
+                if existing.source == "untracked" || existing.source == "unstaged" {
+                    existing.source = file.source;
                 }
+            } else {
+                files_map.insert(file.path.clone(), file);
             }
         }
     };
 
-    // 1. 获取分支间的提交差异（三点语法）
+    // 1. 获取分支间的提交差异（三点语法）- committed
     let output = Command::new("git")
         .args(["-c", "core.quotepath=false", "diff", &format!("{}...HEAD", target_branch)])
         .current_dir(worktree_path)
@@ -356,19 +351,79 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        parse_diff_output(&stdout, &mut files_map, &mut total_additions, &mut total_deletions, &mut total_lines, &mut truncated);
+        parse_diff_output(&stdout, &mut files_map, &mut total_additions, &mut total_deletions, "committed");
     }
 
-    // 2. 获取工作区未提交的变更
-    if !truncated {
-        let worktree_output = Command::new("git")
-            .args(["-c", "core.quotepath=false", "diff", "HEAD"])
-            .current_dir(worktree_path)
-            .output()?;
+    // 2. 获取工作区未提交的变更（已跟踪文件）- unstaged
+    let worktree_output = Command::new("git")
+        .args(["-c", "core.quotepath=false", "diff", "HEAD"])
+        .current_dir(worktree_path)
+        .output()?;
 
-        if worktree_output.status.success() {
-            let stdout = String::from_utf8_lossy(&worktree_output.stdout);
-            parse_diff_output(&stdout, &mut files_map, &mut total_additions, &mut total_deletions, &mut total_lines, &mut truncated);
+    if worktree_output.status.success() {
+        let stdout = String::from_utf8_lossy(&worktree_output.stdout);
+        parse_diff_output(&stdout, &mut files_map, &mut total_additions, &mut total_deletions, "unstaged");
+    }
+
+    // 3. 获取未跟踪的新文件（Untracked files）
+    let untracked_output = Command::new("git")
+        .args(["-c", "core.quotepath=false", "status", "--porcelain", "--untracked-files=all"])
+        .current_dir(worktree_path)
+        .output()?;
+
+    if untracked_output.status.success() {
+        let stdout = String::from_utf8_lossy(&untracked_output.stdout);
+        for line in stdout.lines() {
+            // porcelain 格式: XY PATH 或 XY ORIG_PATH -> PATH
+            if line.len() < 3 {
+                continue;
+            }
+            let status_code = &line[0..2];
+            let path_part = &line[3..];
+
+            // ?? 表示未跟踪文件
+            if status_code == "??" {
+                let path = path_part.to_string();
+                let file_path = std::path::Path::new(worktree_path).join(&path);
+
+                // 读取文件内容创建 diff
+                if let Ok(content) = std::fs::read_to_string(&file_path) {
+                    let lines: Vec<&str> = content.lines().collect();
+                    let line_count = lines.len();
+
+                    // 创建一个新的 hunk 包含所有行
+                    let mut diff_lines: Vec<DiffLine> = Vec::new();
+                    for (idx, line_content) in lines.iter().enumerate() {
+                        diff_lines.push(DiffLine {
+                            line_type: "addition".to_string(),
+                            old_line: None,
+                            new_line: Some(idx + 1),
+                            content: line_content.to_string(),
+                        });
+                    }
+
+                    let hunk = DiffHunk {
+                        old_start: 0,
+                        old_lines: 0,
+                        new_start: 1,
+                        new_lines: line_count,
+                        lines: diff_lines,
+                    };
+
+                    let file_diff = FileDiff {
+                        path: path.clone(),
+                        old_path: None,
+                        status: "added".to_string(),
+                        hunks: vec![hunk],
+                        additions: line_count,
+                        deletions: 0,
+                        source: "untracked".to_string(),
+                    };
+
+                    files_map.insert(path, file_diff);
+                    total_additions += line_count;
+                }
+            }
         }
     }
 
@@ -381,18 +436,6 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
     files.sort_by(|a, b| {
         (b.additions + b.deletions).cmp(&(a.additions + a.deletions))
     });
-
-    // 如果被截断，添加提示文件
-    if truncated {
-        files.push(FileDiff {
-            path: "... (diff truncated: too many files or lines)".to_string(),
-            old_path: None,
-            status: "truncated".to_string(),
-            hunks: Vec::new(),
-            additions: 0,
-            deletions: 0,
-        });
-    }
 
     Ok(DetailedDiffResponse {
         source_branch,

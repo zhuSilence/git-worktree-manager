@@ -118,6 +118,7 @@
     "editTagsAndNotes": "Edit tags and notes",
     "branchManager": "Branch Manager",
     "viewDiff": "View diff with main branch",
+    "mergeToMain": "Merge to main branch",
     "deleteFailed": "Delete failed"
   },
   "createWorktree": {
@@ -125,6 +126,7 @@
     "name": "Worktree Name",
     "namePlaceholder": "e.g. feature/new-feature or paste Issue link",
     "namingSuggestion": "Naming Suggestions",
+    "aiNamingSuggestion": "AI Naming Suggestions",
     "baseBranch": "Base Branch",
     "currentBranch": "(current)",
     "createNewBranch": "Create new branch (using Worktree name)",
@@ -273,6 +275,7 @@
     "reReview": "Re-review",
     "toggleReviewPanel": "Toggle review panel",
     "analyzing": "Analyzing...",
+    "mergeToTarget": "Merge to {{branch}}",
     "issues": "issues",
     "lines": "lines",
     "line": "Line",
@@ -312,6 +315,23 @@
     "abort": "Abort Hotfix",
     "confirmAbort": "Are you sure you want to abort this hotfix? This will delete the hotfix branch and worktree.",
     "help": "Hotfix workflow automatically creates branch and worktree. One-click merge and cleanup when done."
+  },
+  "merge": {
+    "title": "Merge Branch",
+    "sourceBranch": "Source Branch",
+    "targetBranch": "Target Branch",
+    "noAvailableTargets": "No available target branches",
+    "autoPush": "Auto-push after merge",
+    "merge": "Merge",
+    "success": "Merge successful",
+    "failed": "Merge failed",
+    "unknownError": "Unknown error",
+    "abortFailed": "Failed to abort merge",
+    "completeFailed": "Failed to complete merge",
+    "abort": "Abort Merge",
+    "complete": "Complete Merge",
+    "conflictFiles": "Conflict Files",
+    "conflictHint": "Please resolve conflicts in the target worktree manually, then click 'Complete Merge'"
   },
   "groups": {
     "title": "Group Management",

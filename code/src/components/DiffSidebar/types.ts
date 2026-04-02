@@ -29,5 +29,6 @@ export interface FileTreeNode {
   status?: string
   additions?: number
   deletions?: number
+  source?: 'committed' | 'unstaged' | 'untracked'
   children: FileTreeNode[]
 }
