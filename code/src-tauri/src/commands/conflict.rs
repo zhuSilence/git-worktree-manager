@@ -23,7 +23,7 @@ pub async fn get_conflict_preview_cmd(
         file_path,
     };
 
-    run_blocking(move || get_conflict_preview(request)).await
+    run_blocking(move || get_conflict_preview(&request)).await
 }
 
 /// Helper: 在阻塞上下文中运行 git 操作
