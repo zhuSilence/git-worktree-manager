@@ -7,7 +7,7 @@ use crate::utils::validation::validate_path;
 pub async fn detect_conflicts_cmd(repo_path: String) -> Result<ConflictDetectionResponse, String> {
     let path = validate_path(&repo_path).map_err(|e| e.to_string())?;
 
-    run_blocking(|| detect_conflicts(path.to_str().unwrap_or(""))).await
+    run_blocking(move || detect_conflicts(path.to_str().unwrap_or(""))).await
 }
 
 /// 获取冲突文件预览
@@ -23,7 +23,7 @@ pub async fn get_conflict_preview_cmd(
         file_path,
     };
 
-    run_blocking(|| get_conflict_preview(&request)).await
+    run_blocking(move || get_conflict_preview(request)).await
 }
 
 /// Helper: 在阻塞上下文中运行 git 操作
