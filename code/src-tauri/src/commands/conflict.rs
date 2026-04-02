@@ -7,7 +7,7 @@ use crate::utils::validation::validate_path;
 pub async fn detect_conflicts_cmd(repo_path: String) -> Result<ConflictDetectionResponse, String> {
     let path = validate_path(&repo_path).map_err(|e| e.to_string())?;
 
-    run_blocking(|| detect_conflicts(&path)).await
+    run_blocking(|| detect_conflicts(path.to_str().unwrap_or(""))).await
 }
 
 /// 获取冲突文件预览
@@ -19,7 +19,7 @@ pub async fn get_conflict_preview_cmd(
     let path = validate_path(&repo_path).map_err(|e| e.to_string())?;
 
     let request = ConflictPreviewRequest {
-        repo_path: path,
+        repo_path: path.to_str().unwrap_or_default().to_string(),
         file_path,
     };
 

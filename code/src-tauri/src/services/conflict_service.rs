@@ -180,7 +180,7 @@ fn get_worktree_changes(
 
                 changes.push(FileChangeInfo {
                     path,
-                    change_type,
+                    change_type: change_type.to_string(),
                     additions,
                     deletions,
                 });
@@ -219,7 +219,7 @@ fn get_worktree_changes(
 
                     changes.push(FileChangeInfo {
                         path,
-                        change_type,
+                        change_type: change_type.to_string(),
                         additions,
                         deletions,
                     });
