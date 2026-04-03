@@ -9,6 +9,9 @@ const mockUpdate = {
   downloadAndInstall: vi.fn(),
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _mockUpdate = mockUpdate;
+
 vi.mock('@tauri-apps/plugin-updater', () => ({
   check: vi.fn(),
 }));

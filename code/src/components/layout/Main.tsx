@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { cn } from '@/utils/format'
 
-interface MainProps extends React.HTMLAttributes<HTMLElement> {}
+export type MainProps = React.HTMLAttributes<HTMLElement>
 
 export const Main: React.FC<MainProps> = ({ className, children, ...props }) => {
   return (
