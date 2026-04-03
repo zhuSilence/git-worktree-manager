@@ -7,6 +7,7 @@ use regex::Regex;
 use super::worktree_service::list_worktrees;
 
 static HUNK_HEADER_RE: LazyLock<Regex> = LazyLock::new(|| {
+    #[allow(clippy::expect_used)]
     Regex::new(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@").expect("valid hunk header regex pattern")
 });
 
@@ -307,7 +308,7 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
                     }
                 }
             }
-            else if line.starts_with(' ') {
+            else if let Some(stripped) = line.strip_prefix(' ') {
                 if let Some(ref mut _file) = current_file {
                     if let Some(ref mut hunk) = current_hunk {
                         let ctx_count = hunk.lines.iter().filter(|l| l.line_type == "context").count();
@@ -317,7 +318,7 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
                             line_type: "context".to_string(),
                             old_line: Some(hunk.old_start + ctx_count + del_count),
                             new_line: Some(hunk.new_start + ctx_count + add_count),
-                            content: line[1..].to_string(),
+                            content: stripped.to_string(),
                         });
                     }
                 }

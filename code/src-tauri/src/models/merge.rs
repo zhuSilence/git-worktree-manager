@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 /// 合并参数
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct MergeParams {
     /// 仓库路径（主仓库）
     pub repo_path: String,
@@ -63,6 +64,7 @@ pub struct MergeResult {
 /// 完成合并参数
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct CompleteMergeParams {
     /// worktree 路径
     pub worktree_path: String,

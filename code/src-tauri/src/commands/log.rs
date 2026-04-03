@@ -27,7 +27,7 @@ pub async fn export_operation_logs_cmd(output_path: String) -> Result<String, St
 /// 清理过期日志
 #[command]
 pub async fn cleanup_old_logs_cmd() -> Result<usize, String> {
-    run_blocking(move || cleanup_old_logs()).await
+    run_blocking(cleanup_old_logs).await
 }
 
 // ============ 删除保护命令 ============
@@ -49,7 +49,7 @@ pub async fn create_backup_cmd(request: CreateBackupRequest) -> Result<BackupInf
 /// 获取备份列表
 #[command]
 pub async fn list_backups_cmd() -> Result<BackupListResponse, String> {
-    run_blocking(move || list_backups()).await
+    run_blocking(list_backups).await
 }
 
 /// 恢复备份
@@ -70,7 +70,7 @@ pub async fn delete_backup_cmd(backup_id: String) -> Result<bool, String> {
 /// 清理过期备份
 #[command]
 pub async fn cleanup_expired_backups_cmd() -> Result<usize, String> {
-    run_blocking(move || cleanup_expired_backups()).await
+    run_blocking(cleanup_expired_backups).await
 }
 
 /// 获取备份详情
