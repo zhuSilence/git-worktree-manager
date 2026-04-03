@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { X, FileText, Plus, Minus, RefreshCw, GitCompare, GitMerge, ChevronDown, ChevronRight, Columns, AlignLeft, ArrowUp, GripVertical, ChevronsDown, LayoutList, Sparkles } from 'lucide-react'
+import { X, FileText, Plus, Minus, RefreshCw, GitCompare, GitMerge, ChevronDown, ChevronRight, Columns, AlignLeft, ArrowUp, GripVertical, ChevronsDown, LayoutList, Sparkles, SplitSquareVertical } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { gitService } from '@/services/git'
 import type { DetailedDiffResponse, FileDiff } from '@/types/worktree'
@@ -65,6 +65,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set())
   const [showAIConfig, setShowAIConfig] = useState(false)
   const [showMergePanel, setShowMergePanel] = useState(false)
+  const [enableFunctionAlign, setEnableFunctionAlign] = useState(true)
   const scrollRef = useRef<HTMLDivElement>(null)
   const sidebarRef = useRef<HTMLDivElement>(null)
   // 用于保存 setTimeout 的 timer ID，组件卸载时清理
@@ -498,6 +499,22 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
             </button>
           </div>
 
+          {/* 函数对齐开关 */}
+          {viewMode === 'split' && (
+            <button
+              onClick={() => setEnableFunctionAlign(!enableFunctionAlign)}
+              className={clsx(
+                'p-1 rounded transition-colors',
+                enableFunctionAlign
+                  ? 'text-purple-500 bg-purple-50 dark:bg-purple-900/30'
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              )}
+              title={enableFunctionAlign ? t('diff.disableFunctionAlign', '关闭函数对齐') : t('diff.enableFunctionAlign', '开启函数对齐')}
+            >
+              <SplitSquareVertical className="w-3.5 h-3.5" />
+            </button>
+          )}
+
           {/* 文件树切换 */}
           <button
             onClick={() => setShowFileTree(!showFileTree)}
@@ -711,6 +728,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                             targetBranch={targetBranch}
                             reviewResult={currentResult}
                             filePath={file.path}
+                            enableFunctionAlign={enableFunctionAlign}
                           />
                         )}
                       </div>
