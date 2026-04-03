@@ -33,7 +33,6 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
   const { t } = useTranslation()
   const { worktrees, isLoading, currentRepo, refreshWorktrees } = useWorktreeStore()
   const groups = useGroupsStore(state => state.groups)
-  const groupings = useGroupsStore(state => state.groupings)
   const getWorktreeGroup = useGroupsStore(state => state.getWorktreeGroup)
   const initializeDefaultGroups = useGroupsStore(state => state.initializeDefaultGroups)
 
