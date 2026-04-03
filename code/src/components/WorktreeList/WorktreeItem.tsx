@@ -143,7 +143,7 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, rep
 
   return (
     <>
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors">
         {/* 已合并提醒横幅 */}
         {isMerged && !worktree.isMain && (
           <div className="flex items-center gap-2 mb-2 px-2 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs rounded-md">

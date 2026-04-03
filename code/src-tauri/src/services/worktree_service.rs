@@ -44,7 +44,7 @@ fn get_main_worktree(repo: &Repository) -> anyhow::Result<Worktree> {
     let sync_status = get_sync_status(repo, &branch)?;
 
     Ok(Worktree {
-        id: commit.id().to_string(),
+        id: path.to_string_lossy().to_string(), // 使用路径作为唯一标识符
         name: branch.clone(),
         branch,
         path: path.to_string_lossy().to_string(),
@@ -72,7 +72,7 @@ fn get_linked_worktree(repo: &Repository, name: &str) -> anyhow::Result<Option<W
     let sync_status = get_sync_status(&wt_repo, &branch)?;
 
     Ok(Some(Worktree {
-        id: commit.id().to_string(),
+        id: path.clone(), // 使用路径作为唯一标识符
         name: name.to_string(),
         branch,
         path,
