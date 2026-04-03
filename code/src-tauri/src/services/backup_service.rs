@@ -48,7 +48,7 @@ fn read_all_backups() -> anyhow::Result<Vec<BackupInfo>> {
 
     let backups: Vec<BackupInfo> = reader
         .lines()
-        .filter_map(|line| line.ok())
+        .map_while(Result::ok)
         .filter_map(|line| serde_json::from_str(&line).ok())
         .collect();
 
@@ -185,7 +185,7 @@ pub fn create_backup(worktree_path: &str, branch: &str) -> anyhow::Result<Backup
         original_path: worktree_path.to_string(),
         branch: branch.to_string(),
         created_at: now.to_rfc3339(),
-        stash_ref: stash_ref,
+        stash_ref,
         restored: false,
         expires_at: expires.to_rfc3339(),
     };

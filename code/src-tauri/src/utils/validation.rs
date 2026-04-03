@@ -3,11 +3,15 @@ use std::path::{Component, PathBuf};
 use std::sync::LazyLock;
 
 static BRANCH_NAME_RE: LazyLock<Regex> = LazyLock::new(|| {
+    // SAFETY: This is a compile-time constant regex pattern that is always valid
+    #[allow(clippy::expect_used)]
     Regex::new(r"^[a-zA-Z0-9_\-/.]+$").expect("valid branch name regex pattern")
 });
 
 #[allow(dead_code)]
 static REPO_NAME_RE: LazyLock<Regex> = LazyLock::new(|| {
+    // SAFETY: This is a compile-time constant regex pattern that is always valid
+    #[allow(clippy::expect_used)]
     Regex::new(r"^[a-zA-Z0-9_\-]+$").expect("valid repo name regex pattern")
 });
 

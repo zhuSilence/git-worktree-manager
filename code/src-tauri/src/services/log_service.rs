@@ -82,7 +82,7 @@ fn read_all_logs() -> anyhow::Result<Vec<OperationLog>> {
 
     let logs: Vec<OperationLog> = reader
         .lines()
-        .filter_map(|line| line.ok())
+        .map_while(Result::ok)
         .filter_map(|line| serde_json::from_str(&line).ok())
         .collect();
 

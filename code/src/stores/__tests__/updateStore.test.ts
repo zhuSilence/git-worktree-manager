@@ -1,14 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { updateStore } from '../updateStore';
 
-// Mock Tauri updater plugin
-const mockUpdate = {
-  version: '2.0.0',
-  date: '2024-01-15',
-  body: 'Release notes here',
-  downloadAndInstall: vi.fn(),
-};
-
 vi.mock('@tauri-apps/plugin-updater', () => ({
   check: vi.fn(),
 }));

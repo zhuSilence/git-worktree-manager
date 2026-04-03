@@ -56,7 +56,7 @@ pub fn merge_branch_in_worktree(params: &MergeParams) -> anyhow::Result<MergeRes
     }
 
     // 6. 执行合并
-    let mut merge_opts = git2::MergeOptions::new();
+    let merge_opts = git2::MergeOptions::new();
     let mut merge_index = match target_repo.merge_commits(
         &target_commit,
         &source_commit,
@@ -177,7 +177,7 @@ pub fn merge_branch_in_worktree(params: &MergeParams) -> anyhow::Result<MergeRes
 
     info!(
         "[merge] Successfully merged into commit {}",
-        commit_id.to_string()
+        commit_id
     );
 
     // 9. 可选：推送
@@ -381,7 +381,7 @@ pub fn complete_merge(worktree_path: &str, message: Option<String>) -> anyhow::R
 
     info!(
         "[merge] Merge completed successfully: {}",
-        commit_id.to_string()
+        commit_id
     );
 
     Ok(MergeResult {
