@@ -7,6 +7,7 @@ use regex::Regex;
 use super::worktree_service::list_worktrees;
 
 static HUNK_HEADER_RE: LazyLock<Regex> = LazyLock::new(|| {
+    #[allow(clippy::expect_used)]
     Regex::new(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@").expect("valid hunk header regex pattern")
 });
 
@@ -307,7 +308,7 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
                     }
                 }
             }
-            else if line.starts_with(' ') {
+            else if let Some(stripped) = line.strip_prefix(' ') {
                 if let Some(ref mut _file) = current_file {
                     if let Some(ref mut hunk) = current_hunk {
                         let ctx_count = hunk.lines.iter().filter(|l| l.line_type == "context").count();
@@ -317,7 +318,7 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
                             line_type: "context".to_string(),
                             old_line: Some(hunk.old_start + ctx_count + del_count),
                             new_line: Some(hunk.new_start + ctx_count + add_count),
-                            content: line[1..].to_string(),
+                            content: stripped.to_string(),
                         });
                     }
                 }
@@ -459,45 +460,43 @@ pub fn get_timeline(repo_path: &str, since: Option<i64>, until: Option<i64>) -> 
         if let Ok(wt_repo) = Repository::open(&worktree.path) {
             // 获取提交历史
             if let Ok(revwalk) = get_commit_revwalk(&wt_repo, since, until) {
-                for commit_result in revwalk {
-                    if let Ok(oid) = commit_result {
-                        if let Ok(commit) = wt_repo.find_commit(oid) {
-                            let time = commit.time();
-                            let commit_time = time.seconds();
+                for oid in revwalk.flatten() {
+                    if let Ok(commit) = wt_repo.find_commit(oid) {
+                        let time = commit.time();
+                        let commit_time = time.seconds();
 
-                            // 时间范围过滤
-                            if let Some(s) = since {
-                                if commit_time < s {
-                                    continue;
-                                }
+                        // 时间范围过滤
+                        if let Some(s) = since {
+                            if commit_time < s {
+                                continue;
                             }
-                            if let Some(u) = until {
-                                if commit_time > u {
-                                    continue;
-                                }
-                            }
-
-                            let now = std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)?
-                                .as_secs() as i64;
-
-                            let relative_time = format_relative_time(now, commit_time);
-
-                            // 格式化 ISO 8601 日期
-                            let datetime = chrono::DateTime::from_timestamp(commit_time, 0)
-                                .unwrap_or_else(|| chrono::Utc::now());
-                            let date = datetime.to_rfc3339();
-
-                            commits.push(CommitInfo {
-                                hash: commit.id().to_string()[..7.min(commit.id().to_string().len())].to_string(),
-                                message: commit.summary().unwrap_or("No message").to_string(),
-                                author: commit.author().name().unwrap_or("Unknown").to_string(),
-                                date,
-                                relative_time,
-                                worktree_name: worktree.name.clone(),
-                                branch: worktree.branch.clone(),
-                            });
                         }
+                        if let Some(u) = until {
+                            if commit_time > u {
+                                continue;
+                            }
+                        }
+
+                        let now = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)?
+                            .as_secs() as i64;
+
+                        let relative_time = format_relative_time(now, commit_time);
+
+                        // 格式化 ISO 8601 日期
+                        let datetime = chrono::DateTime::from_timestamp(commit_time, 0)
+                            .unwrap_or_else(|| chrono::Utc::now());
+                        let date = datetime.to_rfc3339();
+
+                        commits.push(CommitInfo {
+                            hash: commit.id().to_string()[..7.min(commit.id().to_string().len())].to_string(),
+                            message: commit.summary().unwrap_or("No message").to_string(),
+                            author: commit.author().name().unwrap_or("Unknown").to_string(),
+                            date,
+                            relative_time,
+                            worktree_name: worktree.name.clone(),
+                            branch: worktree.branch.clone(),
+                        });
                     }
                 }
             }

@@ -56,7 +56,7 @@ pub fn merge_branch_in_worktree(params: &MergeParams) -> anyhow::Result<MergeRes
     }
 
     // 6. 执行合并
-    let mut merge_opts = git2::MergeOptions::new();
+    let merge_opts = git2::MergeOptions::new();
     let mut merge_index = match target_repo.merge_commits(
         &target_commit,
         &source_commit,
