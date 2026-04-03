@@ -1,11 +1,14 @@
 use log::debug;
 use reqwest::{
-    Client,
     header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE},
+    Client,
 };
 use serde_json::{json, Value};
 
-use crate::models::{AIConfig, AIProvider, AIReviewResult, ReviewIssue, ReviewImprovement, ReviewHighlight, AINamingSuggestion, AINamingResponse};
+use crate::models::{
+    AIConfig, AINamingResponse, AINamingSuggestion, AIProvider, AIReviewResult, ReviewHighlight,
+    ReviewImprovement, ReviewIssue,
+};
 
 const MAX_DIFF_TOKENS: usize = 8000;
 const OPENAI_API_URL: &str = "https://api.openai.com/v1/chat/completions";
@@ -120,10 +123,7 @@ impl AIService {
         let url = CLAUDE_API_URL;
 
         let mut headers = HeaderMap::new();
-        headers.insert(
-            "x-api-key",
-            HeaderValue::from_str(&config.api_key)?,
-        );
+        headers.insert("x-api-key", HeaderValue::from_str(&config.api_key)?);
         headers.insert("anthropic-version", HeaderValue::from_static("2023-06-01"));
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
 
@@ -224,11 +224,7 @@ impl AIService {
 
         if !status.is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(anyhow::anyhow!(
-                "API 请求失败 ({}): {}",
-                status,
-                error_text
-            ));
+            return Err(anyhow::anyhow!("API 请求失败 ({}): {}", status, error_text));
         }
 
         let response_text = response.text().await?;
@@ -241,10 +237,7 @@ impl AIService {
         let content = json["choices"][0]["message"]["content"]
             .as_str()
             .ok_or_else(|| {
-                let error_detail = format!(
-                    "无法从响应中提取内容。响应结构: {:?}",
-                    json
-                );
+                let error_detail = format!("无法从响应中提取内容。响应结构: {:?}", json);
                 anyhow::anyhow!("{}", error_detail)
             })?
             .to_string();
@@ -268,8 +261,17 @@ impl AIService {
     }
 
     /// 构建评审 prompt
-    fn build_review_prompt(&self, diff: &str, stats: &crate::models::ReviewDiffStats, language: &str) -> String {
-        let lang_text = if language == "zh" { "中文" } else { "English" };
+    fn build_review_prompt(
+        &self,
+        diff: &str,
+        stats: &crate::models::ReviewDiffStats,
+        language: &str,
+    ) -> String {
+        let lang_text = if language == "zh" {
+            "中文"
+        } else {
+            "English"
+        };
 
         format!(
             r#"你是一位资深代码审查专家。请对以下代码变更进行专业评审。
@@ -437,8 +439,17 @@ impl AIService {
     }
 
     /// 构建命名建议 prompt
-    fn build_naming_prompt(&self, recent_commits: &str, user_input: Option<&str>, language: &str) -> String {
-        let lang_text = if language == "zh" { "中文" } else { "English" };
+    fn build_naming_prompt(
+        &self,
+        recent_commits: &str,
+        user_input: Option<&str>,
+        language: &str,
+    ) -> String {
+        let lang_text = if language == "zh" {
+            "中文"
+        } else {
+            "English"
+        };
         let user_context = user_input
             .map(|s| format!("\n用户已输入: {}", s))
             .unwrap_or_default();
@@ -486,7 +497,10 @@ impl AIService {
             .iter()
             .filter_map(|v| {
                 let name = v["name"].as_str()?.to_string();
-                let suggestion_type = v["suggestion_type"].as_str().unwrap_or("基于最近提交").to_string();
+                let suggestion_type = v["suggestion_type"]
+                    .as_str()
+                    .unwrap_or("基于最近提交")
+                    .to_string();
                 let reason = v["reason"].as_str().unwrap_or("").to_string();
                 Some(AINamingSuggestion {
                     name,

@@ -1,20 +1,22 @@
-use crate::models::{BackupInfo, BackupListResponse, RestoreBackupResult, DeleteProtectionCheck};
-use crate::services::get_worktree_status;
 use crate::models::WorktreeStatus;
+use crate::models::{BackupInfo, BackupListResponse, DeleteProtectionCheck, RestoreBackupResult};
+use crate::services::get_worktree_status;
+use chrono::{DateTime, Duration, Utc};
+use git2::Repository;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::PathBuf;
 use std::process::Command;
-use chrono::{DateTime, Utc, Duration};
 use uuid::Uuid;
-use git2::Repository;
 
 /// 备份存储目录
 fn get_backup_dir() -> PathBuf {
     let home = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .unwrap_or_else(|_| ".".to_string());
-    PathBuf::from(home).join(".worktree-manager").join("backups")
+    PathBuf::from(home)
+        .join(".worktree-manager")
+        .join("backups")
 }
 
 /// 备份元数据文件
@@ -78,7 +80,10 @@ fn write_backups(backups: &[BackupInfo]) -> anyhow::Result<()> {
 }
 
 /// 检查删除保护（检查是否有未提交更改）
-pub fn check_delete_protection(worktree_path: &str, branch: &str) -> anyhow::Result<DeleteProtectionCheck> {
+pub fn check_delete_protection(
+    worktree_path: &str,
+    branch: &str,
+) -> anyhow::Result<DeleteProtectionCheck> {
     let repo = Repository::open(worktree_path)?;
     let status = get_worktree_status(&repo)?;
 
@@ -159,12 +164,15 @@ pub fn create_backup(worktree_path: &str, branch: &str) -> anyhow::Result<Backup
 
         if stashes_after.len() > stash_count_before {
             // 新增了 stash，找到匹配我们标记的那个
-            let found = stashes_after.iter().find(|(_, msg)| msg.contains(&backup_marker));
+            let found = stashes_after
+                .iter()
+                .find(|(_, msg)| msg.contains(&backup_marker));
             if let Some((ref_str, _)) = found {
                 ref_str.clone()
             } else {
                 // 如果没找到匹配的，取最新的（第一个）
-                stashes_after.first()
+                stashes_after
+                    .first()
                     .map(|(ref_str, _)| ref_str.clone())
                     .unwrap_or_else(|| "stash@{0}".to_string())
             }
@@ -227,7 +235,10 @@ pub fn list_backups() -> anyhow::Result<BackupListResponse> {
 }
 
 /// 恢复备份
-pub fn restore_backup(backup_id: &str, target_path: Option<&str>) -> anyhow::Result<RestoreBackupResult> {
+pub fn restore_backup(
+    backup_id: &str,
+    target_path: Option<&str>,
+) -> anyhow::Result<RestoreBackupResult> {
     let backups = read_all_backups()?;
 
     // 先找到备份的索引和克隆数据
@@ -242,7 +253,9 @@ pub fn restore_backup(backup_id: &str, target_path: Option<&str>) -> anyhow::Res
     }
 
     let idx = backup_index.ok_or_else(|| anyhow::anyhow!("Backup not found: {}", backup_id))?;
-    let backup = backups.get(idx).ok_or_else(|| anyhow::anyhow!("Invalid backup index: {}", idx))?;
+    let backup = backups
+        .get(idx)
+        .ok_or_else(|| anyhow::anyhow!("Invalid backup index: {}", idx))?;
 
     if backup.stash_ref == "no-stash" {
         return Ok(RestoreBackupResult {
@@ -342,10 +355,7 @@ pub fn restore_backup(backup_id: &str, target_path: Option<&str>) -> anyhow::Res
 pub fn delete_backup(backup_id: &str) -> anyhow::Result<bool> {
     let backups = read_all_backups()?;
     let original_len = backups.len();
-    let updated: Vec<BackupInfo> = backups
-        .into_iter()
-        .filter(|b| b.id != backup_id)
-        .collect();
+    let updated: Vec<BackupInfo> = backups.into_iter().filter(|b| b.id != backup_id).collect();
 
     if updated.len() == original_len {
         return Ok(false); // 没有找到

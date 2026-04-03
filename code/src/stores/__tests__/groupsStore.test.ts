@@ -76,7 +76,8 @@ describe('useGroupsStore', () => {
     it('should not modify other groups', () => {
       const store = useGroupsStore.getState();
       const group1 = store.createGroup('Group 1', '#3b82f6');
-      store.createGroup('Group 2', '#10b981');
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const group2 = store.createGroup('Group 2', '#10b981');
 
       store.updateGroup(group1.id, { name: 'Updated Group 1' });
 

@@ -60,15 +60,13 @@ pub fn list_branches(repo_path: &str) -> anyhow::Result<BranchListResponse> {
     // 获取所有本地分支
     let local_branches = repo.branches(Some(git2::BranchType::Local))?;
 
-    for branch_result in local_branches {
-        if let Ok((branch, _)) = branch_result {
-            if let Some(name) = branch.name()? {
-                let is_current = name == current_branch;
-                branches.push(Branch {
-                    name: name.to_string(),
-                    is_current,
-                });
-            }
+    for (branch, _) in local_branches.flatten() {
+        if let Some(name) = branch.name()? {
+            let is_current = name == current_branch;
+            branches.push(Branch {
+                name: name.to_string(),
+                is_current,
+            });
         }
     }
 
@@ -365,57 +363,54 @@ pub fn list_remote_branches(repo_path: &str) -> anyhow::Result<RemoteBranchListR
     // 获取所有远程分支引用
     let branches = repo.branches(Some(git2::BranchType::Remote))?;
 
-    for branch_result in branches {
-        if let Ok((branch, _)) = branch_result {
-            if let Some(full_name) = branch.name()? {
-                // 跳过 HEAD 引用
-                if full_name.ends_with("/HEAD") {
-                    continue;
-                }
+    for (branch, _) in branches.flatten() {
+        if let Some(full_name) = branch.name()? {
+            // 跳过 HEAD 引用
+            if full_name.ends_with("/HEAD") {
+                continue;
+            }
 
-                // 解析远程名和分支名
-                // 格式: refs/remotes/remote/branch/name 或 refs/heads/branch
-                let (remote, name) = if full_name.starts_with("refs/remotes/") {
-                    // 远程分支: refs/remotes/origin/feature/test
-                    // 提取 remote_name 和 branch_name
-                    let without_prefix = full_name.trim_start_matches("refs/remotes/");
-                    if let Some(pos) = without_prefix.find('/') {
-                        let remote = without_prefix[..pos].to_string();
-                        let branch_name = without_prefix[pos + 1..].to_string();
-                        (remote, branch_name)
-                    } else {
-                        ("".to_string(), full_name.to_string())
-                    }
-                } else if full_name.starts_with("refs/heads/") {
-                    // 本地分支
-                    let name = full_name.trim_start_matches("refs/heads/").to_string();
-                    ("".to_string(), name)
+            // 解析远程名和分支名
+            // 格式: refs/remotes/remote/branch/name 或 refs/heads/branch
+            let (remote, name) = if full_name.starts_with("refs/remotes/") {
+                // 远程分支: refs/remotes/origin/feature/test
+                // 提取 remote_name 和 branch_name
+                let without_prefix = full_name.trim_start_matches("refs/remotes/");
+                if let Some(pos) = without_prefix.find('/') {
+                    let remote = without_prefix[..pos].to_string();
+                    let branch_name = without_prefix[pos + 1..].to_string();
+                    (remote, branch_name)
                 } else {
                     ("".to_string(), full_name.to_string())
-                };
+                }
+            } else if full_name.starts_with("refs/heads/") {
+                // 本地分支
+                let name = full_name.trim_start_matches("refs/heads/").to_string();
+                ("".to_string(), name)
+            } else {
+                ("".to_string(), full_name.to_string())
+            };
 
-                // 获取最后提交信息
-                let reference = branch.get();
-                let (last_commit, last_commit_date) = if let Ok(commit) = reference.peel_to_commit()
-                {
-                    let hash = commit.id().to_string();
-                    let short_hash = &hash[..7.min(hash.len())];
-                    let time = commit.time();
-                    let datetime = chrono::DateTime::from_timestamp(time.seconds(), 0)
-                        .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string());
-                    (Some(short_hash.to_string()), datetime)
-                } else {
-                    (None, None)
-                };
+            // 获取最后提交信息
+            let reference = branch.get();
+            let (last_commit, last_commit_date) = if let Ok(commit) = reference.peel_to_commit() {
+                let hash = commit.id().to_string();
+                let short_hash = &hash[..7.min(hash.len())];
+                let time = commit.time();
+                let datetime = chrono::DateTime::from_timestamp(time.seconds(), 0)
+                    .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string());
+                (Some(short_hash.to_string()), datetime)
+            } else {
+                (None, None)
+            };
 
-                remote_branches.push(RemoteBranch {
-                    name,
-                    remote,
-                    full_name: full_name.to_string(),
-                    last_commit,
-                    last_commit_date,
-                });
-            }
+            remote_branches.push(RemoteBranch {
+                name,
+                remote,
+                full_name: full_name.to_string(),
+                last_commit,
+                last_commit_date,
+            });
         }
     }
 

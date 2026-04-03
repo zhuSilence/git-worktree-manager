@@ -32,7 +32,11 @@ fn escape_path_for_shell(path: &str) -> String {
 }
 
 /// 在终端中打开
-pub fn open_in_terminal(path: &str, terminal: Option<String>, custom_path: Option<String>) -> anyhow::Result<()> {
+pub fn open_in_terminal(
+    path: &str,
+    terminal: Option<String>,
+    custom_path: Option<String>,
+) -> anyhow::Result<()> {
     let terminal_type = terminal.unwrap_or_else(|| "terminal".to_string());
 
     // 验证路径
@@ -43,9 +47,7 @@ pub fn open_in_terminal(path: &str, terminal: Option<String>, custom_path: Optio
         let cmd = custom_path.unwrap_or_else(|| "terminal".to_string());
         #[cfg(target_os = "macos")]
         {
-            Command::new("open")
-                .args(["-a", &cmd, path])
-                .spawn()?;
+            Command::new("open").args(["-a", &cmd, path]).spawn()?;
         }
         #[cfg(not(target_os = "macos"))]
         {
@@ -58,14 +60,10 @@ pub fn open_in_terminal(path: &str, terminal: Option<String>, custom_path: Optio
     {
         match terminal_type.as_str() {
             "iterm2" => {
-                Command::new("open")
-                    .args(["-a", "iTerm", path])
-                    .spawn()?;
+                Command::new("open").args(["-a", "iTerm", path]).spawn()?;
             }
             "warp" => {
-                Command::new("open")
-                    .args(["-a", "Warp", path])
-                    .spawn()?;
+                Command::new("open").args(["-a", "Warp", path]).spawn()?;
             }
             _ => {
                 // 默认 Terminal
@@ -89,20 +87,27 @@ pub fn open_in_terminal(path: &str, terminal: Option<String>, custom_path: Optio
                     .args([
                         "-NoExit",
                         "-Command",
-                        &format!("Set-Location -LiteralPath \"{}\"", path.replace("\"", "\"\"")),
+                        &format!(
+                            "Set-Location -LiteralPath \"{}\"",
+                            path.replace("\"", "\"\"")
+                        ),
                     ])
                     .spawn()?;
             }
             "wt" => {
                 // Windows Terminal: 使用原始路径（Command API 会自动处理）
-                Command::new("wt")
-                    .args(["-d", path])
-                    .spawn()?;
+                Command::new("wt").args(["-d", path]).spawn()?;
             }
             _ => {
                 // 默认 CMD: 使用双引号包裹路径并使用 /d 参数支持路径切换
                 Command::new("cmd")
-                    .args(["/C", "start", "cmd", "/K", &format!("cd /d \"{}\"", path.replace("\"", "\"\""))])
+                    .args([
+                        "/C",
+                        "start",
+                        "cmd",
+                        "/K",
+                        &format!("cd /d \"{}\"", path.replace("\"", "\"\"")),
+                    ])
                     .spawn()?;
             }
         }
@@ -129,7 +134,11 @@ pub fn open_in_terminal(path: &str, terminal: Option<String>, custom_path: Optio
 }
 
 /// 在编辑器中打开
-pub fn open_in_editor(path: &str, editor: Option<String>, custom_path: Option<String>) -> anyhow::Result<()> {
+pub fn open_in_editor(
+    path: &str,
+    editor: Option<String>,
+    custom_path: Option<String>,
+) -> anyhow::Result<()> {
     // 验证路径
     validate_path(path).map_err(|e| anyhow::anyhow!(e))?;
 
@@ -174,23 +183,17 @@ pub fn open_in_file_manager(path: &str) -> anyhow::Result<()> {
 
     #[cfg(target_os = "macos")]
     {
-        Command::new("open")
-            .args(["-R", path])
-            .spawn()?;
+        Command::new("open").args(["-R", path]).spawn()?;
     }
 
     #[cfg(target_os = "windows")]
     {
-        Command::new("explorer")
-            .args(["/select,", path])
-            .spawn()?;
+        Command::new("explorer").args(["/select,", path]).spawn()?;
     }
 
     #[cfg(target_os = "linux")]
     {
-        Command::new("xdg-open")
-            .arg(path)
-            .spawn()?;
+        Command::new("xdg-open").arg(path).spawn()?;
     }
 
     Ok(())

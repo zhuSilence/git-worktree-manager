@@ -1,6 +1,9 @@
-use crate::models::{AIConfig, AIProvider, AIReviewRequest, AIReviewResponse, DetailedDiffResponse, AITestConnectionResponse, AINamingRequest, AINamingResponse};
+use crate::models::{
+    AIConfig, AINamingRequest, AINamingResponse, AIProvider, AIReviewRequest, AIReviewResponse,
+    AITestConnectionResponse, DetailedDiffResponse,
+};
 use crate::services::ai_service::AIService;
-use crate::services::{get_diff, get_detailed_diff, get_recent_commits};
+use crate::services::{get_detailed_diff, get_diff, get_recent_commits};
 use crate::utils::validation::validate_path;
 use log::debug;
 use serde::{Deserialize, Serialize};
@@ -46,7 +49,8 @@ impl From<&AIConfig> for AIConfigStored {
 fn store_api_key(provider: &str, key: &str) -> Result<(), String> {
     let entry = keyring::Entry::new(SERVICE_NAME, provider)
         .map_err(|e| format!("Failed to create keyring entry: {}", e))?;
-    entry.set_password(key)
+    entry
+        .set_password(key)
         .map_err(|e| format!("Failed to store API key: {}", e))?;
     Ok(())
 }
@@ -108,20 +112,21 @@ pub async fn get_ai_config() -> Result<AIConfig, String> {
     match content {
         Ok(content) => {
             // 先尝试解析新格式（不含 api_key）
-            let mut config: AIConfig = if let Ok(stored) = serde_json::from_str::<AIConfigStored>(&content) {
-                // 从新格式配置加载
-                AIConfig {
-                    provider: stored.provider,
-                    api_key: String::new(),
-                    base_url: stored.base_url,
-                    model: stored.model,
-                    language: stored.language,
-                    auto_review: stored.auto_review,
-                }
-            } else {
-                // 向后兼容：尝试解析旧格式（含 api_key）
-                serde_json::from_str(&content).map_err(|e| e.to_string())?
-            };
+            let mut config: AIConfig =
+                if let Ok(stored) = serde_json::from_str::<AIConfigStored>(&content) {
+                    // 从新格式配置加载
+                    AIConfig {
+                        provider: stored.provider,
+                        api_key: String::new(),
+                        base_url: stored.base_url,
+                        model: stored.model,
+                        language: stored.language,
+                        auto_review: stored.auto_review,
+                    }
+                } else {
+                    // 向后兼容：尝试解析旧格式（含 api_key）
+                    serde_json::from_str(&content).map_err(|e| e.to_string())?
+                };
 
             // 从系统钥匙链获取 API Key
             let provider_str = format!("{:?}", config.provider).to_lowercase();
@@ -138,8 +143,10 @@ pub async fn get_ai_config() -> Result<AIConfig, String> {
 /// 测试 AI 连接
 #[tauri::command]
 pub async fn test_ai_connection(config: AIConfig) -> Result<AITestConnectionResponse, String> {
-    debug!("[test_ai_connection] 开始测试连接: provider={:?}, base_url={:?}, model={}",
-        config.provider, config.base_url, config.model);
+    debug!(
+        "[test_ai_connection] 开始测试连接: provider={:?}, base_url={:?}, model={}",
+        config.provider, config.base_url, config.model
+    );
 
     let service = AIService::new();
     match service.test_connection(&config).await {
@@ -147,7 +154,11 @@ pub async fn test_ai_connection(config: AIConfig) -> Result<AITestConnectionResp
             debug!("[test_ai_connection] 测试成功: {}", success);
             Ok(AITestConnectionResponse {
                 success,
-                error: if success { None } else { Some("连接失败，请检查配置".to_string()) },
+                error: if success {
+                    None
+                } else {
+                    Some("连接失败，请检查配置".to_string())
+                },
             })
         }
         Err(e) => {
@@ -167,15 +178,20 @@ pub async fn ai_review(request: AIReviewRequest) -> Result<AIReviewResponse, Str
     // 验证路径参数
     validate_path(&request.worktree_path).map_err(|e| e.to_string())?;
 
-    debug!("[ai_review] 开始评审: worktree_path={}, target_branch={}",
-        request.worktree_path, request.target_branch);
+    debug!(
+        "[ai_review] 开始评审: worktree_path={}, target_branch={}",
+        request.worktree_path, request.target_branch
+    );
 
     // 1. 获取 AI 配置
     let config = match get_ai_config().await {
         Ok(cfg) => {
-            debug!("[ai_review] 配置加载成功: provider={:?}, model={}", cfg.provider, cfg.model);
+            debug!(
+                "[ai_review] 配置加载成功: provider={:?}, model={}",
+                cfg.provider, cfg.model
+            );
             cfg
-        },
+        }
         Err(e) => {
             debug!("[ai_review] 配置加载失败: {}", e);
             return Ok(AIReviewResponse {
@@ -201,7 +217,7 @@ pub async fn ai_review(request: AIReviewRequest) -> Result<AIReviewResponse, Str
         Ok(diff) => {
             debug!("[ai_review] Diff 获取成功: {} 个文件", diff.files.len());
             diff
-        },
+        }
         Err(e) => {
             debug!("[ai_review] Diff 获取失败: {}", e);
             return Ok(AIReviewResponse {
@@ -222,7 +238,7 @@ pub async fn ai_review(request: AIReviewRequest) -> Result<AIReviewResponse, Str
         Ok(summary) => {
             debug!("[ai_review] Diff 统计获取成功");
             summary
-        },
+        }
         Err(e) => {
             debug!("[ai_review] Diff 统计获取失败: {}", e);
             return Ok(AIReviewResponse {
@@ -238,7 +254,10 @@ pub async fn ai_review(request: AIReviewRequest) -> Result<AIReviewResponse, Str
         deletions: diff_summary.total_deletions as u32,
         changed_files: diff_summary.files.len() as u32,
     };
-    debug!("[ai_review] 统计: +{} -{} 文件数:{}", stats.additions, stats.deletions, stats.changed_files);
+    debug!(
+        "[ai_review] 统计: +{} -{} 文件数:{}",
+        stats.additions, stats.deletions, stats.changed_files
+    );
 
     // 5. 调用 AI 服务
     debug!("[ai_review] 调用 AI 服务...");
@@ -290,9 +309,16 @@ fn build_diff_content(diff: &DetailedDiffResponse) -> String {
             output.push_str(&format!("--- a/{}\n+++ /dev/null\n", file.path));
         } else if file.status == "renamed" {
             if let Some(old_path) = &file.old_path {
-                output.push_str(&format!("rename from {}\nrename to {}\n", old_path, file.path));
+                output.push_str(&format!(
+                    "rename from {}\nrename to {}\n",
+                    old_path, file.path
+                ));
             }
-            output.push_str(&format!("--- a/{}\n+++ b/{}\n", file.old_path.as_ref().unwrap_or(&file.path), file.path));
+            output.push_str(&format!(
+                "--- a/{}\n+++ b/{}\n",
+                file.old_path.as_ref().unwrap_or(&file.path),
+                file.path
+            ));
         } else {
             output.push_str(&format!("--- a/{}\n+++ b/{}\n", file.path, file.path));
         }
@@ -301,8 +327,7 @@ fn build_diff_content(diff: &DetailedDiffResponse) -> String {
         for hunk in &file.hunks {
             output.push_str(&format!(
                 "@@ -{},{} +{},{} @@\n",
-                hunk.old_start, hunk.old_lines,
-                hunk.new_start, hunk.new_lines
+                hunk.old_start, hunk.old_lines, hunk.new_start, hunk.new_lines
             ));
 
             for line in &hunk.lines {
@@ -338,7 +363,10 @@ pub async fn ai_naming_suggestion(request: AINamingRequest) -> Result<AINamingRe
     // 验证路径参数
     validate_path(&request.repo_path).map_err(|e| e.to_string())?;
 
-    debug!("[ai_naming_suggestion] 开始生成建议: repo_path={}", request.repo_path);
+    debug!(
+        "[ai_naming_suggestion] 开始生成建议: repo_path={}",
+        request.repo_path
+    );
 
     // 1. 获取 AI 配置
     let config = match get_ai_config().await {
@@ -382,12 +410,15 @@ pub async fn ai_naming_suggestion(request: AINamingRequest) -> Result<AINamingRe
 
     // 3. 调用 AI 服务
     let service = AIService::new();
-    match service.generate_naming_suggestions(
-        &config,
-        &recent_commits,
-        request.user_input.as_deref(),
-        &config.language,
-    ).await {
+    match service
+        .generate_naming_suggestions(
+            &config,
+            &recent_commits,
+            request.user_input.as_deref(),
+            &config.language,
+        )
+        .await
+    {
         Ok(response) => {
             debug!("[ai_naming_suggestion] AI 建议生成成功");
             Ok(response)
