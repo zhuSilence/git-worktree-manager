@@ -56,24 +56,21 @@ pub fn merge_branch_in_worktree(params: &MergeParams) -> anyhow::Result<MergeRes
     }
 
     // 6. 执行合并
-    let mut merge_opts = git2::MergeOptions::new();
-    let mut merge_index = match target_repo.merge_commits(
-        &target_commit,
-        &source_commit,
-        Some(&merge_opts),
-    ) {
-        Ok(index) => index,
-        Err(e) => {
-            return Ok(MergeResult {
-                success: false,
-                status: MergeStatus::Failed,
-                message: format!("合并失败: {}", e),
-                commit_id: None,
-                conflicts: vec![],
-                target_branch: target_branch_name,
-            });
-        }
-    };
+    let merge_opts = git2::MergeOptions::new();
+    let mut merge_index =
+        match target_repo.merge_commits(&target_commit, &source_commit, Some(&merge_opts)) {
+            Ok(index) => index,
+            Err(e) => {
+                return Ok(MergeResult {
+                    success: false,
+                    status: MergeStatus::Failed,
+                    message: format!("合并失败: {}", e),
+                    commit_id: None,
+                    conflicts: vec![],
+                    target_branch: target_branch_name,
+                });
+            }
+        };
 
     // 7. 检查是否有冲突
     if merge_index.has_conflicts() {
@@ -81,8 +78,7 @@ pub fn merge_branch_in_worktree(params: &MergeParams) -> anyhow::Result<MergeRes
         let _ = target_repo.set_index(&mut merge_index);
 
         let conflicts = extract_conflicts(&merge_index).unwrap_or_default();
-        let conflict_paths: Vec<String> =
-            conflicts.iter().map(|c| c.path.clone()).collect();
+        let conflict_paths: Vec<String> = conflicts.iter().map(|c| c.path.clone()).collect();
 
         info!("[merge] Conflicts detected: {:?}", conflict_paths);
 
@@ -158,7 +154,10 @@ pub fn merge_branch_in_worktree(params: &MergeParams) -> anyhow::Result<MergeRes
         Some("HEAD"),
         &sig,
         &sig,
-        &format!("Merge branch '{}' into {}", params.source_branch, target_branch_name),
+        &format!(
+            "Merge branch '{}' into {}",
+            params.source_branch, target_branch_name
+        ),
         &tree_obj,
         &[&target_commit, &source_commit],
     ) {
@@ -175,10 +174,7 @@ pub fn merge_branch_in_worktree(params: &MergeParams) -> anyhow::Result<MergeRes
         }
     };
 
-    info!(
-        "[merge] Successfully merged into commit {}",
-        commit_id.to_string()
-    );
+    info!("[merge] Successfully merged into commit {}", commit_id);
 
     // 9. 可选：推送
     if params.auto_push {
@@ -344,9 +340,7 @@ pub fn complete_merge(worktree_path: &str, message: Option<String>) -> anyhow::R
     let merge_commit = repo.find_commit(git2::Oid::from_str(merge_head_oid)?)?;
 
     // 提交消息
-    let commit_msg = message.unwrap_or_else(|| {
-        format!("Merge branch into {}", target_branch_name)
-    });
+    let commit_msg = message.unwrap_or_else(|| format!("Merge branch into {}", target_branch_name));
 
     let sig = match repo.signature() {
         Ok(sig) => sig,
@@ -379,10 +373,7 @@ pub fn complete_merge(worktree_path: &str, message: Option<String>) -> anyhow::R
     let _ = std::fs::remove_file(repo.path().join("MERGE_MSG"));
     let _ = std::fs::remove_file(repo.path().join("MERGE_MODE"));
 
-    info!(
-        "[merge] Merge completed successfully: {}",
-        commit_id.to_string()
-    );
+    info!("[merge] Merge completed successfully: {}", commit_id);
 
     Ok(MergeResult {
         success: true,
@@ -396,8 +387,5 @@ pub fn complete_merge(worktree_path: &str, message: Option<String>) -> anyhow::R
 
 /// 获取 git 配置值
 fn get_git_config(repo: &Repository, key: &str) -> Option<String> {
-    repo.config()
-        .ok()?
-        .get_string(key)
-        .ok()
+    repo.config().ok()?.get_string(key).ok()
 }

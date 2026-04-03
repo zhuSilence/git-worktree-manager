@@ -2,20 +2,18 @@ use regex::Regex;
 use std::path::{Component, PathBuf};
 use std::sync::LazyLock;
 
-static BRANCH_NAME_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^[a-zA-Z0-9_\-/.]+$").expect("valid branch name regex pattern")
-});
+#[allow(clippy::unwrap_used)]
+static BRANCH_NAME_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[a-zA-Z0-9_\-/.]+$").unwrap());
 
 #[allow(dead_code)]
-static REPO_NAME_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^[a-zA-Z0-9_\-]+$").expect("valid repo name regex pattern")
-});
+#[allow(clippy::unwrap_used)]
+static REPO_NAME_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[a-zA-Z0-9_\-]+$").unwrap());
 
 /// Windows 保留名称列表
 const WINDOWS_RESERVED_NAMES: &[&str] = &[
-    "CON", "PRN", "AUX", "NUL",
-    "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+    "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
 ];
 
 /// Windows 非法字符（不包括路径分隔符）
@@ -78,7 +76,10 @@ pub fn sanitize_branch_name(name: &str) -> Result<String, String> {
     // 检查 Windows 非法字符
     for ch in WINDOWS_INVALID_CHARS {
         if name.contains(*ch) {
-            return Err(format!("Branch name cannot contain '{}' (Windows invalid character)", ch));
+            return Err(format!(
+                "Branch name cannot contain '{}' (Windows invalid character)",
+                ch
+            ));
         }
     }
 
@@ -97,7 +98,10 @@ pub fn sanitize_branch_name(name: &str) -> Result<String, String> {
     // 检查完全匹配或带扩展名的匹配 (如 CON.txt)
     for reserved in WINDOWS_RESERVED_NAMES {
         if upper_base == *reserved || upper_base.starts_with(&format!("{}.", reserved)) {
-            return Err(format!("Branch name cannot use Windows reserved name '{}'", reserved));
+            return Err(format!(
+                "Branch name cannot use Windows reserved name '{}'",
+                reserved
+            ));
         }
     }
 
@@ -130,7 +134,10 @@ pub fn validate_path(path: &str) -> Result<PathBuf, String> {
     // 检查 Windows 非法字符
     for ch in WINDOWS_INVALID_CHARS {
         if path.contains(*ch) {
-            return Err(format!("Path contains invalid character '{}' (Windows restriction)", ch));
+            return Err(format!(
+                "Path contains invalid character '{}' (Windows restriction)",
+                ch
+            ));
         }
     }
 
@@ -150,8 +157,13 @@ pub fn validate_path(path: &str) -> Result<PathBuf, String> {
                 let upper_component = component_str.to_uppercase();
                 // 检查是否是 Windows 保留名称（不带扩展名或带扩展名）
                 for reserved in WINDOWS_RESERVED_NAMES {
-                    if upper_component == *reserved || upper_component.starts_with(&format!("{}.", reserved)) {
-                        return Err(format!("Path contains Windows reserved name '{}'", reserved));
+                    if upper_component == *reserved
+                        || upper_component.starts_with(&format!("{}.", reserved))
+                    {
+                        return Err(format!(
+                            "Path contains Windows reserved name '{}'",
+                            reserved
+                        ));
                     }
                 }
             }

@@ -18,7 +18,7 @@ pub enum WorktreeStatus {
 }
 
 /// 远程同步状态
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SyncStatus {
     /// 领先远程的提交数
@@ -27,16 +27,6 @@ pub struct SyncStatus {
     pub behind: usize,
     /// 是否有远程分支
     pub has_remote: bool,
-}
-
-impl Default for SyncStatus {
-    fn default() -> Self {
-        SyncStatus {
-            ahead: 0,
-            behind: 0,
-            has_remote: false,
-        }
-    }
 }
 
 /// 最后提交信息

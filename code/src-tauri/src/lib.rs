@@ -7,6 +7,7 @@ use log::{error, info};
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+#[allow(clippy::expect_used)]
 pub fn run() {
     // 初始化日志系统（支持 RUST_LOG 环境变量配置，默认 info）
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();

@@ -1,17 +1,23 @@
-use crate::models::{DiffStats, DiffResponse, DiffLine, DiffHunk, FileDiff, DetailedDiffResponse, CommitInfo, TimelineResponse};
+use super::worktree_service::list_worktrees;
+use crate::models::{
+    CommitInfo, DetailedDiffResponse, DiffHunk, DiffLine, DiffResponse, DiffStats, FileDiff,
+    TimelineResponse,
+};
 use crate::utils::validation::sanitize_branch_name;
 use git2::Repository;
+use regex::Regex;
 use std::process::Command;
 use std::sync::LazyLock;
-use regex::Regex;
-use super::worktree_service::list_worktrees;
 
-static HUNK_HEADER_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@").expect("valid hunk header regex pattern")
-});
+#[allow(clippy::unwrap_used)]
+static HUNK_HEADER_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@").unwrap());
 
 /// 查找目标分支的 commit
-fn find_target_commit<'a>(repo: &'a Repository, target_branch: &str) -> anyhow::Result<git2::Commit<'a>> {
+fn find_target_commit<'a>(
+    repo: &'a Repository,
+    target_branch: &str,
+) -> anyhow::Result<git2::Commit<'a>> {
     if target_branch == "main" || target_branch == "master" {
         repo.find_reference("refs/heads/main")
             .and_then(|r| r.peel_to_commit())
@@ -44,13 +50,20 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
     let _source_commit = head.peel_to_commit()?;
 
     // 使用 HashMap 合并文件变更
-    let mut files_map: std::collections::HashMap<String, DiffStats> = std::collections::HashMap::new();
+    let mut files_map: std::collections::HashMap<String, DiffStats> =
+        std::collections::HashMap::new();
     let mut total_additions = 0;
     let mut total_deletions = 0;
 
     // 1. 获取分支间的提交差异（三点语法）
     let output = Command::new("git")
-        .args(["-c", "core.quotepath=false", "diff", "--numstat", &format!("{}...HEAD", target_branch)])
+        .args([
+            "-c",
+            "core.quotepath=false",
+            "diff",
+            "--numstat",
+            &format!("{}...HEAD", target_branch),
+        ])
         .current_dir(worktree_path)
         .output()?;
 
@@ -71,12 +84,15 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
                     "modified"
                 };
 
-                files_map.insert(path.clone(), DiffStats {
-                    path,
-                    additions,
-                    deletions,
-                    status: status.to_string(),
-                });
+                files_map.insert(
+                    path.clone(),
+                    DiffStats {
+                        path,
+                        additions,
+                        deletions,
+                        status: status.to_string(),
+                    },
+                );
 
                 total_additions += additions;
                 total_deletions += deletions;
@@ -112,12 +128,15 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
                         "modified"
                     };
 
-                    files_map.insert(path.clone(), DiffStats {
-                        path,
-                        additions,
-                        deletions,
-                        status: status.to_string(),
-                    });
+                    files_map.insert(
+                        path.clone(),
+                        DiffStats {
+                            path,
+                            additions,
+                            deletions,
+                            status: status.to_string(),
+                        },
+                    );
                 }
 
                 total_additions += additions;
@@ -128,7 +147,13 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
 
     // 3. 获取未跟踪的新文件（Untracked files）
     let untracked_output = Command::new("git")
-        .args(["-c", "core.quotepath=false", "ls-files", "--others", "--exclude-standard"])
+        .args([
+            "-c",
+            "core.quotepath=false",
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+        ])
         .current_dir(worktree_path)
         .output()?;
 
@@ -139,25 +164,27 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
                 continue;
             }
             // 获取未跟踪文件的行数作为 additions
-            let line_count = std::fs::read_to_string(std::path::Path::new(worktree_path).join(path))
-                .map(|content| content.lines().count())
-                .unwrap_or(0);
+            let line_count =
+                std::fs::read_to_string(std::path::Path::new(worktree_path).join(path))
+                    .map(|content| content.lines().count())
+                    .unwrap_or(0);
 
-            files_map.insert(path.to_string(), DiffStats {
-                path: path.to_string(),
-                additions: line_count,
-                deletions: 0,
-                status: "added".to_string(),
-            });
+            files_map.insert(
+                path.to_string(),
+                DiffStats {
+                    path: path.to_string(),
+                    additions: line_count,
+                    deletions: 0,
+                    status: "added".to_string(),
+                },
+            );
             total_additions += line_count;
         }
     }
 
     // 转换为 Vec 并排序
     let mut files: Vec<DiffStats> = files_map.into_values().collect();
-    files.sort_by(|a, b| {
-        (b.additions + b.deletions).cmp(&(a.additions + a.deletions))
-    });
+    files.sort_by(|a, b| (b.additions + b.deletions).cmp(&(a.additions + a.deletions)));
 
     Ok(DiffResponse {
         source_branch,
@@ -170,7 +197,10 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
 }
 
 /// 获取详细的 diff 内容（包含代码行）
-pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<DetailedDiffResponse> {
+pub fn get_detailed_diff(
+    worktree_path: &str,
+    target_branch: &str,
+) -> anyhow::Result<DetailedDiffResponse> {
     // 验证 target_branch 参数，防止注入攻击
     sanitize_branch_name(target_branch).map_err(|e| anyhow::anyhow!("{}", e))?;
 
@@ -186,12 +216,17 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
     let _source_commit = head.peel_to_commit()?;
 
     // 使用 HashMap 合并文件变更
-    let mut files_map: std::collections::HashMap<String, FileDiff> = std::collections::HashMap::new();
+    let mut files_map: std::collections::HashMap<String, FileDiff> =
+        std::collections::HashMap::new();
     let mut total_additions = 0;
     let mut total_deletions = 0;
 
     // 辅助函数：解析 diff 输出
-    let parse_diff_output = |stdout: &str, files_map: &mut std::collections::HashMap<String, FileDiff>, total_additions: &mut usize, total_deletions: &mut usize, source: &str| {
+    let parse_diff_output = |stdout: &str,
+                             files_map: &mut std::collections::HashMap<String, FileDiff>,
+                             total_additions: &mut usize,
+                             total_deletions: &mut usize,
+                             source: &str| {
         let mut current_file: Option<FileDiff> = None;
         let mut current_hunk: Option<DiffHunk> = None;
 
@@ -248,7 +283,8 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
             // 重命名
             else if line.starts_with("rename from ") {
                 if let Some(ref mut file) = current_file {
-                    file.old_path = Some(line.strip_prefix("rename from ").unwrap_or("").to_string());
+                    file.old_path =
+                        Some(line.strip_prefix("rename from ").unwrap_or("").to_string());
                     file.status = "renamed".to_string();
                 }
             }
@@ -265,9 +301,15 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
                 let re = &*HUNK_HEADER_RE;
                 if let Some(caps) = re.captures(line) {
                     let old_start = caps[1].parse::<usize>().unwrap_or(1);
-                    let old_lines = caps.get(2).map(|m| m.as_str().parse::<usize>().unwrap_or(1)).unwrap_or(1);
+                    let old_lines = caps
+                        .get(2)
+                        .map(|m| m.as_str().parse::<usize>().unwrap_or(1))
+                        .unwrap_or(1);
                     let new_start = caps[3].parse::<usize>().unwrap_or(1);
-                    let new_lines = caps.get(4).map(|m| m.as_str().parse::<usize>().unwrap_or(1)).unwrap_or(1);
+                    let new_lines = caps
+                        .get(4)
+                        .map(|m| m.as_str().parse::<usize>().unwrap_or(1))
+                        .unwrap_or(1);
 
                     current_hunk = Some(DiffHunk {
                         old_start,
@@ -285,20 +327,37 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
                         hunk.lines.push(DiffLine {
                             line_type: "addition".to_string(),
                             old_line: None,
-                            new_line: Some(hunk.new_start + hunk.lines.iter().filter(|l| l.line_type == "addition" || l.line_type == "context").count()),
+                            new_line: Some(
+                                hunk.new_start
+                                    + hunk
+                                        .lines
+                                        .iter()
+                                        .filter(|l| {
+                                            l.line_type == "addition" || l.line_type == "context"
+                                        })
+                                        .count(),
+                            ),
                             content: line[1..].to_string(),
                         });
                         file.additions += 1;
                         *total_additions += 1;
                     }
                 }
-            }
-            else if line.starts_with('-') && !line.starts_with("---") {
+            } else if line.starts_with('-') && !line.starts_with("---") {
                 if let Some(ref mut file) = current_file {
                     if let Some(ref mut hunk) = current_hunk {
                         hunk.lines.push(DiffLine {
                             line_type: "deletion".to_string(),
-                            old_line: Some(hunk.old_start + hunk.lines.iter().filter(|l| l.line_type == "deletion" || l.line_type == "context").count()),
+                            old_line: Some(
+                                hunk.old_start
+                                    + hunk
+                                        .lines
+                                        .iter()
+                                        .filter(|l| {
+                                            l.line_type == "deletion" || l.line_type == "context"
+                                        })
+                                        .count(),
+                            ),
                             new_line: None,
                             content: line[1..].to_string(),
                         });
@@ -306,18 +365,29 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
                         *total_deletions += 1;
                     }
                 }
-            }
-            else if line.starts_with(' ') {
+            } else if let Some(stripped) = line.strip_prefix(' ') {
                 if let Some(ref mut _file) = current_file {
                     if let Some(ref mut hunk) = current_hunk {
-                        let ctx_count = hunk.lines.iter().filter(|l| l.line_type == "context").count();
-                        let add_count = hunk.lines.iter().filter(|l| l.line_type == "addition").count();
-                        let del_count = hunk.lines.iter().filter(|l| l.line_type == "deletion").count();
+                        let ctx_count = hunk
+                            .lines
+                            .iter()
+                            .filter(|l| l.line_type == "context")
+                            .count();
+                        let add_count = hunk
+                            .lines
+                            .iter()
+                            .filter(|l| l.line_type == "addition")
+                            .count();
+                        let del_count = hunk
+                            .lines
+                            .iter()
+                            .filter(|l| l.line_type == "deletion")
+                            .count();
                         hunk.lines.push(DiffLine {
                             line_type: "context".to_string(),
                             old_line: Some(hunk.old_start + ctx_count + del_count),
                             new_line: Some(hunk.new_start + ctx_count + add_count),
-                            content: line[1..].to_string(),
+                            content: stripped.to_string(),
                         });
                     }
                 }
@@ -345,13 +415,24 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
 
     // 1. 获取分支间的提交差异（三点语法）- committed
     let output = Command::new("git")
-        .args(["-c", "core.quotepath=false", "diff", &format!("{}...HEAD", target_branch)])
+        .args([
+            "-c",
+            "core.quotepath=false",
+            "diff",
+            &format!("{}...HEAD", target_branch),
+        ])
         .current_dir(worktree_path)
         .output()?;
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        parse_diff_output(&stdout, &mut files_map, &mut total_additions, &mut total_deletions, "committed");
+        parse_diff_output(
+            &stdout,
+            &mut files_map,
+            &mut total_additions,
+            &mut total_deletions,
+            "committed",
+        );
     }
 
     // 2. 获取工作区未提交的变更（已跟踪文件）- unstaged
@@ -362,12 +443,24 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
 
     if worktree_output.status.success() {
         let stdout = String::from_utf8_lossy(&worktree_output.stdout);
-        parse_diff_output(&stdout, &mut files_map, &mut total_additions, &mut total_deletions, "unstaged");
+        parse_diff_output(
+            &stdout,
+            &mut files_map,
+            &mut total_additions,
+            &mut total_deletions,
+            "unstaged",
+        );
     }
 
     // 3. 获取未跟踪的新文件（Untracked files）
     let untracked_output = Command::new("git")
-        .args(["-c", "core.quotepath=false", "status", "--porcelain", "--untracked-files=all"])
+        .args([
+            "-c",
+            "core.quotepath=false",
+            "status",
+            "--porcelain",
+            "--untracked-files=all",
+        ])
         .current_dir(worktree_path)
         .output()?;
 
@@ -428,14 +521,13 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
     }
 
     // 转换为 Vec 并过滤
-    let mut files: Vec<FileDiff> = files_map.into_values()
+    let mut files: Vec<FileDiff> = files_map
+        .into_values()
         .filter(|f| !f.hunks.is_empty() || f.status == "added" || f.status == "deleted")
         .collect();
 
     // 按变更量排序
-    files.sort_by(|a, b| {
-        (b.additions + b.deletions).cmp(&(a.additions + a.deletions))
-    });
+    files.sort_by(|a, b| (b.additions + b.deletions).cmp(&(a.additions + a.deletions)));
 
     Ok(DetailedDiffResponse {
         source_branch,
@@ -447,7 +539,11 @@ pub fn get_detailed_diff(worktree_path: &str, target_branch: &str) -> anyhow::Re
 }
 
 /// 获取时间线数据（所有 worktree 的提交历史）
-pub fn get_timeline(repo_path: &str, since: Option<i64>, until: Option<i64>) -> anyhow::Result<TimelineResponse> {
+pub fn get_timeline(
+    repo_path: &str,
+    since: Option<i64>,
+    until: Option<i64>,
+) -> anyhow::Result<TimelineResponse> {
     let _repo = Repository::open(repo_path)?;
     let mut commits: Vec<CommitInfo> = Vec::new();
 
@@ -459,45 +555,44 @@ pub fn get_timeline(repo_path: &str, since: Option<i64>, until: Option<i64>) -> 
         if let Ok(wt_repo) = Repository::open(&worktree.path) {
             // 获取提交历史
             if let Ok(revwalk) = get_commit_revwalk(&wt_repo, since, until) {
-                for commit_result in revwalk {
-                    if let Ok(oid) = commit_result {
-                        if let Ok(commit) = wt_repo.find_commit(oid) {
-                            let time = commit.time();
-                            let commit_time = time.seconds();
+                for oid in revwalk.flatten() {
+                    if let Ok(commit) = wt_repo.find_commit(oid) {
+                        let time = commit.time();
+                        let commit_time = time.seconds();
 
-                            // 时间范围过滤
-                            if let Some(s) = since {
-                                if commit_time < s {
-                                    continue;
-                                }
+                        // 时间范围过滤
+                        if let Some(s) = since {
+                            if commit_time < s {
+                                continue;
                             }
-                            if let Some(u) = until {
-                                if commit_time > u {
-                                    continue;
-                                }
-                            }
-
-                            let now = std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)?
-                                .as_secs() as i64;
-
-                            let relative_time = format_relative_time(now, commit_time);
-
-                            // 格式化 ISO 8601 日期
-                            let datetime = chrono::DateTime::from_timestamp(commit_time, 0)
-                                .unwrap_or_else(|| chrono::Utc::now());
-                            let date = datetime.to_rfc3339();
-
-                            commits.push(CommitInfo {
-                                hash: commit.id().to_string()[..7.min(commit.id().to_string().len())].to_string(),
-                                message: commit.summary().unwrap_or("No message").to_string(),
-                                author: commit.author().name().unwrap_or("Unknown").to_string(),
-                                date,
-                                relative_time,
-                                worktree_name: worktree.name.clone(),
-                                branch: worktree.branch.clone(),
-                            });
                         }
+                        if let Some(u) = until {
+                            if commit_time > u {
+                                continue;
+                            }
+                        }
+
+                        let now = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)?
+                            .as_secs() as i64;
+
+                        let relative_time = format_relative_time(now, commit_time);
+
+                        // 格式化 ISO 8601 日期
+                        let datetime = chrono::DateTime::from_timestamp(commit_time, 0)
+                            .unwrap_or_else(chrono::Utc::now);
+                        let date = datetime.to_rfc3339();
+
+                        commits.push(CommitInfo {
+                            hash: commit.id().to_string()[..7.min(commit.id().to_string().len())]
+                                .to_string(),
+                            message: commit.summary().unwrap_or("No message").to_string(),
+                            author: commit.author().name().unwrap_or("Unknown").to_string(),
+                            date,
+                            relative_time,
+                            worktree_name: worktree.name.clone(),
+                            branch: worktree.branch.clone(),
+                        });
                     }
                 }
             }
@@ -516,7 +611,11 @@ pub fn get_timeline(repo_path: &str, since: Option<i64>, until: Option<i64>) -> 
 }
 
 /// 获取提交的 revwalk
-fn get_commit_revwalk(repo: &Repository, _since: Option<i64>, _until: Option<i64>) -> anyhow::Result<git2::Revwalk<'_>> {
+fn get_commit_revwalk(
+    repo: &Repository,
+    _since: Option<i64>,
+    _until: Option<i64>,
+) -> anyhow::Result<git2::Revwalk<'_>> {
     let mut revwalk = repo.revwalk()?;
     revwalk.push_head()?;
 

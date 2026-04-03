@@ -1,8 +1,10 @@
-use crate::models::{OperationLog, OperationLogListResponse, OperationLogFilter, OperationType, OperationResult};
+use crate::models::{
+    OperationLog, OperationLogFilter, OperationLogListResponse, OperationResult, OperationType,
+};
+use chrono::{DateTime, Duration, Utc};
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::PathBuf;
-use chrono::{DateTime, Utc, Duration};
 use uuid::Uuid;
 
 /// 操作日志存储目录
@@ -82,7 +84,7 @@ fn read_all_logs() -> anyhow::Result<Vec<OperationLog>> {
 
     let logs: Vec<OperationLog> = reader
         .lines()
-        .filter_map(|line| line.ok())
+        .map_while(Result::ok)
         .filter_map(|line| serde_json::from_str(&line).ok())
         .collect();
 
@@ -90,7 +92,9 @@ fn read_all_logs() -> anyhow::Result<Vec<OperationLog>> {
 }
 
 /// 获取操作日志列表
-pub fn list_operations(filter: Option<OperationLogFilter>) -> anyhow::Result<OperationLogListResponse> {
+pub fn list_operations(
+    filter: Option<OperationLogFilter>,
+) -> anyhow::Result<OperationLogListResponse> {
     let logs = read_all_logs()?;
 
     let filtered: Vec<OperationLog> = logs
@@ -152,7 +156,10 @@ pub fn export_operations(output_path: &str) -> anyhow::Result<String> {
 
     fs::write(output_path, &json)?;
 
-    Ok(format!("导出 {} 条日志到 {}", response.total_count, output_path))
+    Ok(format!(
+        "导出 {} 条日志到 {}",
+        response.total_count, output_path
+    ))
 }
 
 /// 清理过期日志（超过 30 天）

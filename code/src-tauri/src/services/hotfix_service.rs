@@ -74,19 +74,17 @@ pub fn start_hotfix(
 
     // 检查远程分支（检查所有 remote 是否有同名分支）
     let remotes = repo.remotes()?;
-    for remote_name in &remotes {
-        if let Some(remote) = remote_name {
-            let full_branch_name = format!("{}/{}", remote, branch_name);
-            if repo
-                .find_branch(&full_branch_name, git2::BranchType::Remote)
-                .is_ok()
-            {
-                return Ok(StartHotfixResult {
-                    success: false,
-                    message: format!("远程分支 {} 已存在", branch_name),
-                    hotfix: None,
-                });
-            }
+    for remote in (&remotes).into_iter().flatten() {
+        let full_branch_name = format!("{}/{}", remote, branch_name);
+        if repo
+            .find_branch(&full_branch_name, git2::BranchType::Remote)
+            .is_ok()
+        {
+            return Ok(StartHotfixResult {
+                success: false,
+                message: format!("远程分支 {} 已存在", branch_name),
+                hotfix: None,
+            });
         }
     }
 

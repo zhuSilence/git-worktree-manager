@@ -13,6 +13,7 @@ pub struct MergeParams {
     /// 是否自动推送
     pub auto_push: bool,
     /// 是否删除源 worktree
+    #[allow(dead_code)]
     pub auto_delete_source: bool,
 }
 
@@ -63,6 +64,7 @@ pub struct MergeResult {
 /// 完成合并参数
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct CompleteMergeParams {
     /// worktree 路径
     pub worktree_path: String,
