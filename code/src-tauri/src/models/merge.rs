@@ -65,7 +65,6 @@ pub struct MergeResult {
 #[allow(dead_code)]
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-#[allow(dead_code)]
 pub struct CompleteMergeParams {
     /// worktree 路径
     pub worktree_path: String,
