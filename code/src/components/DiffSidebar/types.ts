@@ -32,3 +32,11 @@ export interface FileTreeNode {
   source?: 'committed' | 'unstaged' | 'untracked'
   children: FileTreeNode[]
 }
+
+/**
+ * 排序后的文件项，包含原始索引
+ */
+export interface SortedFile {
+  file: import('@/types/worktree').FileDiff
+  originalIndex: number
+}

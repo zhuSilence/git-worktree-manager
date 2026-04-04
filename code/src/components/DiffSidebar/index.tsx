@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { X, FileText, Plus, Minus, RefreshCw, GitCompare, GitMerge, ChevronDown, ChevronRight, Columns, AlignLeft, ArrowUp, GripVertical, ChevronsDown, LayoutList, Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { gitService } from '@/services/git'
-import type { DetailedDiffResponse, FileDiff } from '@/types/worktree'
+import type { DetailedDiffResponse } from '@/types/worktree'
 import { WorktreeStatus } from '@/types/worktree'
 import { clsx } from 'clsx'
 import { aiReviewStore } from '@/stores/aiReviewStore'
@@ -11,8 +11,15 @@ import { MergePanel } from '@/components/MergePanel'
 import { useWorktreeStore } from '@/stores/worktreeStore'
 
 // 拆分的子模块
-import type { ViewMode, FileTreeNode } from './types'
-import { buildFileTree, FileTreeNodeItem } from './FileTree'
+import type {
+  ViewMode,
+  FileTreeNode,
+} from './types'
+import {
+  buildFileTree,
+  FileTreeNodeItem,
+  sortFilesForDisplay,
+} from './FileTree'
 import { UnifiedDiffView, SplitDiffView } from './DiffViews'
 import { FileReviewSummary } from './InlineReviewMarker'
 import { AIReviewPanel } from './AIReviewPanel'
@@ -170,17 +177,10 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
     })
   }, [])
 
-  const toggleAll = useCallback(() => {
-    setExpandedFiles(prev => {
-      if (diff) {
-        if (prev.size === diff.files.length) {
-          return new Set()
-        } else {
-          return new Set(diff.files.map(f => f.path))
-        }
-      }
-      return prev
-    })
+  // 对文件进行排序，与文件树显示顺序一致
+  const sortedFiles = useMemo(() => {
+    if (!diff) return []
+    return sortFilesForDisplay(diff.files)
   }, [diff])
 
   // 构建文件树
@@ -188,6 +188,19 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
     if (!diff) return []
     return buildFileTree(diff.files)
   }, [diff])
+
+  const toggleAll = useCallback(() => {
+    setExpandedFiles(prev => {
+      if (diff) {
+        if (prev.size === sortedFiles.length) {
+          return new Set()
+        } else {
+          return new Set(sortedFiles.map(({ file }) => file.path))
+        }
+      }
+      return prev
+    })
+  }, [diff, sortedFiles])
 
   // diff 变为 null 时重置展开状态
   useEffect(() => {
@@ -549,10 +562,10 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
       {/* 内容 */}
       <div className="flex-1 flex overflow-hidden min-h-0">
         {/* 文件树面板 */}
-        {showFileTree && !isLoading && !error && diff && diff.files.length > 0 && (
+        {showFileTree && !isLoading && !error && diff && sortedFiles.length > 0 && (
           <div className="w-56 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 flex flex-col bg-gray-50/50 dark:bg-gray-900/50">
             <div className="p-2 text-[11px] font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-              {t('diff.files')} ({diff.files.length})
+              {t('diff.files')} ({sortedFiles.length})
             </div>
             <div className="flex-1 overflow-y-auto">
               {fileTree.map(node => (
@@ -590,7 +603,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                 <div className="flex items-center gap-3 text-xs">
                   <div className="flex items-center gap-1">
                     <FileText className="w-3.5 h-3.5 text-gray-500" />
-                    <span className="font-medium">{diff.files.length}</span>
+                    <span className="font-medium">{sortedFiles.length}</span>
                     <span className="text-gray-500">{t('diff.files')}</span>
                   </div>
                   <div className="flex items-center gap-1 text-green-500">
@@ -603,16 +616,16 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {expandedFiles.size < diff.files.length && diff.files.length > 5 && (
+                  {expandedFiles.size < sortedFiles.length && sortedFiles.length > 5 && (
                     <button
                       onClick={() => {
-                        // 渐进式展开：每次展开固定数量
+                        // 渐进式展开：每次展开固定数量（按排序后的顺序）
                         setExpandedFiles(prev => {
                           const next = new Set(prev)
                           let count = 0
-                          for (const f of diff.files) {
-                            if (!next.has(f.path)) {
-                              next.add(f.path)
+                          for (const { file } of sortedFiles) {
+                            if (!next.has(file.path)) {
+                              next.add(file.path)
                               count++
                               if (count >= PROGRESSIVE_EXPAND_COUNT) break
                             }
@@ -630,14 +643,14 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                     onClick={toggleAll}
                     className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                   >
-                    {expandedFiles.size === diff.files.length ? t('diff.collapseAll') : t('diff.expandAll')}
+                    {expandedFiles.size === sortedFiles.length ? t('diff.collapseAll') : t('diff.expandAll')}
                   </button>
                 </div>
               </div>
             </div>
 
             {/* 文件列表 */}
-            {diff.files.length === 0 ? (
+            {sortedFiles.length === 0 ? (
               <div className="text-center py-16 text-gray-500 dark:text-gray-400">
                 <GitCompare className="w-12 h-12 mx-auto mb-3 opacity-50 animate-pulse" />
                 <p className="text-sm">{t('diff.noDiff')}</p>
@@ -645,8 +658,8 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
               </div>
             ) : (
               <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                {diff.files.map((file: FileDiff, fileIdx: number) => (
-                  <div key={file.path} id={`file-diff-${fileIdx}`} className="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                {sortedFiles.map(({ file, originalIndex }) => (
+                  <div key={file.path} id={`file-diff-${originalIndex}`} className="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
                     {/* 文件头部 */}
                     <div
                       className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-900 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -695,7 +708,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                         {viewMode === 'unified' ? (
                           <UnifiedDiffView
                             hunks={file.hunks}
-                            fileIdx={fileIdx}
+                            fileIdx={originalIndex}
                             selectedLine={selectedLine}
                             sourceBranch={diff?.sourceBranch || worktreeName}
                             targetBranch={targetBranch}
@@ -705,7 +718,7 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
                         ) : (
                           <SplitDiffView
                             hunks={file.hunks}
-                            fileIdx={fileIdx}
+                            fileIdx={originalIndex}
                             selectedLine={selectedLine}
                             sourceBranch={diff?.sourceBranch || worktreeName}
                             targetBranch={targetBranch}
