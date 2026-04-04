@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen } from 'lucide-react'
 import { clsx } from 'clsx'
-import type { FileTreeNode } from './types'
+import type { FileTreeNode, SortedFile } from './types'
 import type { FileDiff } from '@/types/worktree'
 
 /**
@@ -57,6 +57,44 @@ export function buildFileTree(files: FileDiff[]): FileTreeNode[] {
   }
 
   return sortTree(root.children.map(compact))
+}
+
+/**
+ * 排序文件列表，与文件树显示顺序保持一致
+ * 返回带原始索引的文件列表，用于保持滚动定位正确
+ */
+export function sortFilesForDisplay(files: FileDiff[]): SortedFile[] {
+  return files
+    .map((file, originalIndex) => ({ file, originalIndex }))
+    .sort((a, b) => {
+      const partsA = a.file.path.split('/')
+      const partsB = b.file.path.split('/')
+      const minLen = Math.min(partsA.length, partsB.length)
+
+      // 逐层比较路径
+      for (let i = 0; i < minLen; i++) {
+        const partA = partsA[i]
+        const partB = partsB[i]
+
+        // 如果当前层级相同，继续比较下一层
+        if (partA === partB) continue
+
+        // 判断是否是最后一层（文件）
+        const isFileA = i === partsA.length - 1
+        const isFileB = i === partsB.length - 1
+
+        // 如果一个是目录一个是文件，目录在前
+        if (isFileA !== isFileB) {
+          return isFileA ? 1 : -1
+        }
+
+        // 同类按名称排序
+        return partA.localeCompare(partB)
+      }
+
+      // 如果前面都一样，短的在前（目录优先）
+      return partsA.length - partsB.length
+    })
 }
 
 /**
