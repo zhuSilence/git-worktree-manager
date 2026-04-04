@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v0.0.8)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -250,9 +255,24 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R artifacts
 
-      - name: Get version from tag
+      - name: Rename artifacts (remove spaces)
+        run: |
+          find artifacts -type f -name "* *" | while read file; do
+            newname=$(echo "$file" | tr ' ' '-')
+            mv "$file" "$newname"
+          done
+          ls -R artifacts
+
+      - name: Get version
         id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
 
       - name: Generate update manifests
         run: |
