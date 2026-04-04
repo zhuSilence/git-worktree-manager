@@ -8,8 +8,8 @@ use crate::services::{
     delete_worktree, detect_conflicts, fetch_all, fetch_and_checkout, finish_hotfix,
     get_detailed_diff, get_diff, get_hotfix_status, get_merged_hints, get_repository_info,
     get_stale_hints, get_timeline, is_git_repo, list_branches, list_remote_branches,
-    list_worktrees, open_in_editor, open_in_file_manager, open_in_terminal, prune_worktrees,
-    pull, push, start_hotfix, switch_branch,
+    list_worktrees, open_in_editor, open_in_file_manager, open_in_terminal, prune_worktrees, pull,
+    push, start_hotfix, switch_branch,
 };
 use crate::utils::validation::validate_path;
 use tauri::command;
