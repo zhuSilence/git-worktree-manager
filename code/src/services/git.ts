@@ -19,6 +19,7 @@ import type {
   FinishHotfixResult,
   MergeParams,
   MergeResult,
+  WorktreeConflictDetectionResponse,
 } from '@/types/worktree'
 import type {
   OperationLogListResponse,
@@ -358,5 +359,14 @@ export const gitService = {
       branch,
       force,
     })
+  },
+
+  // ============ 冲突检测相关 ============
+
+  /**
+   * 检测 worktree 之间的潜在冲突
+   */
+  async detectConflicts(repoPath: string): Promise<WorktreeConflictDetectionResponse> {
+    return invoke<WorktreeConflictDetectionResponse>('detect_conflicts_cmd', { repoPath })
   },
 }

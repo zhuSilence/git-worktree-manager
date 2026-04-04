@@ -488,3 +488,67 @@ export interface MergeResult {
   /** 目标分支名 */
   targetBranch: string
 }
+
+// ============ Worktree 冲突检测类型 ============
+
+/**
+ * Worktree 冲突风险等级
+ */
+export enum WorktreeConflictRiskLevel {
+  /** 高风险 */
+  High = 'high',
+  /** 中风险 */
+  Medium = 'medium',
+  /** 低风险 */
+  Low = 'low',
+}
+
+/**
+ * Worktree 文件变更信息
+ */
+export interface WorktreeFileChange {
+  /** Worktree 名称 */
+  worktreeName: string
+  /** 分支名 */
+  branch: string
+  /** Worktree 路径 */
+  worktreePath: string
+  /** 文件状态 */
+  status: string
+  /** 新增行数 */
+  additions: number
+  /** 删除行数 */
+  deletions: number
+}
+
+/**
+ * Worktree 冲突文件信息
+ */
+export interface WorktreeConflictFile {
+  /** 文件路径 */
+  path: string
+  /** 风险等级 */
+  riskLevel: WorktreeConflictRiskLevel
+  /** 在哪些 worktree 中被修改 */
+  worktreeChanges: WorktreeFileChange[]
+  /** 冲突描述 */
+  description: string
+}
+
+/**
+ * Worktree 冲突检测结果响应
+ */
+export interface WorktreeConflictDetectionResponse {
+  /** 是否有冲突 */
+  hasConflicts: boolean
+  /** 高风险冲突数 */
+  highRiskCount: number
+  /** 中风险冲突数 */
+  mediumRiskCount: number
+  /** 低风险冲突数 */
+  lowRiskCount: number
+  /** 冲突文件列表 */
+  conflictFiles: WorktreeConflictFile[]
+  /** 检测时间 */
+  detectedAt: string
+}

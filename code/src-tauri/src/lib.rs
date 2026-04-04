@@ -64,6 +64,8 @@ pub fn run() {
             commands::worktree::finish_hotfix_cmd,
             commands::worktree::abort_hotfix_cmd,
             commands::worktree::get_hotfix_status_cmd,
+            // 冲突检测命令
+            commands::worktree::detect_conflicts_cmd,
             // 合并相关命令
             commands::merge::merge_branch_cmd,
             commands::merge::abort_merge_cmd,
