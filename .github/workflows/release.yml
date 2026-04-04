@@ -366,6 +366,13 @@ jobs:
           echo "Generated update manifests:"
           ls -la *.json 2>/dev/null || echo "No manifests generated"
 
+      - name: Collect release files
+        run: |
+          mkdir -p release-files
+          find artifacts -type f \( -name "*.dmg" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.exe" -o -name "*.sig" \) -exec cp {} release-files/ \;
+          cp *.json release-files/ 2>/dev/null || true
+          ls -la release-files/
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -391,8 +398,6 @@ jobs:
             此版本支持自动更新功能，可在设置中检查更新。
           draft: true
           prerelease: false
-          files: |
-            artifacts/**/*
-            *.json
+          files: release-files/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
