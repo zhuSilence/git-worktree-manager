@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.8] - 2026-04-04
+
 ### ✨ Added
 
 - AI 代码评审功能 (Issue #31)
@@ -39,6 +41,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Diff 源标签
   - 区分三种变更来源：committed（分支差异）、unstaged（工作区修改）、untracked（未跟踪文件）
   - 在 Diff 文件树中显示来源标签
+- Worktree 标签与备注功能 (Issue #12)
+  - 为 worktree 添加自定义标签
+  - 添加备注说明，方便区分不同用途
+  - 标签颜色区分，快速识别 worktree 类型
+- Diff 面板分支名称显示 (Issue #26)
+  - 在 Diff 对比面板顶部显示当前分支名和对比分支名
+  - 清晰了解正在对比的是哪两个分支
+
+### 🐛 Fixed
+
+- 中文文件名显示异常 (Issue #24)
+  - 修复某些情况下中文文件名乱码问题
 
 ## [0.0.9] - 2026-03-24
 
@@ -70,23 +84,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 智能命名建议功能 (Issue #14)
   - 基于分支命名规范给出建议
   - 支持自定义命名模板
-
-## [0.0.8] - 2026-03-24
-
-### ✨ Added
-
-- Worktree 标签与备注功能 (Issue #12)
-  - 为 worktree 添加自定义标签
-  - 添加备注说明，方便区分不同用途
-  - 标签颜色区分，快速识别 worktree 类型
-- Diff 面板分支名称显示 (Issue #26)
-  - 在 Diff 对比面板顶部显示当前分支名和对比分支名
-  - 清晰了解正在对比的是哪两个分支
-
-### 🐛 Fixed
-
-- 中文文件名显示异常 (Issue #24)
-  - 修复某些情况下中文文件名乱码问题
 
 ## [0.0.7] - 2026-03-21
 
@@ -221,7 +218,8 @@ First release of Git Worktree Manager!
 
 ---
 
-[Unreleased]: https://github.com/zhuSilence/git-worktree-manager/compare/v0.0.6...HEAD
-[0.0.6]: https://github.com/zhuSilence/git-worktree-manager/compare/v0.0.5...v0.0.6
+[Unreleased]: https://github.com/zhuSilence/git-worktree-manager/compare/v0.0.8...HEAD
+[0.0.8]: https://github.com/zhuSilence/git-worktree-manager/compare/v0.0.7...v0.0.8
+[0.0.7]: https://github.com/zhuSilence/git-worktree-manager/compare/v0.0.6...v0.0.7
 [0.0.5]: https://github.com/zhuSilence/git-worktree-manager/compare/v0.0.1...v0.0.5
 [0.0.1]: https://github.com/zhuSilence/git-worktree-manager/releases/tag/v0.0.1
