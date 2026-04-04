@@ -38,10 +38,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: code/pnpm-lock.yaml
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -54,12 +61,12 @@ jobs:
       - name: Install frontend dependencies
         run: |
           cd code
-          npm install
+          pnpm install --frozen-lockfile
 
       - name: Build Tauri app (ARM64)
         run: |
           cd code
-          npx tauri build --target aarch64-apple-darwin
+          pnpm tauri build --target aarch64-apple-darwin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -74,16 +81,23 @@ jobs:
             code/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg.sig
 
   build-macos-x64:
-    runs-on: macos-13  # Intel runner
+    runs-on: macos-14  # Intel runner
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: code/pnpm-lock.yaml
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -97,12 +111,12 @@ jobs:
       - name: Install frontend dependencies
         run: |
           cd code
-          npm install
+          pnpm install --frozen-lockfile
 
       - name: Build Tauri app (x64)
         run: |
           cd code
-          npx tauri build
+          pnpm tauri build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -123,10 +137,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: code/pnpm-lock.yaml
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -142,12 +163,12 @@ jobs:
       - name: Install frontend dependencies
         run: |
           cd code
-          npm install
+          pnpm install --frozen-lockfile
 
       - name: Build Tauri app
         run: |
           cd code
-          npx tauri build
+          pnpm tauri build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -170,10 +191,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: code/pnpm-lock.yaml
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -184,12 +212,12 @@ jobs:
       - name: Install frontend dependencies
         run: |
           cd code
-          npm install
+          pnpm install --frozen-lockfile
 
       - name: Build Tauri app
         run: |
           cd code
-          npx tauri build
+          pnpm tauri build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
