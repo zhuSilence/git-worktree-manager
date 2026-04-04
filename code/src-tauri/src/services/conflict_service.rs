@@ -49,7 +49,7 @@ pub fn detect_conflicts(repo_path: &str) -> anyhow::Result<WorktreeConflictDetec
 
                 all_file_changes
                     .entry(file.path.clone())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(change);
             }
         }
