@@ -1,19 +1,24 @@
-use crate::models::{OperationLogListResponse, OperationLogFilter, BackupListResponse, CreateBackupRequest, RestoreBackupResult, DeleteProtectionCheck, BackupInfo};
-use crate::services::{
-    record_operation, list_operations, export_operations, cleanup_old_logs,
-    check_delete_protection, create_backup, list_backups, restore_backup,
-    delete_backup, cleanup_expired_backups, get_backup_info,
-};
-use crate::models::{OperationType, OperationResult};
-use crate::utils::validation::validate_path;
 use super::run_blocking;
+use crate::models::{
+    BackupInfo, BackupListResponse, CreateBackupRequest, DeleteProtectionCheck, OperationLogFilter,
+    OperationLogListResponse, RestoreBackupResult,
+};
+use crate::models::{OperationResult, OperationType};
+use crate::services::{
+    check_delete_protection, cleanup_expired_backups, cleanup_old_logs, create_backup,
+    delete_backup, export_operations, get_backup_info, list_backups, list_operations,
+    record_operation, restore_backup,
+};
+use crate::utils::validation::validate_path;
 use tauri::command;
 
 // ============ 操作日志命令 ============
 
 /// 获取操作日志列表
 #[command]
-pub async fn list_operation_logs_cmd(filter: Option<OperationLogFilter>) -> Result<OperationLogListResponse, String> {
+pub async fn list_operation_logs_cmd(
+    filter: Option<OperationLogFilter>,
+) -> Result<OperationLogListResponse, String> {
     run_blocking(move || list_operations(filter)).await
 }
 
@@ -27,14 +32,17 @@ pub async fn export_operation_logs_cmd(output_path: String) -> Result<String, St
 /// 清理过期日志
 #[command]
 pub async fn cleanup_old_logs_cmd() -> Result<usize, String> {
-    run_blocking(move || cleanup_old_logs()).await
+    run_blocking(cleanup_old_logs).await
 }
 
 // ============ 删除保护命令 ============
 
 /// 检查删除保护
 #[command]
-pub async fn check_delete_protection_cmd(worktree_path: String, branch: String) -> Result<DeleteProtectionCheck, String> {
+pub async fn check_delete_protection_cmd(
+    worktree_path: String,
+    branch: String,
+) -> Result<DeleteProtectionCheck, String> {
     validate_path(&worktree_path).map_err(|e| e.to_string())?;
     run_blocking(move || check_delete_protection(&worktree_path, &branch)).await
 }
@@ -49,12 +57,15 @@ pub async fn create_backup_cmd(request: CreateBackupRequest) -> Result<BackupInf
 /// 获取备份列表
 #[command]
 pub async fn list_backups_cmd() -> Result<BackupListResponse, String> {
-    run_blocking(move || list_backups()).await
+    run_blocking(list_backups).await
 }
 
 /// 恢复备份
 #[command]
-pub async fn restore_backup_cmd(backup_id: String, target_path: Option<String>) -> Result<RestoreBackupResult, String> {
+pub async fn restore_backup_cmd(
+    backup_id: String,
+    target_path: Option<String>,
+) -> Result<RestoreBackupResult, String> {
     if let Some(ref path) = target_path {
         validate_path(path).map_err(|e| e.to_string())?;
     }
@@ -70,7 +81,7 @@ pub async fn delete_backup_cmd(backup_id: String) -> Result<bool, String> {
 /// 清理过期备份
 #[command]
 pub async fn cleanup_expired_backups_cmd() -> Result<usize, String> {
-    run_blocking(move || cleanup_expired_backups()).await
+    run_blocking(cleanup_expired_backups).await
 }
 
 /// 获取备份详情
@@ -93,8 +104,8 @@ pub async fn delete_worktree_with_protection_cmd(
     validate_path(&worktree_path).map_err(|e| e.to_string())?;
 
     // 1. 检查删除保护
-    let protection_result = check_delete_protection(&worktree_path, &branch)
-        .map_err(|e| e.to_string())?;
+    let protection_result =
+        check_delete_protection(&worktree_path, &branch).map_err(|e| e.to_string())?;
 
     // 2. 执行删除
     let delete_result = crate::services::delete_worktree(&repo_path, &worktree_path, force)
@@ -108,7 +119,10 @@ pub async fn delete_worktree_with_protection_cmd(
     };
 
     let details = if protection_result.backup_created {
-        Some(format!("backup_id={}", protection_result.backup_id.unwrap_or_default()))
+        Some(format!(
+            "backup_id={}",
+            protection_result.backup_id.unwrap_or_default()
+        ))
     } else {
         None
     };
@@ -120,7 +134,8 @@ pub async fn delete_worktree_with_protection_cmd(
         details,
         op_result,
         error_msg,
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok(delete_result)
 }

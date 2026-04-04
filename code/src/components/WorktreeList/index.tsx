@@ -33,7 +33,6 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
   const { t } = useTranslation()
   const { worktrees, isLoading, currentRepo, refreshWorktrees } = useWorktreeStore()
   const groups = useGroupsStore(state => state.groups)
-  const groupings = useGroupsStore(state => state.groupings)
   const getWorktreeGroup = useGroupsStore(state => state.getWorktreeGroup)
   const initializeDefaultGroups = useGroupsStore(state => state.initializeDefaultGroups)
 
@@ -59,10 +58,9 @@ export function WorktreeList({ onCreateWorktree, onShowDiff, onCollapse, searchI
   }, [groups.length, initializeDefaultGroups])
 
   // 使用 useCallback 稳定 getWorktreeGroupForPath 的引用
-  // 依赖 groupings 确保分组变更时重新计算
   const getWorktreeGroupForPath = useCallback((worktreeId: string) => {
     return getWorktreeGroup(repoPath, worktreeId)
-  }, [getWorktreeGroup, repoPath, groupings])
+  }, [getWorktreeGroup, repoPath])
 
   // 获取分支列表
   const branches = currentRepo?.branches || []

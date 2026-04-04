@@ -3,11 +3,6 @@ pub mod log;
 pub mod merge;
 pub mod worktree;
 
-pub use ai_review::*;
-pub use log::*;
-pub use merge::*;
-pub use worktree::*;
-
 use tauri::async_runtime::spawn_blocking;
 
 /// 辅助函数：包装同步操作为异步，统一处理错误转换

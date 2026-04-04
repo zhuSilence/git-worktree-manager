@@ -1,4 +1,7 @@
-use crate::models::{CreateWorktreeParams, Worktree, WorktreeListResponse, WorktreeResult, WorktreeStatus, LastCommit, SyncStatus, WorktreeHint, BatchDeleteResult};
+use crate::models::{
+    BatchDeleteResult, CreateWorktreeParams, LastCommit, SyncStatus, Worktree, WorktreeHint,
+    WorktreeListResponse, WorktreeResult, WorktreeStatus,
+};
 use crate::utils::validation::{sanitize_branch_name, validate_path};
 use git2::Repository;
 use std::process::Command;
@@ -65,7 +68,10 @@ fn get_linked_worktree(repo: &Repository, name: &str) -> anyhow::Result<Option<W
     // 打开 worktree 的仓库
     let wt_repo = Repository::open(&path)?;
     let head = wt_repo.head()?;
-    let branch = head.shorthand().map(String::from).unwrap_or_else(|| name.to_string());
+    let branch = head
+        .shorthand()
+        .map(String::from)
+        .unwrap_or_else(|| name.to_string());
     let commit = head.peel_to_commit()?;
     let status = get_worktree_status(&wt_repo)?;
     let last_commit = get_last_commit(&commit)?;
@@ -96,12 +102,8 @@ fn get_last_commit(commit: &git2::Commit) -> anyhow::Result<LastCommit> {
 
     Ok(LastCommit {
         hash: commit.id().to_string()[..7.min(commit.id().to_string().len())].to_string(),
-        message: commit.summary()
-            .unwrap_or("No message")
-            .to_string(),
-        author: commit.author().name()
-            .unwrap_or("Unknown")
-            .to_string(),
+        message: commit.summary().unwrap_or("No message").to_string(),
+        author: commit.author().name().unwrap_or("Unknown").to_string(),
         relative_time,
     })
 }
@@ -173,18 +175,18 @@ pub fn get_worktree_status(repo: &Repository) -> anyhow::Result<WorktreeStatus> 
     let statuses = repo.statuses(None)?;
 
     // 检查冲突
-    let has_conflicts = statuses.iter().any(|s| {
-        s.status().contains(git2::Status::CONFLICTED)
-    });
+    let has_conflicts = statuses
+        .iter()
+        .any(|s| s.status().contains(git2::Status::CONFLICTED));
 
     if has_conflicts {
         return Ok(WorktreeStatus::Conflicted);
     }
 
     // 检查是否有更改
-    let has_changes = statuses.iter().any(|s| {
-        !s.status().is_empty() && !s.status().contains(git2::Status::IGNORED)
-    });
+    let has_changes = statuses
+        .iter()
+        .any(|s| !s.status().is_empty() && !s.status().contains(git2::Status::IGNORED));
 
     if has_changes {
         return Ok(WorktreeStatus::Dirty);
@@ -194,14 +196,17 @@ pub fn get_worktree_status(repo: &Repository) -> anyhow::Result<WorktreeStatus> 
     if let Ok(head) = repo.head() {
         if let Some(branch_name) = head.shorthand() {
             let upstream_name = format!("origin/{}", branch_name);
-            if let Ok(upstream_ref) = repo.find_reference(&format!("refs/remotes/{}", upstream_name)) {
-                if let (Ok(local_commit), Ok(upstream_commit)) = (
-                    head.peel_to_commit(),
-                    upstream_ref.peel_to_commit(),
-                ) {
+            if let Ok(upstream_ref) =
+                repo.find_reference(&format!("refs/remotes/{}", upstream_name))
+            {
+                if let (Ok(local_commit), Ok(upstream_commit)) =
+                    (head.peel_to_commit(), upstream_ref.peel_to_commit())
+                {
                     if local_commit.id() != upstream_commit.id() {
                         // 检查本地是否领先远程
-                        if let Ok((ahead, _)) = repo.graph_ahead_behind(local_commit.id(), upstream_commit.id()) {
+                        if let Ok((ahead, _)) =
+                            repo.graph_ahead_behind(local_commit.id(), upstream_commit.id())
+                        {
                             if ahead > 0 {
                                 return Ok(WorktreeStatus::Unpushed);
                             }
@@ -235,20 +240,28 @@ pub fn create_worktree(
         .map_err(|e| anyhow::anyhow!("Invalid base branch name: {}", e))?;
 
     // 确定目标路径
-    let target_path = params.custom_path.clone().unwrap_or_else(|| {
-        format!("{}/{}", repo_path, params.name)
-    });
+    let target_path = params
+        .custom_path
+        .clone()
+        .unwrap_or_else(|| format!("{}/{}", repo_path, params.name));
 
     // 验证路径
-    let _validated_path = validate_path(&target_path)
-        .map_err(|e| anyhow::anyhow!("Invalid path: {}", e))?;
+    let _validated_path =
+        validate_path(&target_path).map_err(|e| anyhow::anyhow!("Invalid path: {}", e))?;
 
     // 创建 worktree（依赖 git worktree add 命令自身的错误返回来判断路径是否存在）
     let branch_name = params.new_branch.clone().unwrap_or(branch_name);
 
     // 使用 git worktree add 命令（更可靠）
     let output = Command::new("git")
-        .args(["worktree", "add", "-b", &branch_name, &target_path, &params.base_branch])
+        .args([
+            "worktree",
+            "add",
+            "-b",
+            &branch_name,
+            &target_path,
+            &params.base_branch,
+        ])
         .current_dir(repo_path)
         .output()?;
 
@@ -262,7 +275,9 @@ pub fn create_worktree(
 
     // 刷新并获取新 worktree
     let worktrees = list_worktrees(repo_path)?;
-    let new_worktree = worktrees.worktrees.into_iter()
+    let new_worktree = worktrees
+        .worktrees
+        .into_iter()
         .find(|w| w.path == target_path);
 
     Ok(WorktreeResult {
@@ -286,7 +301,8 @@ pub fn delete_worktree(
         if status != WorktreeStatus::Clean {
             return Ok(WorktreeResult {
                 success: false,
-                message: "Worktree has uncommitted changes. Use force=true to delete anyway.".to_string(),
+                message: "Worktree has uncommitted changes. Use force=true to delete anyway."
+                    .to_string(),
                 worktree: None,
             });
         }
@@ -336,7 +352,11 @@ pub fn prune_worktrees(repo_path: &str) -> anyhow::Result<()> {
 }
 
 /// 批量删除 worktree
-pub fn batch_delete_worktrees(repo_path: &str, worktree_paths: Vec<String>, force: bool) -> anyhow::Result<BatchDeleteResult> {
+pub fn batch_delete_worktrees(
+    repo_path: &str,
+    worktree_paths: Vec<String>,
+    force: bool,
+) -> anyhow::Result<BatchDeleteResult> {
     let mut success_count = 0;
     let mut failed_count = 0;
     let mut results = Vec::new();
@@ -421,7 +441,8 @@ pub fn get_merged_hints(repo_path: &str, main_branch: &str) -> anyhow::Result<Ve
         }
 
         // 检查是否已合并到主分支
-        let is_merged = repo.merge_base(branch_commit_id, main_commit_id)
+        let is_merged = repo
+            .merge_base(branch_commit_id, main_commit_id)
             .map(|base| base == branch_commit_id)
             .unwrap_or(false);
 
@@ -430,7 +451,10 @@ pub fn get_merged_hints(repo_path: &str, main_branch: &str) -> anyhow::Result<Ve
                 worktree_id: worktree.id.clone(),
                 branch: worktree.branch.clone(),
                 hint_type: "merged".to_string(),
-                message: format!("分支 '{}' 已合并到 {}，可以删除", worktree.branch, main_branch),
+                message: format!(
+                    "分支 '{}' 已合并到 {}，可以删除",
+                    worktree.branch, main_branch
+                ),
                 is_merged: true,
                 inactive_days: None,
             });
@@ -467,7 +491,10 @@ pub fn get_stale_hints(repo_path: &str, days: i64) -> anyhow::Result<Vec<Worktre
                             worktree_id: worktree.id.clone(),
                             branch: worktree.branch.clone(),
                             hint_type: "stale".to_string(),
-                            message: format!("分支 '{}' 已 {} 天未更新", worktree.branch, inactive_days),
+                            message: format!(
+                                "分支 '{}' 已 {} 天未更新",
+                                worktree.branch, inactive_days
+                            ),
                             is_merged: false,
                             inactive_days: Some(inactive_days),
                         });

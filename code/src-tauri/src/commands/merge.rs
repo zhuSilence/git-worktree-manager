@@ -1,7 +1,7 @@
-use crate::models::{MergeParams, MergeResult};
-use crate::services::{merge_branch_in_worktree, abort_merge, complete_merge};
-use crate::utils::validation::validate_path;
 use super::run_blocking;
+use crate::models::{MergeParams, MergeResult};
+use crate::services::{abort_merge, complete_merge, merge_branch_in_worktree};
+use crate::utils::validation::validate_path;
 use tauri::command;
 
 /// 在目标 worktree 中合并源分支
