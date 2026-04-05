@@ -62,6 +62,8 @@ jobs:
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
+        with:
+          workspaces: code/src-tauri
 
       - name: Install frontend dependencies
         run: |
@@ -111,6 +113,8 @@ jobs:
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
+        with:
+          workspaces: code/src-tauri
 
       - name: Install create-dmg
         run: brew install create-dmg
@@ -161,6 +165,8 @@ jobs:
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
+        with:
+          workspaces: code/src-tauri
 
       - name: Install system dependencies
         run: |
@@ -215,6 +221,8 @@ jobs:
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
+        with:
+          workspaces: code/src-tauri
 
       - name: Install frontend dependencies
         run: |
