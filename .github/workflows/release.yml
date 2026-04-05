@@ -86,7 +86,7 @@ jobs:
             code/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg.sig
 
   build-macos-x64:
-    runs-on: macos-14  # Intel runner
+    runs-on: macos-latest  # ARM64 runner with cross-compilation support
 
     steps:
       - name: Checkout repository
@@ -106,6 +106,8 @@ jobs:
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -121,7 +123,7 @@ jobs:
       - name: Build Tauri app (x64)
         run: |
           cd code
-          pnpm tauri build
+          pnpm tauri build --target x86_64-apple-darwin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -132,8 +134,8 @@ jobs:
         with:
           name: macos-x64
           path: |
-            code/src-tauri/target/release/bundle/dmg/*.dmg
-            code/src-tauri/target/release/bundle/dmg/*.dmg.sig
+            code/src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
+            code/src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg.sig
 
   build-linux:
     runs-on: ubuntu-22.04
