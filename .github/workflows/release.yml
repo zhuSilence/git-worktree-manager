@@ -60,13 +60,17 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
+      - name: List build output
+        run: find code/src-tauri/target/aarch64-apple-darwin/release/bundle -type f | head -50
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-arm64
           path: |
             code/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
-            code/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg.sig
+            code/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.tar.gz
+            code/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.tar.gz.sig
 
   build-macos-x64:
     runs-on: macos-latest
@@ -109,13 +113,17 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
+      - name: List build output
+        run: find code/src-tauri/target/x86_64-apple-darwin/release/bundle -type f | head -50
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-x64
           path: |
             code/src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
-            code/src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg.sig
+            code/src-tauri/target/x86_64-apple-darwin/release/bundle/macos/*.tar.gz
+            code/src-tauri/target/x86_64-apple-darwin/release/bundle/macos/*.tar.gz.sig
 
   build-linux:
     runs-on: ubuntu-22.04
@@ -161,13 +169,15 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
+      - name: List build output
+        run: find code/src-tauri/target/release/bundle -type f | head -50
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-x64
           path: |
             code/src-tauri/target/release/bundle/deb/*.deb
-            code/src-tauri/target/release/bundle/deb/*.deb.sig
             code/src-tauri/target/release/bundle/appimage/*.AppImage
             code/src-tauri/target/release/bundle/appimage/*.AppImage.sig
 
@@ -210,6 +220,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
+      - name: List build output
+        run: Get-ChildItem -Recurse code/src-tauri/target/release/bundle | Select-Object -First 50
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -235,7 +248,7 @@ jobs:
           path: artifacts
 
       - name: Display structure of downloaded files
-        run: ls -R artifacts
+        run: find artifacts -type f | sort
 
       - name: Get version
         id: get_version
@@ -252,31 +265,32 @@ jobs:
       - name: Rename artifacts (normalize filename)
         run: |
           # Tauri uses product name "Git Worktree Manager" which creates files with spaces
-          # We normalize to dot format: Git.Worktree.Manager_xxx.dmg for consistency
+          # We normalize to dot format: Git.Worktree.Manager for consistency
           find artifacts -type f -name "* *" | while read file; do
             newname=$(echo "$file" | sed 's/ /./g')
             mv "$file" "$newname"
           done
           echo "=== Renamed artifacts ==="
-          ls -R artifacts
+          find artifacts -type f | sort
 
       - name: Generate update manifests
         run: |
           VERSION=${{ steps.get_version.outputs.VERSION }}
+          TAG_NAME=${{ steps.get_version.outputs.TAG_NAME }}
           PUBLISHED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          REPO="${{ github.repository }}"
 
-          # macOS ARM64
-          DMG_FILES=$(find artifacts/macos-arm64 -name "*.dmg" ! -name "*.sig" 2>/dev/null || true)
-          if [ -n "$DMG_FILES" ]; then
-            DMG_FILE=$(echo "$DMG_FILES" | head -n1)
-            SIG_FILE="${DMG_FILE}.sig"
+          # --- macOS ARM64 ---
+          # Updater uses .tar.gz (not .dmg)
+          TARGZ_FILE=$(find artifacts/macos-arm64 -name "*.tar.gz" ! -name "*.sig" 2>/dev/null | head -n1)
+          if [ -n "$TARGZ_FILE" ]; then
+            SIG_FILE="${TARGZ_FILE}.sig"
             if [ ! -f "$SIG_FILE" ]; then
-              echo "ERROR: Signature file not found for $DMG_FILE"
+              echo "ERROR: Signature file not found: $SIG_FILE"
               exit 1
             fi
             SIGNATURE=$(cat "$SIG_FILE")
-            DMG_NAME=$(basename "$DMG_FILE")
-
+            TARGZ_NAME=$(basename "$TARGZ_FILE")
             cat > darwin-aarch64.json << EOF
           {
             "version": "$VERSION",
@@ -284,26 +298,24 @@ jobs:
             "platforms": {
               "darwin-aarch64": {
                 "signature": "$SIGNATURE",
-                "url": "https://github.com/${{ github.repository }}/releases/download/${{ steps.get_version.outputs.TAG_NAME }}/${DMG_NAME}"
+                "url": "https://github.com/${REPO}/releases/download/${TAG_NAME}/${TARGZ_NAME}"
               }
             }
           }
           EOF
-            echo "Generated darwin-aarch64.json with url containing: ${DMG_NAME}"
+            echo "Generated darwin-aarch64.json -> ${TARGZ_NAME}"
           fi
 
-          # macOS x64
-          DMG_FILES=$(find artifacts/macos-x64 -name "*.dmg" ! -name "*.sig" 2>/dev/null || true)
-          if [ -n "$DMG_FILES" ]; then
-            DMG_FILE=$(echo "$DMG_FILES" | head -n1)
-            SIG_FILE="${DMG_FILE}.sig"
+          # --- macOS x64 ---
+          TARGZ_FILE=$(find artifacts/macos-x64 -name "*.tar.gz" ! -name "*.sig" 2>/dev/null | head -n1)
+          if [ -n "$TARGZ_FILE" ]; then
+            SIG_FILE="${TARGZ_FILE}.sig"
             if [ ! -f "$SIG_FILE" ]; then
-              echo "ERROR: Signature file not found for $DMG_FILE"
+              echo "ERROR: Signature file not found: $SIG_FILE"
               exit 1
             fi
             SIGNATURE=$(cat "$SIG_FILE")
-            DMG_NAME=$(basename "$DMG_FILE")
-
+            TARGZ_NAME=$(basename "$TARGZ_FILE")
             cat > darwin-x86_64.json << EOF
           {
             "version": "$VERSION",
@@ -311,26 +323,25 @@ jobs:
             "platforms": {
               "darwin-x86_64": {
                 "signature": "$SIGNATURE",
-                "url": "https://github.com/${{ github.repository }}/releases/download/${{ steps.get_version.outputs.TAG_NAME }}/${DMG_NAME}"
+                "url": "https://github.com/${REPO}/releases/download/${TAG_NAME}/${TARGZ_NAME}"
               }
             }
           }
           EOF
-            echo "Generated darwin-x86_64.json with url containing: ${DMG_NAME}"
+            echo "Generated darwin-x86_64.json -> ${TARGZ_NAME}"
           fi
 
-          # Linux x64
-          APPIMAGE_FILES=$(find artifacts/linux-x64 -name "*.AppImage" ! -name "*.sig" 2>/dev/null || true)
-          if [ -n "$APPIMAGE_FILES" ]; then
-            APPIMAGE_FILE=$(echo "$APPIMAGE_FILES" | head -n1)
+          # --- Linux x64 ---
+          # Updater uses .AppImage with .AppImage.sig
+          APPIMAGE_FILE=$(find artifacts/linux-x64 -name "*.AppImage" ! -name "*.sig" 2>/dev/null | head -n1)
+          if [ -n "$APPIMAGE_FILE" ]; then
             SIG_FILE="${APPIMAGE_FILE}.sig"
             if [ ! -f "$SIG_FILE" ]; then
-              echo "ERROR: Signature file not found for $APPIMAGE_FILE"
+              echo "ERROR: Signature file not found: $SIG_FILE"
               exit 1
             fi
             SIGNATURE=$(cat "$SIG_FILE")
             APPIMAGE_NAME=$(basename "$APPIMAGE_FILE")
-
             cat > linux-x86_64.json << EOF
           {
             "version": "$VERSION",
@@ -338,48 +349,67 @@ jobs:
             "platforms": {
               "linux-x86_64": {
                 "signature": "$SIGNATURE",
-                "url": "https://github.com/${{ github.repository }}/releases/download/${{ steps.get_version.outputs.TAG_NAME }}/${APPIMAGE_NAME}"
+                "url": "https://github.com/${REPO}/releases/download/${TAG_NAME}/${APPIMAGE_NAME}"
               }
             }
           }
           EOF
-            echo "Generated linux-x86_64.json with url containing: ${APPIMAGE_NAME}"
+            echo "Generated linux-x86_64.json -> ${APPIMAGE_NAME}"
           fi
 
-          # Windows x64 (NSIS exe)
-          EXE_FILES=$(find artifacts/windows-x64 -name "*.exe" ! -name "*.sig" 2>/dev/null || true)
-          if [ -n "$EXE_FILES" ]; then
-            EXE_FILE=$(echo "$EXE_FILES" | head -n1)
-            SIG_FILE="${EXE_FILE}.sig"
-            if [ ! -f "$SIG_FILE" ]; then
-              echo "ERROR: Signature file not found for $EXE_FILE"
-              exit 1
-            fi
-            SIGNATURE=$(cat "$SIG_FILE")
+          # --- Windows x64 ---
+          # Updater reuses .exe/.msi directly with .exe.sig/.msi.sig
+          EXE_FILE=$(find artifacts/windows-x64 -name "*.exe" ! -name "*.sig" 2>/dev/null | head -n1)
+          NSIS_SIG=$(find artifacts/windows-x64 -name "*.exe.sig" 2>/dev/null | head -n1)
+          MSI_SIG=$(find artifacts/windows-x64 -name "*.msi.sig" 2>/dev/null | head -n1)
+          if [ -n "$NSIS_SIG" ] && [ -n "$EXE_FILE" ]; then
+            SIGNATURE=$(cat "$NSIS_SIG")
             EXE_NAME=$(basename "$EXE_FILE")
-
-            cat > win-x86_64.json << EOF
+            cat > windows-x86_64.json << EOF
           {
             "version": "$VERSION",
             "pub_date": "$PUBLISHED_AT",
             "platforms": {
               "windows-x86_64": {
                 "signature": "$SIGNATURE",
-                "url": "https://github.com/${{ github.repository }}/releases/download/${{ steps.get_version.outputs.TAG_NAME }}/${EXE_NAME}"
+                "url": "https://github.com/${REPO}/releases/download/${TAG_NAME}/${EXE_NAME}"
               }
             }
           }
           EOF
-            echo "Generated win-x86_64.json with url containing: ${EXE_NAME}"
+            echo "Generated windows-x86_64.json -> ${EXE_NAME}"
+          elif [ -n "$MSI_SIG" ]; then
+            MSI_FILE=$(find artifacts/windows-x64 -name "*.msi" ! -name "*.sig" 2>/dev/null | head -n1)
+            SIGNATURE=$(cat "$MSI_SIG")
+            MSI_NAME=$(basename "$MSI_FILE")
+            cat > windows-x86_64.json << EOF
+          {
+            "version": "$VERSION",
+            "pub_date": "$PUBLISHED_AT",
+            "platforms": {
+              "windows-x86_64": {
+                "signature": "$SIGNATURE",
+                "url": "https://github.com/${REPO}/releases/download/${TAG_NAME}/${MSI_NAME}"
+              }
+            }
+          }
+          EOF
+            echo "Generated windows-x86_64.json -> ${MSI_NAME}"
+          else
+            echo "WARNING: No Windows signature files found, skipping windows-x86_64.json"
           fi
 
           echo "=== Generated update manifests ==="
-          ls -la *.json 2>/dev/null || echo "No manifests generated"
+          for f in *.json; do
+            [ -f "$f" ] && echo "--- $f ---" && cat "$f" && echo ""
+          done
 
       - name: Collect release files
         run: |
           mkdir -p release-files
-          find artifacts -type f \( -name "*.dmg" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.exe" -o -name "*.sig" \) -exec cp {} release-files/ \;
+          # Collect all installable artifacts and signatures
+          find artifacts -type f \( -name "*.dmg" -o -name "*.tar.gz" -o -name "*.tar.gz.sig" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.AppImage.sig" -o -name "*.msi" -o -name "*.msi.sig" -o -name "*.exe" -o -name "*.exe.sig" \) -exec cp {} release-files/ \;
+          # Copy update manifests
           cp *.json release-files/ 2>/dev/null || true
           echo "=== Release files ==="
           ls -la release-files/
