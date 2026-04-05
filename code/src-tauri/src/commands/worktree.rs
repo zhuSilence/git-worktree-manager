@@ -5,11 +5,11 @@ use crate::models::{
 };
 use crate::services::{
     abort_hotfix, batch_delete_worktrees, create_and_switch_branch, create_worktree,
-    delete_worktree, fetch_all, fetch_and_checkout, finish_hotfix, get_detailed_diff, get_diff,
-    get_hotfix_status, get_merged_hints, get_repository_info, get_stale_hints, get_timeline,
-    is_git_repo, list_branches, list_remote_branches, list_worktrees, open_in_editor,
-    open_in_file_manager, open_in_terminal, prune_worktrees, pull, push, start_hotfix,
-    switch_branch,
+    delete_worktree, detect_conflicts, fetch_all, fetch_and_checkout, finish_hotfix,
+    get_detailed_diff, get_diff, get_hotfix_status, get_merged_hints, get_repository_info,
+    get_stale_hints, get_timeline, is_git_repo, list_branches, list_remote_branches,
+    list_worktrees, open_in_editor, open_in_file_manager, open_in_terminal, prune_worktrees, pull,
+    push, start_hotfix, switch_branch,
 };
 use crate::utils::validation::validate_path;
 use tauri::command;
@@ -290,4 +290,15 @@ pub async fn abort_hotfix_cmd(repo_path: String) -> Result<FinishHotfixResult, S
 #[command]
 pub async fn get_hotfix_status_cmd(repo_path: String) -> Result<Option<HotfixInfo>, String> {
     run_blocking(move || get_hotfix_status(&repo_path)).await
+}
+
+// ============ 冲突检测相关命令 ============
+
+/// 检测 worktree 之间的潜在冲突
+#[command]
+pub async fn detect_conflicts_cmd(
+    repo_path: String,
+) -> Result<crate::models::WorktreeConflictDetectionResponse, String> {
+    validate_path(&repo_path).map_err(|e| e.to_string())?;
+    run_blocking(move || detect_conflicts(&repo_path)).await
 }

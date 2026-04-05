@@ -330,3 +330,64 @@ pub struct FetchResult {
     /// 更新的远程名列表
     pub updated_remotes: Vec<String>,
 }
+
+/// Worktree 冲突风险等级
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum WorktreeConflictRiskLevel {
+    #[serde(rename = "high")]
+    High,
+    #[serde(rename = "medium")]
+    Medium,
+    #[serde(rename = "low")]
+    Low,
+}
+
+/// Worktree 文件变更信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreeFileChange {
+    /// Worktree 名称
+    pub worktree_name: String,
+    /// 分支名
+    pub branch: String,
+    /// Worktree 路径
+    pub worktree_path: String,
+    /// 文件状态 (added, modified, deleted)
+    pub status: String,
+    /// 新增行数
+    pub additions: usize,
+    /// 删除行数
+    pub deletions: usize,
+}
+
+/// Worktree 冲突文件信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreeConflictFile {
+    /// 文件路径
+    pub path: String,
+    /// 风险等级
+    pub risk_level: WorktreeConflictRiskLevel,
+    /// 在哪些 worktree 中被修改
+    pub worktree_changes: Vec<WorktreeFileChange>,
+    /// 冲突描述
+    pub description: String,
+}
+
+/// Worktree 冲突检测结果响应
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreeConflictDetectionResponse {
+    /// 是否有冲突
+    pub has_conflicts: bool,
+    /// 高风险冲突数
+    pub high_risk_count: usize,
+    /// 中风险冲突数
+    pub medium_risk_count: usize,
+    /// 低风险冲突数
+    pub low_risk_count: usize,
+    /// 冲突文件列表
+    pub conflict_files: Vec<WorktreeConflictFile>,
+    /// 检测时间
+    pub detected_at: String,
+}
