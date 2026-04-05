@@ -255,10 +255,12 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R artifacts
 
-      - name: Rename artifacts (remove spaces)
+      - name: Rename artifacts (normalize filename)
         run: |
+          # Tauri uses product name "Git Worktree Manager" which creates files with spaces
+          # We normalize to dot format: Git.Worktree.Manager_xxx.dmg for consistency
           find artifacts -type f -name "* *" | while read file; do
-            newname=$(echo "$file" | tr ' ' '-')
+            newname=$(echo "$file" | sed 's/ /./g')
             mv "$file" "$newname"
           done
           ls -R artifacts

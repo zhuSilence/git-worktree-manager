@@ -21,14 +21,21 @@ jobs:
         run: |
           VERSION="${{ steps.release.outputs.version }}"
 
+          # Download x64 DMG (if available)
+          curl -fsSL --retry 3 -o x64.dmg "https://github.com/${{ github.repository }}/releases/download/v${VERSION}/Git.Worktree.Manager_${VERSION}_x64.dmg" || echo "x64 DMG not found"
+
           # Download aarch64 DMG
-          curl -fsSL -o aarch64.dmg "https://github.com/${{ github.repository }}/releases/download/v${VERSION}/Git-Worktree-Manager_${VERSION}_aarch64.dmg"
+          curl -fsSL --retry 3 -o aarch64.dmg "https://github.com/${{ github.repository }}/releases/download/v${VERSION}/Git.Worktree.Manager_${VERSION}_aarch64.dmg"
 
       - name: Calculate SHA256
         id: sha256
         run: |
-          AARCH64_SHA=$(sha256sum aarch64.dmg | cut -d' ' -f1)
+          if [ -f x64.dmg ] && [ -s x64.dmg ]; then
+            X64_SHA=$(sha256sum x64.dmg | cut -d' ' -f1)
+            echo "x64=${X64_SHA}" >> "$GITHUB_OUTPUT"
+          fi
 
+          AARCH64_SHA=$(sha256sum aarch64.dmg | cut -d' ' -f1)
           echo "aarch64=${AARCH64_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout Tap repository
@@ -45,12 +52,56 @@ jobs:
 
           cd tap
 
-          # Update Cask file
-          cat > Casks/git-worktree-manager.rb << EOF
+          # Check if x64 is available
+          if [ -n "${{ steps.sha256.outputs.x64 }}" ]; then
+            X64_SHA="${{ steps.sha256.outputs.x64 }}"
+            # Multi-arch cask
+            cat > Casks/git-worktree-manager.rb << EOF
           cask "git-worktree-manager" do
             version "${VERSION}"
 
-            url "https://github.com/zhuSilence/git-worktree-manager/releases/download/v#{version}/Git-Worktree-Manager_#{version}_aarch64.dmg"
+            on_macos do
+              on_intel do
+                url "https://github.com/zhuSilence/git-worktree-manager/releases/download/v\#{version}/Git.Worktree.Manager_\#{version}_x64.dmg"
+                sha256 "${X64_SHA}"
+              end
+              on_arm do
+                url "https://github.com/zhuSilence/git-worktree-manager/releases/download/v\#{version}/Git.Worktree.Manager_\#{version}_aarch64.dmg"
+                sha256 "${AARCH64_SHA}"
+              end
+            end
+
+            name "Git Worktree Manager"
+            desc "A GUI tool for managing Git worktrees"
+            homepage "https://github.com/zhuSilence/git-worktree-manager"
+
+            livecheck do
+              url :url
+              strategy :github_latest
+            end
+
+            depends_on macos: ">= :big_sur"
+
+            app "Git Worktree Manager.app"
+
+            binary "\#{appdir}/Git Worktree Manager.app/Contents/MacOS/git-worktree-manager"
+
+            zap trash: [
+              "~/Library/Application Support/git-worktree-manager",
+              "~/Library/Caches/git-worktree-manager",
+              "~/Library/HTTPStorages/git-worktree-manager",
+              "~/Library/Preferences/com.git-worktree-manager.app.plist",
+              "~/Library/Saved Application State/com.git-worktree-manager.app.savedState",
+            ]
+          end
+          EOF
+          else
+            # ARM64 only cask
+            cat > Casks/git-worktree-manager.rb << EOF
+          cask "git-worktree-manager" do
+            version "${VERSION}"
+
+            url "https://github.com/zhuSilence/git-worktree-manager/releases/download/v\#{version}/Git.Worktree.Manager_\#{version}_aarch64.dmg"
             sha256 "${AARCH64_SHA}"
 
             name "Git Worktree Manager"
@@ -67,7 +118,7 @@ jobs:
 
             app "Git Worktree Manager.app"
 
-            binary "#{appdir}/Git Worktree Manager.app/Contents/MacOS/git-worktree-manager"
+            binary "\#{appdir}/Git Worktree Manager.app/Contents/MacOS/git-worktree-manager"
 
             zap trash: [
               "~/Library/Application Support/git-worktree-manager",
@@ -78,11 +129,12 @@ jobs:
             ]
           end
           EOF
+          fi
 
       - name: Commit and push
         run: |
           VERSION="${{ steps.release.outputs.version }}"
-          
+
           cd tap
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
