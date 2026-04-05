@@ -1,1 +1,6 @@
-npx lint-staged
+#!/bin/sh
+# 前端代码格式化检查
+cd code && npx lint-staged
+
+# Rust 代码格式化检查
+cd src-tauri && cargo fmt -- --check

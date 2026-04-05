@@ -78,6 +78,9 @@
     ],
     "src/**/*.{json,css}": [
       "prettier --write"
+    ],
+    "../**/*.rs": [
+      "cd src-tauri && cargo fmt --"
     ]
   },
   "pnpm": {
