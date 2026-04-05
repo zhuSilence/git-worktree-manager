@@ -34,19 +34,16 @@ jobs:
         timeout-minutes: 15
 
       - name: Build frontend
-        run: |
-          cd code
-          npm run build
+        run: pnpm run build
+        working-directory: code
 
       - name: Type check
-        run: |
-          cd code
-          npx tsc --noEmit
+        run: pnpm exec tsc --noEmit
+        working-directory: code
 
       - name: Lint
-        run: |
-          cd code
-          npm run lint
+        run: pnpm run lint
+        working-directory: code
 
       - name: Run tests
         run: pnpm run test:run

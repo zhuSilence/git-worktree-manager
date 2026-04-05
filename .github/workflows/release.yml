@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 0.1.0)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -26,6 +31,11 @@ jobs:
         with:
           node-version: 20
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -33,11 +43,13 @@ jobs:
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
+        with:
+          workspaces: code/src-tauri
 
       - name: Install frontend dependencies
         run: |
           cd code
-          npm install
+          pnpm install --shamefully-hoist
 
       - name: Build Tauri app (ARM64)
         run: |
@@ -57,7 +69,7 @@ jobs:
             code/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg.sig
 
   build-macos-x64:
-    runs-on: macos-15-intel  # Intel runner (deprecated but may still work)
+    runs-on: macos-latest
 
     steps:
       - name: Checkout repository
@@ -68,24 +80,30 @@ jobs:
         with:
           node-version: 20
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
-
-      - name: Install create-dmg
-        run: brew install create-dmg
+        with:
+          workspaces: code/src-tauri
 
       - name: Install frontend dependencies
         run: |
           cd code
-          npm install
+          pnpm install --shamefully-hoist
 
       - name: Build Tauri app (x64)
         run: |
           cd code
-          npx tauri build
+          npx tauri build --target x86_64-apple-darwin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -96,8 +114,8 @@ jobs:
         with:
           name: macos-x64
           path: |
-            code/src-tauri/target/release/bundle/dmg/*.dmg
-            code/src-tauri/target/release/bundle/dmg/*.dmg.sig
+            code/src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
+            code/src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg.sig
 
   build-linux:
     runs-on: ubuntu-22.04
@@ -111,11 +129,18 @@ jobs:
         with:
           node-version: 20
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
+        with:
+          workspaces: code/src-tauri
 
       - name: Install system dependencies
         run: |
@@ -125,7 +150,7 @@ jobs:
       - name: Install frontend dependencies
         run: |
           cd code
-          npm install
+          pnpm install --shamefully-hoist
 
       - name: Build Tauri app
         run: |
@@ -158,16 +183,23 @@ jobs:
         with:
           node-version: 20
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
+        with:
+          workspaces: code/src-tauri
 
       - name: Install frontend dependencies
         run: |
           cd code
-          npm install
+          pnpm install --shamefully-hoist
 
       - name: Build Tauri app
         run: |
@@ -205,101 +237,17 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R artifacts
 
-      - name: Get version from tag
+      - name: Get version
         id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-      - name: Generate update manifests
         run: |
-          VERSION=${{ steps.get_version.outputs.VERSION }}
-          PUBLISHED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-          # macOS ARM64
-          if [ -f "artifacts/macos-arm64/"*".dmg" ]; then
-            DMG_FILE=$(ls artifacts/macos-arm64/*.dmg | head -n1)
-            SIG_FILE="${DMG_FILE}.sig"
-            SIGNATURE=$(cat "$SIG_FILE" 2>/dev/null || echo "")
-            DMG_NAME=$(basename "$DMG_FILE")
-
-            cat > darwin-aarch64.json << EOF
-          {
-            "version": "$VERSION",
-            "pub_date": "$PUBLISHED_AT",
-            "platforms": {
-              "darwin-aarch64": {
-                "signature": "$SIGNATURE",
-                "url": "https://github.com/zhuSilence/git-worktree-manager/releases/download/v${VERSION}/${DMG_NAME}"
-              }
-            }
-          }
-          EOF
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
           fi
-
-          # macOS x64
-          if [ -f "artifacts/macos-x64/"*".dmg" ]; then
-            DMG_FILE=$(ls artifacts/macos-x64/*.dmg | head -n1)
-            SIG_FILE="${DMG_FILE}.sig"
-            SIGNATURE=$(cat "$SIG_FILE" 2>/dev/null || echo "")
-            DMG_NAME=$(basename "$DMG_FILE")
-
-            cat > darwin-x86_64.json << EOF
-          {
-            "version": "$VERSION",
-            "pub_date": "$PUBLISHED_AT",
-            "platforms": {
-              "darwin-x86_64": {
-                "signature": "$SIGNATURE",
-                "url": "https://github.com/zhuSilence/git-worktree-manager/releases/download/v${VERSION}/${DMG_NAME}"
-              }
-            }
-          }
-          EOF
-          fi
-
-          # Linux x64
-          if [ -f "artifacts/linux-x64/"*".AppImage" ]; then
-            APPIMAGE_FILE=$(ls artifacts/linux-x64/*.AppImage | head -n1)
-            SIG_FILE="${APPIMAGE_FILE}.sig"
-            SIGNATURE=$(cat "$SIG_FILE" 2>/dev/null || echo "")
-            APPIMAGE_NAME=$(basename "$APPIMAGE_FILE")
-
-            cat > linux-x86_64.json << EOF
-          {
-            "version": "$VERSION",
-            "pub_date": "$PUBLISHED_AT",
-            "platforms": {
-              "linux-x86_64": {
-                "signature": "$SIGNATURE",
-                "url": "https://github.com/zhuSilence/git-worktree-manager/releases/download/v${VERSION}/${APPIMAGE_NAME}"
-              }
-            }
-          }
-          EOF
-          fi
-
-          # Windows x64
-          if [ -f "artifacts/windows-x64/"*".exe" ]; then
-            EXE_FILE=$(ls artifacts/windows-x64/*.exe | head -n1)
-            SIG_FILE="${EXE_FILE}.sig"
-            SIGNATURE=$(cat "$SIG_FILE" 2>/dev/null || echo "")
-            EXE_NAME=$(basename "$EXE_FILE")
-
-            cat > win-x86_64.json << EOF
-          {
-            "version": "$VERSION",
-            "pub_date": "$PUBLISHED_AT",
-            "platforms": {
-              "win-x86_64": {
-                "signature": "$SIGNATURE",
-                "url": "https://github.com/zhuSilence/git-worktree-manager/releases/download/v${VERSION}/${EXE_NAME}"
-              }
-            }
-          }
-          EOF
-          fi
-
-          echo "Generated update manifests:"
-          ls -la *.json 2>/dev/null || echo "No manifests generated"
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "TAG_NAME=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "Resolved version: ${VERSION}"
 
       - name: Rename artifacts (normalize filename)
         run: |
@@ -309,41 +257,138 @@ jobs:
             newname=$(echo "$file" | sed 's/ /./g')
             mv "$file" "$newname"
           done
-          # Also rename corresponding .sig files if they exist
-          find artifacts -type f -name "*.sig" | while read sigfile; do
-            if [[ "$sigfile" == *" "* ]]; then
-              newname=$(echo "$sigfile" | sed 's/ /./g')
-              mv "$sigfile" "$newname"
-            fi
-          done
+          echo "=== Renamed artifacts ==="
           ls -R artifacts
 
-      - name: Rename sig files to match DMG names
+      - name: Generate update manifests
         run: |
-          # Ensure .sig files match the renamed DMG files
-          for dmg in artifacts/*/*.dmg; do
-            if [ -f "$dmg" ]; then
-              sigfile="${dmg}.sig"
-              # Check if there's a .sig file with the same base name
-              if [ -f "$sigfile" ]; then
-                echo "Found signature: $sigfile"
-              else
-                echo "Warning: No signature found for $dmg"
-              fi
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          PUBLISHED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          # macOS ARM64
+          DMG_FILES=$(find artifacts/macos-arm64 -name "*.dmg" ! -name "*.sig" 2>/dev/null || true)
+          if [ -n "$DMG_FILES" ]; then
+            DMG_FILE=$(echo "$DMG_FILES" | head -n1)
+            SIG_FILE="${DMG_FILE}.sig"
+            if [ ! -f "$SIG_FILE" ]; then
+              echo "ERROR: Signature file not found for $DMG_FILE"
+              exit 1
             fi
-          done
+            SIGNATURE=$(cat "$SIG_FILE")
+            DMG_NAME=$(basename "$DMG_FILE")
+
+            cat > darwin-aarch64.json << EOF
+          {
+            "version": "$VERSION",
+            "pub_date": "$PUBLISHED_AT",
+            "platforms": {
+              "darwin-aarch64": {
+                "signature": "$SIGNATURE",
+                "url": "https://github.com/${{ github.repository }}/releases/download/${{ steps.get_version.outputs.TAG_NAME }}/${DMG_NAME}"
+              }
+            }
+          }
+          EOF
+            echo "Generated darwin-aarch64.json with url containing: ${DMG_NAME}"
+          fi
+
+          # macOS x64
+          DMG_FILES=$(find artifacts/macos-x64 -name "*.dmg" ! -name "*.sig" 2>/dev/null || true)
+          if [ -n "$DMG_FILES" ]; then
+            DMG_FILE=$(echo "$DMG_FILES" | head -n1)
+            SIG_FILE="${DMG_FILE}.sig"
+            if [ ! -f "$SIG_FILE" ]; then
+              echo "ERROR: Signature file not found for $DMG_FILE"
+              exit 1
+            fi
+            SIGNATURE=$(cat "$SIG_FILE")
+            DMG_NAME=$(basename "$DMG_FILE")
+
+            cat > darwin-x86_64.json << EOF
+          {
+            "version": "$VERSION",
+            "pub_date": "$PUBLISHED_AT",
+            "platforms": {
+              "darwin-x86_64": {
+                "signature": "$SIGNATURE",
+                "url": "https://github.com/${{ github.repository }}/releases/download/${{ steps.get_version.outputs.TAG_NAME }}/${DMG_NAME}"
+              }
+            }
+          }
+          EOF
+            echo "Generated darwin-x86_64.json with url containing: ${DMG_NAME}"
+          fi
+
+          # Linux x64
+          APPIMAGE_FILES=$(find artifacts/linux-x64 -name "*.AppImage" ! -name "*.sig" 2>/dev/null || true)
+          if [ -n "$APPIMAGE_FILES" ]; then
+            APPIMAGE_FILE=$(echo "$APPIMAGE_FILES" | head -n1)
+            SIG_FILE="${APPIMAGE_FILE}.sig"
+            if [ ! -f "$SIG_FILE" ]; then
+              echo "ERROR: Signature file not found for $APPIMAGE_FILE"
+              exit 1
+            fi
+            SIGNATURE=$(cat "$SIG_FILE")
+            APPIMAGE_NAME=$(basename "$APPIMAGE_FILE")
+
+            cat > linux-x86_64.json << EOF
+          {
+            "version": "$VERSION",
+            "pub_date": "$PUBLISHED_AT",
+            "platforms": {
+              "linux-x86_64": {
+                "signature": "$SIGNATURE",
+                "url": "https://github.com/${{ github.repository }}/releases/download/${{ steps.get_version.outputs.TAG_NAME }}/${APPIMAGE_NAME}"
+              }
+            }
+          }
+          EOF
+            echo "Generated linux-x86_64.json with url containing: ${APPIMAGE_NAME}"
+          fi
+
+          # Windows x64 (NSIS exe)
+          EXE_FILES=$(find artifacts/windows-x64 -name "*.exe" ! -name "*.sig" 2>/dev/null || true)
+          if [ -n "$EXE_FILES" ]; then
+            EXE_FILE=$(echo "$EXE_FILES" | head -n1)
+            SIG_FILE="${EXE_FILE}.sig"
+            if [ ! -f "$SIG_FILE" ]; then
+              echo "ERROR: Signature file not found for $EXE_FILE"
+              exit 1
+            fi
+            SIGNATURE=$(cat "$SIG_FILE")
+            EXE_NAME=$(basename "$EXE_FILE")
+
+            cat > win-x86_64.json << EOF
+          {
+            "version": "$VERSION",
+            "pub_date": "$PUBLISHED_AT",
+            "platforms": {
+              "windows-x86_64": {
+                "signature": "$SIGNATURE",
+                "url": "https://github.com/${{ github.repository }}/releases/download/${{ steps.get_version.outputs.TAG_NAME }}/${EXE_NAME}"
+              }
+            }
+          }
+          EOF
+            echo "Generated win-x86_64.json with url containing: ${EXE_NAME}"
+          fi
+
+          echo "=== Generated update manifests ==="
+          ls -la *.json 2>/dev/null || echo "No manifests generated"
 
       - name: Collect release files
         run: |
           mkdir -p release-files
           find artifacts -type f \( -name "*.dmg" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.exe" -o -name "*.sig" \) -exec cp {} release-files/ \;
           cp *.json release-files/ 2>/dev/null || true
+          echo "=== Release files ==="
           ls -la release-files/
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          name: Git Worktree Manager ${{ github.ref_name }}
+          tag_name: ${{ steps.get_version.outputs.TAG_NAME }}
+          name: Git Worktree Manager ${{ steps.get_version.outputs.TAG_NAME }}
           body: |
             ## 📦 Download
 
@@ -359,11 +404,11 @@ jobs:
             - Universal: Download `.AppImage` file
 
             ## 📝 Changelog
-            See [CHANGELOG.md](https://github.com/zhuSilence/git-worktree-manager/blob/main/CHANGELOG.md)
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
 
             ## 🔄 自动更新
             此版本支持自动更新功能，可在设置中检查更新。
-          draft: true
+          draft: false
           prerelease: false
           files: release-files/*
         env:

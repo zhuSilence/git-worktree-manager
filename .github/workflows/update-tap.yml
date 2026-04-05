@@ -50,23 +50,25 @@ jobs:
           VERSION="${{ steps.release.outputs.version }}"
           AARCH64_SHA="${{ steps.sha256.outputs.aarch64 }}"
 
-          cd tap
+          mkdir -p tap/Casks
 
           # Check if x64 is available
           if [ -n "${{ steps.sha256.outputs.x64 }}" ]; then
             X64_SHA="${{ steps.sha256.outputs.x64 }}"
             # Multi-arch cask
-            cat > Casks/git-worktree-manager.rb << EOF
+            cat > tap/Casks/git-worktree-manager.rb << 'CASKEOF'
           cask "git-worktree-manager" do
+          CASKEOF
+            cat >> tap/Casks/git-worktree-manager.rb << EOF
             version "${VERSION}"
 
             on_macos do
               on_intel do
-                url "https://github.com/zhuSilence/git-worktree-manager/releases/download/v\#{version}/Git.Worktree.Manager_\#{version}_x64.dmg"
+                url "https://github.com/zhuSilence/git-worktree-manager/releases/download/v#{version}/Git.Worktree.Manager_#{version}_x64.dmg"
                 sha256 "${X64_SHA}"
               end
               on_arm do
-                url "https://github.com/zhuSilence/git-worktree-manager/releases/download/v\#{version}/Git.Worktree.Manager_\#{version}_aarch64.dmg"
+                url "https://github.com/zhuSilence/git-worktree-manager/releases/download/v#{version}/Git.Worktree.Manager_#{version}_aarch64.dmg"
                 sha256 "${AARCH64_SHA}"
               end
             end
@@ -84,7 +86,7 @@ jobs:
 
             app "Git Worktree Manager.app"
 
-            binary "\#{appdir}/Git Worktree Manager.app/Contents/MacOS/git-worktree-manager"
+            binary "#{appdir}/Git Worktree Manager.app/Contents/MacOS/git-worktree-manager"
 
             zap trash: [
               "~/Library/Application Support/git-worktree-manager",
@@ -97,11 +99,13 @@ jobs:
           EOF
           else
             # ARM64 only cask
-            cat > Casks/git-worktree-manager.rb << EOF
+            cat > tap/Casks/git-worktree-manager.rb << 'CASKEOF'
           cask "git-worktree-manager" do
+          CASKEOF
+            cat >> tap/Casks/git-worktree-manager.rb << EOF
             version "${VERSION}"
 
-            url "https://github.com/zhuSilence/git-worktree-manager/releases/download/v\#{version}/Git.Worktree.Manager_\#{version}_aarch64.dmg"
+            url "https://github.com/zhuSilence/git-worktree-manager/releases/download/v#{version}/Git.Worktree.Manager_#{version}_aarch64.dmg"
             sha256 "${AARCH64_SHA}"
 
             name "Git Worktree Manager"
@@ -118,7 +122,7 @@ jobs:
 
             app "Git Worktree Manager.app"
 
-            binary "\#{appdir}/Git Worktree Manager.app/Contents/MacOS/git-worktree-manager"
+            binary "#{appdir}/Git Worktree Manager.app/Contents/MacOS/git-worktree-manager"
 
             zap trash: [
               "~/Library/Application Support/git-worktree-manager",
@@ -139,5 +143,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Casks/git-worktree-manager.rb
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: update to v${VERSION}"
           git push
