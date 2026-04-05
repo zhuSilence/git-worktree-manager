@@ -263,7 +263,29 @@ jobs:
             newname=$(echo "$file" | sed 's/ /./g')
             mv "$file" "$newname"
           done
+          # Also rename corresponding .sig files if they exist
+          find artifacts -type f -name "*.sig" | while read sigfile; do
+            if [[ "$sigfile" == *" "* ]]; then
+              newname=$(echo "$sigfile" | sed 's/ /./g')
+              mv "$sigfile" "$newname"
+            fi
+          done
           ls -R artifacts
+
+      - name: Rename sig files to match DMG names
+        run: |
+          # Ensure .sig files match the renamed DMG files
+          for dmg in artifacts/*/*.dmg; do
+            if [ -f "$dmg" ]; then
+              sigfile="${dmg}.sig"
+              # Check if there's a .sig file with the same base name
+              if [ -f "$sigfile" ]; then
+                echo "Found signature: $sigfile"
+              else
+                echo "Warning: No signature found for $dmg"
+              fi
+            fi
+          done
 
       - name: Get version
         id: get_version
@@ -278,7 +300,7 @@ jobs:
 
       - name: Generate update manifests
         run: |
-          VERSION=${{ steps.get_version.VERSION }}
+          VERSION=${{ steps.get_version.outputs.VERSION }}
           PUBLISHED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           # macOS ARM64
