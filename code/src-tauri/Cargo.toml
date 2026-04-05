@@ -28,7 +28,7 @@ dirs = "5"
 chrono = { version = "0.4", features = ["serde"] }
 regex = "1"
 scopeguard = "1"
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"] }
 log = "0.4"
 env_logger = "0.11"
