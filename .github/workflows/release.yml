@@ -5,11 +5,6 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to release (e.g., v0.0.8)'
-        required: true
-        type: string
 
 permissions:
   contents: write
@@ -19,23 +14,6 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  pre-release-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Validate version consistency
-        run: |
-          PKG_VERSION=$(jq -r .version code/package.json)
-          TAURI_VERSION=$(jq -r .version code/src-tauri/tauri.conf.json)
-          CARGO_VERSION=$(grep '^version' code/src-tauri/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          echo "package.json: $PKG_VERSION"
-          echo "tauri.conf.json: $TAURI_VERSION"
-          echo "Cargo.toml: $CARGO_VERSION"
-          if [ "$PKG_VERSION" != "$TAURI_VERSION" ] || [ "$PKG_VERSION" != "$CARGO_VERSION" ]; then
-            echo "::error::Version mismatch detected!"
-            exit 1
-          fi
-
   build-macos-arm64:
     runs-on: macos-latest
 
@@ -43,17 +21,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
-          cache-dependency-path: code/pnpm-lock.yaml
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -62,18 +33,16 @@ jobs:
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
-        with:
-          workspaces: code/src-tauri
 
       - name: Install frontend dependencies
         run: |
           cd code
-          pnpm install --frozen-lockfile
+          npm install
 
       - name: Build Tauri app (ARM64)
         run: |
           cd code
-          pnpm tauri build --target aarch64-apple-darwin
+          npx tauri build --target aarch64-apple-darwin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -88,65 +57,47 @@ jobs:
             code/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg.sig
 
   build-macos-x64:
-    runs-on: macos-latest  # ARM64 runner with cross-compilation support
+    runs-on: macos-15-intel  # Intel runner (deprecated but may still work)
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
-          cache-dependency-path: code/pnpm-lock.yaml
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-apple-darwin
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
-        with:
-          workspaces: code/src-tauri
 
       - name: Install create-dmg
         run: brew install create-dmg
 
-      - name: Install x86_64 dependencies
-        run: |
-          # Install openssl for x86_64 cross-compilation
-          brew install openssl
-
       - name: Install frontend dependencies
         run: |
           cd code
-          pnpm install --frozen-lockfile
+          npm install
 
       - name: Build Tauri app (x64)
         run: |
           cd code
-          pnpm tauri build --target x86_64-apple-darwin
+          npx tauri build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          OPENSSL_DIR: /opt/homebrew/opt/openssl
-          PKG_CONFIG_PATH: /opt/homebrew/opt/openssl/lib/pkgconfig
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-x64
           path: |
-            code/src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
-            code/src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg.sig
+            code/src-tauri/target/release/bundle/dmg/*.dmg
+            code/src-tauri/target/release/bundle/dmg/*.dmg.sig
 
   build-linux:
     runs-on: ubuntu-22.04
@@ -155,25 +106,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
-          cache-dependency-path: code/pnpm-lock.yaml
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
-        with:
-          workspaces: code/src-tauri
 
       - name: Install system dependencies
         run: |
@@ -183,12 +125,12 @@ jobs:
       - name: Install frontend dependencies
         run: |
           cd code
-          pnpm install --frozen-lockfile
+          npm install
 
       - name: Build Tauri app
         run: |
           cd code
-          pnpm tauri build
+          npx tauri build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -211,35 +153,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
-          cache-dependency-path: code/pnpm-lock.yaml
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
-        with:
-          workspaces: code/src-tauri
 
       - name: Install frontend dependencies
         run: |
           cd code
-          pnpm install --frozen-lockfile
+          npm install
 
       - name: Build Tauri app
         run: |
           cd code
-          pnpm tauri build
+          npx tauri build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -256,7 +189,7 @@ jobs:
             code/src-tauri/target/release/bundle/nsis/*.exe.sig
 
   release:
-    needs: [pre-release-check, build-macos-arm64, build-macos-x64, build-linux, build-windows]
+    needs: [build-macos-arm64, build-macos-x64, build-linux, build-windows]
     runs-on: ubuntu-latest
     if: always() && (needs.build-macos-arm64.result == 'success' || needs.build-macos-x64.result == 'success' || needs.build-linux.result == 'success' || needs.build-windows.result == 'success')
 
@@ -272,48 +205,9 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R artifacts
 
-      - name: Rename artifacts (normalize filename)
-        run: |
-          # Tauri uses product name "Git Worktree Manager" which creates files with spaces
-          # We normalize to dot format: Git.Worktree.Manager_xxx.dmg for consistency
-          find artifacts -type f -name "* *" | while read file; do
-            newname=$(echo "$file" | sed 's/ /./g')
-            mv "$file" "$newname"
-          done
-          # Also rename corresponding .sig files if they exist
-          find artifacts -type f -name "*.sig" | while read sigfile; do
-            if [[ "$sigfile" == *" "* ]]; then
-              newname=$(echo "$sigfile" | sed 's/ /./g')
-              mv "$sigfile" "$newname"
-            fi
-          done
-          ls -R artifacts
-
-      - name: Rename sig files to match DMG names
-        run: |
-          # Ensure .sig files match the renamed DMG files
-          for dmg in artifacts/*/*.dmg; do
-            if [ -f "$dmg" ]; then
-              sigfile="${dmg}.sig"
-              # Check if there's a .sig file with the same base name
-              if [ -f "$sigfile" ]; then
-                echo "Found signature: $sigfile"
-              else
-                echo "Warning: No signature found for $dmg"
-              fi
-            fi
-          done
-
-      - name: Get version
+      - name: Get version from tag
         id: get_version
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION="${GITHUB_REF#refs/tags/v}"
-          fi
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
       - name: Generate update manifests
         run: |
@@ -406,6 +300,38 @@ jobs:
 
           echo "Generated update manifests:"
           ls -la *.json 2>/dev/null || echo "No manifests generated"
+
+      - name: Rename artifacts (normalize filename)
+        run: |
+          # Tauri uses product name "Git Worktree Manager" which creates files with spaces
+          # We normalize to dot format: Git.Worktree.Manager_xxx.dmg for consistency
+          find artifacts -type f -name "* *" | while read file; do
+            newname=$(echo "$file" | sed 's/ /./g')
+            mv "$file" "$newname"
+          done
+          # Also rename corresponding .sig files if they exist
+          find artifacts -type f -name "*.sig" | while read sigfile; do
+            if [[ "$sigfile" == *" "* ]]; then
+              newname=$(echo "$sigfile" | sed 's/ /./g')
+              mv "$sigfile" "$newname"
+            fi
+          done
+          ls -R artifacts
+
+      - name: Rename sig files to match DMG names
+        run: |
+          # Ensure .sig files match the renamed DMG files
+          for dmg in artifacts/*/*.dmg; do
+            if [ -f "$dmg" ]; then
+              sigfile="${dmg}.sig"
+              # Check if there's a .sig file with the same base name
+              if [ -f "$sigfile" ]; then
+                echo "Found signature: $sigfile"
+              else
+                echo "Warning: No signature found for $dmg"
+              fi
+            fi
+          done
 
       - name: Collect release files
         run: |
