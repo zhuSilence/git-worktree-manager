@@ -20,20 +20,15 @@ jobs:
       - name: Download DMG files
         run: |
           VERSION="${{ steps.release.outputs.version }}"
-          
-          # Download x64 DMG
-          curl -fsSL -o x64.dmg "https://github.com/${{ github.repository }}/releases/download/v${VERSION}/Git.Worktree.Manager_${VERSION}_x64.dmg"
-          
+
           # Download aarch64 DMG
-          curl -fsSL -o aarch64.dmg "https://github.com/${{ github.repository }}/releases/download/v${VERSION}/Git.Worktree.Manager_${VERSION}_aarch64.dmg"
+          curl -fsSL -o aarch64.dmg "https://github.com/${{ github.repository }}/releases/download/v${VERSION}/Git-Worktree-Manager_${VERSION}_aarch64.dmg"
 
       - name: Calculate SHA256
         id: sha256
         run: |
-          X64_SHA=$(sha256sum x64.dmg | cut -d' ' -f1)
           AARCH64_SHA=$(sha256sum aarch64.dmg | cut -d' ' -f1)
-          
-          echo "x64=${X64_SHA}" >> "$GITHUB_OUTPUT"
+
           echo "aarch64=${AARCH64_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout Tap repository
@@ -46,26 +41,17 @@ jobs:
       - name: Update Cask file
         run: |
           VERSION="${{ steps.release.outputs.version }}"
-          X64_SHA="${{ steps.sha256.outputs.x64 }}"
           AARCH64_SHA="${{ steps.sha256.outputs.aarch64 }}"
-          
+
           cd tap
-          
+
           # Update Cask file
           cat > Casks/git-worktree-manager.rb << EOF
           cask "git-worktree-manager" do
             version "${VERSION}"
-            
-            on_macos do
-              on_intel do
-                url "https://github.com/zhuSilence/git-worktree-manager/releases/download/v#{version}/Git.Worktree.Manager_#{version}_x64.dmg"
-                sha256 "${X64_SHA}"
-              end
-              on_arm do
-                url "https://github.com/zhuSilence/git-worktree-manager/releases/download/v#{version}/Git.Worktree.Manager_#{version}_aarch64.dmg"
-                sha256 "${AARCH64_SHA}"
-              end
-            end
+
+            url "https://github.com/zhuSilence/git-worktree-manager/releases/download/v#{version}/Git-Worktree-Manager_#{version}_aarch64.dmg"
+            sha256 "${AARCH64_SHA}"
 
             name "Git Worktree Manager"
             desc "A GUI tool for managing Git worktrees"
@@ -76,6 +62,7 @@ jobs:
               strategy :github_latest
             end
 
+            depends_on arch: :arm64
             depends_on macos: ">= :big_sur"
 
             app "Git Worktree Manager.app"
