@@ -84,8 +84,9 @@ install_macos() {
     
     # Find mount point
     local mount_point="/Volumes/Git Worktree Manager"
+    # Fallback: check if DMG mounted with different name (product name without spaces)
     if [ ! -d "$mount_point" ]; then
-        mount_point="/Volumes/${BINARY_NAME}"
+        mount_point="/Volumes/Git.Worktree.Manager"
     fi
     
     # Copy app to Applications
@@ -134,7 +135,8 @@ install_linux() {
     local arch="$2"
     local install_dir="${INSTALL_DIR:-$HOME/.local/bin}"
     
-    local download_url="https://github.com/$REPO/releases/download/v$version/${BINARY_NAME}_${version}_amd64.AppImage"
+    # Note: Release artifacts use product name "Git.Worktree.Manager" (dots, not dashes)
+    local download_url="https://github.com/$REPO/releases/download/v$version/Git.Worktree.Manager_${version}_amd64.AppImage"
     local tmp_file="/tmp/$BINARY_NAME"
     
     # Download AppImage
