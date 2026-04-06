@@ -475,7 +475,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 )}
                 <div className="mt-3 flex items-center justify-center gap-4 text-xs text-gray-500">
                   <a
-                    href="https://github.com/zhangyu1818/git-worktree-manager"
+                    href="https://github.com/zhuSilence/git-worktree-manager"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
