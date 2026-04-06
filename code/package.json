@@ -1,6 +1,6 @@
 {
   "name": "git-worktree-manager",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "轻量级 Git Worktree 可视化管理工具",
   "type": "module",
   "scripts": {
