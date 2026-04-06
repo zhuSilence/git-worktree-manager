@@ -10,6 +10,7 @@ import {
   X,
 } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   AIReviewResult,
   ReviewIssue,
@@ -38,6 +39,7 @@ export function AIReviewPanel({
   onNavigateToLine,
   onIgnoreIssue,
 }: AIReviewPanelProps) {
+  const { t } = useTranslation();
   const [expandedSections, setExpandedSections] = useState({
     issues: true,
     improvements: true,
@@ -55,7 +57,7 @@ export function AIReviewPanel({
         <div className="flex flex-col items-center gap-2">
           <Bot className="w-8 h-8 text-blue-500 animate-pulse" />
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            AI 正在分析代码...
+            {t('diff.analyzing')}
           </span>
         </div>
       </div>
@@ -68,7 +70,7 @@ export function AIReviewPanel({
       <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
         <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
           <AlertCircle className="w-5 h-5" />
-          <span className="font-medium">评审失败</span>
+          <span className="font-medium">{t('diff.reviewFailed')}</span>
         </div>
         <p className="mt-1 text-sm text-red-600 dark:text-red-300">{error}</p>
         <button
@@ -118,7 +120,7 @@ export function AIReviewPanel({
       {/* 潜在问题 */}
       {activeIssues.length > 0 && (
         <ReviewSection
-          title="潜在问题"
+          title={t('diff.potentialIssues')}
           count={activeIssues.length}
           icon={<AlertCircle className="w-4 h-4 text-orange-500" />}
           isExpanded={expandedSections.issues}
@@ -136,7 +138,7 @@ export function AIReviewPanel({
       {/* 改进建议 */}
       {result.improvements.length > 0 && (
         <ReviewSection
-          title="改进建议"
+          title={t('diff.suggestions')}
           count={result.improvements.length}
           icon={<Lightbulb className="w-4 h-4 text-blue-500" />}
           isExpanded={expandedSections.improvements}
@@ -150,7 +152,7 @@ export function AIReviewPanel({
       {/* 亮点 */}
       {result.highlights.length > 0 && (
         <ReviewSection
-          title="亮点"
+          title={t('diff.highlights')}
           count={result.highlights.length}
           icon={<CheckCircle className="w-4 h-4 text-green-500" />}
           isExpanded={expandedSections.highlights}
@@ -235,6 +237,7 @@ function IssuesList({
   onNavigate: (file: string, line: number) => void;
   onIgnore: (index: number) => void;
 }) {
+  const { t } = useTranslation();
   const getSeverityClass = (severity: Severity) => {
     switch (severity) {
       case 'error':
@@ -288,7 +291,7 @@ function IssuesList({
             <button
               onClick={() => onIgnore(index)}
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1"
-              title="忽略此问题"
+              title={t('diff.ignoreThisIssue')}
             >
               <X className="w-4 h-4" />
             </button>
@@ -297,7 +300,7 @@ function IssuesList({
             {issue.message}
           </p>
           <p className="mt-1 text-sm text-green-600 dark:text-green-400">
-            建议：{issue.suggestion}
+            {t('diff.suggestion')}: {issue.suggestion}
           </p>
         </div>
       ))}

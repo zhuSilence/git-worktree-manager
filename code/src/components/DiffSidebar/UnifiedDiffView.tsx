@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { clsx } from 'clsx'
 import { Plus, Minus } from 'lucide-react'
 import type { DiffHunk, DiffLine } from '@/types/worktree'
@@ -66,6 +67,7 @@ export const UnifiedDiffView = memo(function UnifiedDiffView({
   reviewResult,
   filePath,
 }: UnifiedDiffViewProps) {
+  const { t } = useTranslation()
   // 智能合并 hunks
   const mergedHunks = useMemo(() => {
     if (!enableSmartMerge) {
@@ -95,7 +97,7 @@ export const UnifiedDiffView = memo(function UnifiedDiffView({
       {/* 分支名称标识行 */}
       {hunks.length > 0 && (
         <div className="flex border-b border-gray-200 dark:border-gray-700">
-          <div className="w-[24px] bg-gray-100 dark:bg-gray-800" title="AI 评审标记" />
+          <div className="w-[24px] bg-gray-100 dark:bg-gray-800" title={t('diff.aiReviewMark')} />
           <div className="w-[24px] px-1 text-center text-[10px] leading-5 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700" />
           <div
             className="w-12 px-1 text-right text-[10px] leading-5 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700"
