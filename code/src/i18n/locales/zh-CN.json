@@ -35,6 +35,7 @@
     "newVersionFound": "发现新版本",
     "updateAvailable": "有可用更新",
     "update": "更新",
+    "downloadUpdate": "下载并安装更新",
     "defaultIde": "默认编辑器",
     "defaultIdeDesc": "选择打开 worktree 时使用的编辑器",
     "defaultTerminal": "默认终端",

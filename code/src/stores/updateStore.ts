@@ -13,6 +13,7 @@ interface UpdateState {
   isChecking: boolean
   isDownloading: boolean
   isUpdateAvailable: boolean
+  hasAutoChecked: boolean
   updateInfo: UpdateInfo | null
   downloadProgress: number
   downloaded: number
@@ -23,6 +24,7 @@ interface UpdateState {
   checkForUpdate: () => Promise<boolean>
   downloadAndInstall: () => Promise<void>
   reset: () => void
+  markAutoChecked: () => void
 }
 
 export const updateStore = create<UpdateState>((set, get) => ({
@@ -30,6 +32,7 @@ export const updateStore = create<UpdateState>((set, get) => ({
   isChecking: false,
   isDownloading: false,
   isUpdateAvailable: false,
+  hasAutoChecked: false,
   updateInfo: null,
   downloadProgress: 0,
   downloaded: 0,
@@ -116,11 +119,17 @@ export const updateStore = create<UpdateState>((set, get) => ({
       isChecking: false,
       isDownloading: false,
       isUpdateAvailable: false,
+      hasAutoChecked: false,
       updateInfo: null,
       downloadProgress: 0,
       downloaded: 0,
       contentLength: 0,
       error: null,
     })
+  },
+
+  // 标记已自动检查
+  markAutoChecked: () => {
+    set({ hasAutoChecked: true })
   },
 }))

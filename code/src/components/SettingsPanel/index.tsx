@@ -232,29 +232,6 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
           {/* 内容 */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            {/* 更新提示 */}
-            {isUpdateAvailable && updateInfo && (
-              <div className="p-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl text-white shadow-lg shadow-green-500/20">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white/20 rounded-lg">
-                      <Sparkles className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="font-medium">{t('settings.newVersionFound')} v{updateInfo.version}</p>
-                      <p className="text-sm text-green-100">{t('settings.updateAvailable')}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleCheckUpdate}
-                    className="px-4 py-2 bg-white text-green-600 rounded-lg font-medium hover:bg-green-50 transition-colors"
-                  >
-                    {t('settings.update')}
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* AI 评审设置卡片 */}
             <section className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
               <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
@@ -456,7 +433,46 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 </h3>
               </div>
               <div className="p-4">
-                {!isUpdateAvailable && (
+                {isUpdateAvailable && updateInfo ? (
+                  // 有新版本时显示更新信息
+                  <div className="space-y-3">
+                    <div className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                          <Sparkles className="w-4 h-4 text-green-600 dark:text-green-400" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {t('settings.newVersionFound')} v{updateInfo.version}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {t('settings.currentVersion')}: v{APP_VERSION}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-2 py-1 text-xs font-medium text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 rounded-full">
+                        {t('settings.updateAvailable')}
+                      </span>
+                    </div>
+                    {/* 更新内容 */}
+                    {updateInfo.body && (
+                      <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg max-h-32 overflow-y-auto">
+                        <p className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                          {updateInfo.body}
+                        </p>
+                      </div>
+                    )}
+                    {/* 下载更新按钮 */}
+                    <button
+                      onClick={handleCheckUpdate}
+                      className="w-full flex items-center justify-center gap-2 p-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-colors"
+                    >
+                      <Download className="w-4 h-4" />
+                      {t('settings.downloadUpdate')}
+                    </button>
+                  </div>
+                ) : (
+                  // 无新版本时显示检查更新按钮
                   <button
                     onClick={handleCheckUpdate}
                     className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"

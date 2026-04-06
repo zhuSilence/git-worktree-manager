@@ -14,6 +14,7 @@ import { ToastContainer } from './components/common'
 import { useWorktreeStore } from './stores/worktreeStore'
 import { useRepositoryStore } from './stores/repositoryStore'
 import { settingsStore } from './stores/settingsStore'
+import { updateStore } from './stores/updateStore'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import type { RepositoryInfo } from './types/worktree'
 
@@ -99,6 +100,22 @@ function App() {
   useEffect(() => {
     validateRepositories()
   }, [validateRepositories])
+
+  // 启动时自动检查更新（延迟 3 秒，避免启动时卡顿）
+  useEffect(() => {
+    const autoCheckUpdate = async () => {
+      const { hasAutoChecked, checkForUpdate, markAutoChecked } = updateStore.getState()
+      if (hasAutoChecked) return
+
+      markAutoChecked()
+      // 延迟 3 秒后检查更新
+      setTimeout(async () => {
+        await checkForUpdate()
+      }, 3000)
+    }
+
+    autoCheckUpdate()
+  }, [])
 
   // 自动刷新
   useEffect(() => {

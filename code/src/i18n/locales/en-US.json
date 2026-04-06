@@ -35,6 +35,7 @@
     "newVersionFound": "New version available",
     "updateAvailable": "Update available",
     "update": "Update",
+    "downloadUpdate": "Download and Install Update",
     "defaultIde": "Default Editor",
     "defaultIdeDesc": "Select the editor to use when opening a worktree",
     "defaultTerminal": "Default Terminal",
