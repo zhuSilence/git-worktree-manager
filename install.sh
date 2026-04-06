@@ -24,9 +24,22 @@ error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 # Get latest version from GitHub API
 get_latest_version() {
     local version
-    version=$(curl -sf "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+    local response
+
+    # Try GitHub API first
+    response=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" 2>&1)
+
+    # Check if API returned an error
+    if echo "$response" | grep -q "API rate limit exceeded"; then
+        warn "GitHub API rate limit exceeded. Trying alternative method..."
+        # Fallback: use git to get the latest tag from redirect URL
+        version=$(curl -sI "https://github.com/$REPO/releases/latest" | grep -i "location:" | sed -E 's/.*\/v([^[:space:]]+).*/\1/' | tr -d '\r')
+    else
+        version=$(echo "$response" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+    fi
+
     if [ -z "$version" ]; then
-        error "Failed to get latest version. Please check your internet connection."
+        error "Failed to get latest version. Please check your internet connection or try again later."
     fi
     echo "$version"
 }
