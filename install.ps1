@@ -37,7 +37,8 @@ function Download-File {
 function Install-Windows {
     param($Version, $Arch)
     
-    $downloadUrl = "https://github.com/$Repo/releases/download/v$Version/Git.Worktree.Manager_${Version}_x64-setup.exe"
+    # Note: Windows release artifacts use product name without version in filename
+    $downloadUrl = "https://github.com/$Repo/releases/download/v$Version/Git.Worktree.Manager_x64-setup.exe"
     $tempFile = "$env:TEMP\${BinaryName}-setup.exe"
     
     # Download
