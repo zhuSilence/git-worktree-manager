@@ -63,6 +63,26 @@ jobs:
       - name: List build output
         run: find code/src-tauri/target/aarch64-apple-darwin/release/bundle -type f | head -50
 
+      - name: Rename updater artifacts with arch suffix
+        run: |
+          VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          VERSION="${VERSION#v}"
+          BUNDLE_DIR="code/src-tauri/target/aarch64-apple-darwin/release/bundle/macos"
+          cd "$BUNDLE_DIR"
+          for file in *.tar.gz; do
+            [ -f "$file" ] || continue
+            # Rename to include arch suffix: Git.Worktree.Manager.app.tar.gz -> Git.Worktree.Manager_0.0.10_aarch64.app.tar.gz
+            newname="Git.Worktree.Manager_${VERSION}_aarch64.app.tar.gz"
+            mv "$file" "$newname"
+            # Also rename the signature file if it exists
+            if [ -f "${file}.sig" ]; then
+              mv "${file}.sig" "${newname}.sig"
+            fi
+            echo "Renamed: $file -> $newname"
+          done
+          cd -
+          ls -la "$BUNDLE_DIR/"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -115,6 +135,26 @@ jobs:
 
       - name: List build output
         run: find code/src-tauri/target/x86_64-apple-darwin/release/bundle -type f | head -50
+
+      - name: Rename updater artifacts with arch suffix
+        run: |
+          VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          VERSION="${VERSION#v}"
+          BUNDLE_DIR="code/src-tauri/target/x86_64-apple-darwin/release/bundle/macos"
+          cd "$BUNDLE_DIR"
+          for file in *.tar.gz; do
+            [ -f "$file" ] || continue
+            # Rename to include arch suffix: Git.Worktree.Manager.app.tar.gz -> Git.Worktree.Manager_0.0.10_x64.app.tar.gz
+            newname="Git.Worktree.Manager_${VERSION}_x64.app.tar.gz"
+            mv "$file" "$newname"
+            # Also rename the signature file if it exists
+            if [ -f "${file}.sig" ]; then
+              mv "${file}.sig" "${newname}.sig"
+            fi
+            echo "Renamed: $file -> $newname"
+          done
+          cd -
+          ls -la "$BUNDLE_DIR/"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
