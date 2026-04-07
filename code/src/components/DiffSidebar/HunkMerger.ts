@@ -125,34 +125,42 @@ function calculateGap(hunk1: DiffHunk, hunk2: DiffHunk): number {
 function mergeTwoHunks(hunk1: MergedHunk, hunk2: MergedHunk, config: HunkMergeConfig): MergedHunk {
   const gap = calculateGap(hunk1, hunk2)
 
-  // 生成中间的上下文行
+  // 小间隔：直接合并，不创建占位符行
+  if (gap <= config.collapsibleContextThreshold) {
+    return {
+      oldStart: hunk1.oldStart,
+      oldLines: hunk1.oldLines + hunk2.oldLines,
+      newStart: hunk1.newStart,
+      newLines: hunk1.newLines + hunk2.newLines,
+      lines: [...hunk1.lines, ...hunk2.lines],
+      sourceHunkIndices: [...hunk1.sourceHunkIndices, ...hunk2.sourceHunkIndices],
+      collapsibleRanges: [...hunk1.collapsibleRanges],
+      isMerged: true,
+    }
+  }
+
+  // 大间隔：创建可折叠的占位符行
   const gapStartLine = hunk1.newStart + hunk1.newLines
   const gapLines: DiffLine[] = []
 
-  // 创建表示间隔区域的上下文行
   for (let i = 0; i < gap; i++) {
     gapLines.push({
       lineType: 'context',
       oldLine: hunk1.oldStart + hunk1.oldLines + i,
       newLine: gapStartLine + i,
-      content: `... (${gap} lines hidden) ...`, // 占位符
+      content: '',
     })
   }
 
-  // 合并后的行
   const mergedLines = [...hunk1.lines, ...gapLines, ...hunk2.lines]
-
-  // 记录可折叠区域（间隔部分）
   const collapsibleRanges: CollapsibleRange[] = [...hunk1.collapsibleRanges]
 
-  if (gap > config.collapsibleContextThreshold) {
-    collapsibleRanges.push({
-      startIdx: hunk1.lines.length,
-      endIdx: hunk1.lines.length + gapLines.length,
-      lineCount: gap,
-      collapsed: true, // 默认折叠
-    })
-  }
+  collapsibleRanges.push({
+    startIdx: hunk1.lines.length,
+    endIdx: hunk1.lines.length + gapLines.length,
+    lineCount: gap,
+    collapsed: true,
+  })
 
   return {
     oldStart: hunk1.oldStart,
