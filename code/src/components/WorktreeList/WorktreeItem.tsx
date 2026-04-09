@@ -17,6 +17,7 @@ import { useErrorHandler } from '@/hooks/useToast'
 import type { WorktreeAnnotation, TagDefinition } from '@/types/annotation'
 import { clsx } from 'clsx'
 import { MergePanel } from '@/components/MergePanel'
+import { formatRelativeTime } from '@/utils/format'
 
 interface WorktreeItemProps {
   worktree: Worktree
@@ -266,8 +267,8 @@ export const WorktreeItem = memo(function WorktreeItem({ worktree, branches, rep
                   {worktree.lastCommit.hash}
                 </span>
                 <span className="truncate block min-w-0 flex-1">{worktree.lastCommit.message}</span>
-                <span className="text-gray-400 dark:text-gray-500 flex-shrink-0 text-xs" title={worktree.lastCommit.relativeTime}>
-                  {worktree.lastCommit.relativeTime}
+                <span className="text-gray-400 dark:text-gray-500 flex-shrink-0 text-xs">
+                  {formatRelativeTime(worktree.lastCommit.timestamp)}
                 </span>
               </div>
             )}

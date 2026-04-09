@@ -1,5 +1,27 @@
 use serde::{Deserialize, Serialize};
 
+/// 文件变更状态
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum FileStatus {
+    Added,
+    Modified,
+    Deleted,
+    Renamed,
+    Copied,
+    Untracked,
+}
+
+/// Diff 行类型
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum LineType {
+    Context,
+    Addition,
+    Deletion,
+    Header,
+}
+
 /// Git Worktree 状态
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum WorktreeStatus {
@@ -39,8 +61,8 @@ pub struct LastCommit {
     pub message: String,
     /// 作者
     pub author: String,
-    /// 相对时间
-    pub relative_time: String,
+    /// 提交时间戳 (Unix timestamp, 秒)
+    pub timestamp: i64,
 }
 
 /// Worktree 信息
@@ -124,7 +146,7 @@ pub struct DiffStats {
     /// 删除行数
     pub deletions: usize,
     /// 状态 (added, modified, deleted, renamed)
-    pub status: String,
+    pub status: FileStatus,
 }
 
 /// Diff 响应
@@ -150,7 +172,7 @@ pub struct DiffResponse {
 #[serde(rename_all = "camelCase")]
 pub struct DiffLine {
     /// 行类型: "context" | "addition" | "deletion" | "header"
-    pub line_type: String,
+    pub line_type: LineType,
     /// 旧文件行号 (删除行和上下文行)
     pub old_line: Option<usize>,
     /// 新文件行号 (新增行和上下文行)
@@ -184,7 +206,7 @@ pub struct FileDiff {
     /// 旧文件路径 (重命名时)
     pub old_path: Option<String>,
     /// 状态
-    pub status: String,
+    pub status: FileStatus,
     /// Hunks
     pub hunks: Vec<DiffHunk>,
     /// 新增行数
@@ -193,6 +215,21 @@ pub struct FileDiff {
     pub deletions: usize,
     /// 变更来源: committed(分支差异), unstaged(工作区修改), untracked(未跟踪文件)
     pub source: String,
+    /// 是否为二进制文件
+    #[serde(default)]
+    pub is_binary: bool,
+    /// 是否文件过大（超过5MB或10000行）
+    #[serde(default)]
+    pub is_too_large: bool,
+    /// 是否为图片文件
+    #[serde(default)]
+    pub is_image: bool,
+    /// 旧版本图片的 base64 编码
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub old_image_base64: Option<String>,
+    /// 新版本图片的 base64 编码
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub new_image_base64: Option<String>,
 }
 
 /// 详细 Diff 响应
@@ -275,8 +312,8 @@ pub struct CommitInfo {
     pub author: String,
     /// 提交时间 (ISO 8601)
     pub date: String,
-    /// 相对时间
-    pub relative_time: String,
+    /// 提交时间戳 (Unix timestamp, 秒)
+    pub timestamp: i64,
     /// Worktree 名称
     pub worktree_name: String,
     /// 分支名
@@ -353,7 +390,7 @@ pub struct WorktreeFileChange {
     /// Worktree 路径
     pub worktree_path: String,
     /// 文件状态 (added, modified, deleted)
-    pub status: String,
+    pub status: FileStatus,
     /// 新增行数
     pub additions: usize,
     /// 删除行数
@@ -390,4 +427,18 @@ pub struct WorktreeConflictDetectionResponse {
     pub conflict_files: Vec<WorktreeConflictFile>,
     /// 检测时间
     pub detected_at: String,
+}
+
+/// 三方合并 Diff（用于合并冲突场景）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreeWayDiff {
+    /// 文件路径
+    pub file_path: String,
+    /// 基础版本内容（merge-base，stage 1）
+    pub base_content: Option<String>,
+    /// 当前版本内容（ours，stage 2）
+    pub ours_content: Option<String>,
+    /// 远程版本内容（theirs，stage 3）
+    pub theirs_content: Option<String>,
 }

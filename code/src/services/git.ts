@@ -20,6 +20,7 @@ import type {
   MergeParams,
   MergeResult,
   WorktreeConflictDetectionResponse,
+  ThreeWayDiff,
 } from '@/types/worktree'
 import type {
   OperationLogListResponse,
@@ -118,15 +119,15 @@ export const gitService = {
   /**
    * 获取 worktree 与目标分支的 diff
    */
-  async getDiff(worktreePath: string, targetBranch: string): Promise<DiffResponse> {
-    return invoke<DiffResponse>('get_diff_cmd', { worktreePath, targetBranch })
+  async getDiff(worktreePath: string, targetBranch: string, ignoreWhitespace?: string): Promise<DiffResponse> {
+    return invoke<DiffResponse>('get_diff_cmd', { worktreePath, targetBranch, ignoreWhitespace })
   },
 
   /**
    * 获取详细的 diff 内容（包含代码行）
    */
-  async getDetailedDiff(worktreePath: string, targetBranch: string): Promise<DetailedDiffResponse> {
-    return invoke<DetailedDiffResponse>('get_detailed_diff_cmd', { worktreePath, targetBranch })
+  async getDetailedDiff(worktreePath: string, targetBranch: string, ignoreWhitespace?: string): Promise<DetailedDiffResponse> {
+    return invoke<DetailedDiffResponse>('get_detailed_diff_cmd', { worktreePath, targetBranch, ignoreWhitespace })
   },
 
   /**
@@ -368,5 +369,14 @@ export const gitService = {
    */
   async detectConflicts(repoPath: string): Promise<WorktreeConflictDetectionResponse> {
     return invoke<WorktreeConflictDetectionResponse>('detect_conflicts_cmd', { repoPath })
+  },
+
+  // ============ 三方合并 Diff 相关 ============
+
+  /**
+   * 获取三方合并 Diff（用于合并冲突场景）
+   */
+  async getThreeWayDiff(worktreePath: string, filePath: string): Promise<ThreeWayDiff> {
+    return invoke<ThreeWayDiff>('get_three_way_diff_cmd', { worktreePath, filePath })
   },
 }

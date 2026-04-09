@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { clsx } from 'clsx'
 import { Plus, Minus } from 'lucide-react'
 import type { DiffHunk, DiffLine } from '@/types/worktree'
@@ -11,6 +12,7 @@ import { InlineReviewMarker } from './InlineReviewMarker'
 import { CopyButton } from './CopyButton'
 import { HighlightedLine } from './HighlightedLine'
 import { CollapsedIndicator } from './CollapsedIndicator'
+import { LazyRender } from './LazyRender'
 import {
   DEFAULT_ENABLE_SMART_MERGE,
   DEFAULT_MAX_GAP_LINES,
@@ -66,6 +68,7 @@ export const UnifiedDiffView = memo(function UnifiedDiffView({
   reviewResult,
   filePath,
 }: UnifiedDiffViewProps) {
+  const { t } = useTranslation()
   // 智能合并 hunks
   const mergedHunks = useMemo(() => {
     if (!enableSmartMerge) {
@@ -95,7 +98,7 @@ export const UnifiedDiffView = memo(function UnifiedDiffView({
       {/* 分支名称标识行 */}
       {hunks.length > 0 && (
         <div className="flex border-b border-gray-200 dark:border-gray-700">
-          <div className="w-[24px] bg-gray-100 dark:bg-gray-800" title="AI 评审标记" />
+          <div className="w-[24px] bg-gray-100 dark:bg-gray-800" title={t('diff.aiReviewMark')} />
           <div className="w-[24px] px-1 text-center text-[10px] leading-5 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700" />
           <div
             className="w-12 px-1 text-right text-[10px] leading-5 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700"
@@ -170,8 +173,16 @@ export const UnifiedDiffView = memo(function UnifiedDiffView({
           currentIdx++
         }
 
+        // 估算 hunk 高度：header (28px) + 每行 (22px)
+        const estimatedHunkHeight = 28 + renderLines.length * 22
+
         return (
-          <div key={hunkIdx}>
+          <LazyRender
+            key={hunkIdx}
+            estimatedHeight={estimatedHunkHeight}
+            rootMargin="300px"
+            keepOnceRendered={true}
+          >
             {/* Hunk header - 显示合并标识 */}
             <div className={`px-3 py-1 ${HUNK_HEADER_BG_CLASS} ${HUNK_HEADER_TEXT_CLASS} border-y border-blue-200 dark:border-blue-800 text-xs font-mono flex items-center justify-between`}>
               <span>
@@ -263,13 +274,13 @@ export const UnifiedDiffView = memo(function UnifiedDiffView({
                     {line.lineType === 'addition' ? '+' : line.lineType === 'deletion' ? '-' : ' '}
                   </span>
                   <span className="flex-1 px-2 whitespace-pre text-[11px] leading-[22px] relative">
-                    <HighlightedLine content={line.content} lineType={line.lineType} charSegments={segments} />
+                    <HighlightedLine content={line.content} lineType={line.lineType} charSegments={segments} filePath={filePath} />
                     <CopyButton text={line.content} />
                   </span>
                 </div>
               )
             })}
-          </div>
+          </LazyRender>
         )
       })}
     </div>

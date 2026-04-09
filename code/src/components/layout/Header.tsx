@@ -2,6 +2,7 @@ import { GitBranch, Settings, RefreshCw, Plus, Clock, Download, Zap } from 'luci
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/common'
 import { useWorktreeStore } from '@/stores/worktreeStore'
+import { updateStore } from '@/stores/updateStore'
 
 interface HeaderProps {
   onCreateWorktree?: () => void
@@ -15,6 +16,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings, onOpenTimeline, onOpenHotfix, onRefresh, onFetch }) => {
   const { t } = useTranslation()
   const { currentRepo, refreshWorktrees, isLoading, isFetching } = useWorktreeStore()
+  const isUpdateAvailable = updateStore(state => state.isUpdateAvailable)
 
   const handleRefresh = async () => {
     if (onRefresh) {
@@ -103,8 +105,11 @@ export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings
             </>
           )}
 
-          <Button variant="ghost" size="icon" onClick={onOpenSettings}>
+          <Button variant="ghost" size="icon" onClick={onOpenSettings} className="relative">
             <Settings className="h-4 w-4" />
+            {isUpdateAvailable && (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+            )}
           </Button>
         </div>
       </div>

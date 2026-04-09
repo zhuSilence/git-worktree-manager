@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X, GitMerge, AlertTriangle, Check, Loader2 } from 'lucide-react'
+import { X, GitMerge, AlertTriangle, Check, Loader2, Eye } from 'lucide-react'
 import { gitService } from '@/services/git'
-import type { Worktree, MergeResult, ConflictFile } from '@/types/worktree'
+import type { Worktree, MergeResult, ConflictFile, ThreeWayDiff } from '@/types/worktree'
 import { MergeStatus } from '@/types/worktree'
 import { clsx } from 'clsx'
+import { ThreeWayView } from '@/components/DiffSidebar/ThreeWayView'
 
 interface MergePanelProps {
   isOpen: boolean
@@ -29,6 +30,11 @@ export function MergePanel({
   const [isMerging, setIsMerging] = useState(false)
   const [mergeResult, setMergeResult] = useState<MergeResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // 三方对比相关状态
+  const [selectedConflictFile, setSelectedConflictFile] = useState<string | null>(null)
+  const [threeWayDiff, setThreeWayDiff] = useState<ThreeWayDiff | null>(null)
+  const [isLoadingThreeWay, setIsLoadingThreeWay] = useState(false)
+  const [threeWayError, setThreeWayError] = useState<string | null>(null)
 
   // 过滤掉源 worktree 和 detached HEAD 的 worktree
   const availableTargets = useMemo(() => {
@@ -103,6 +109,32 @@ export function MergePanel({
     } catch (err) {
       setError(err instanceof Error ? err.message : t('merge.completeFailed'))
     }
+  }
+
+  // 查看三方对比
+  const handleViewThreeWayDiff = async (filePath: string) => {
+    if (!selectedTarget) return
+
+    setSelectedConflictFile(filePath)
+    setThreeWayDiff(null)
+    setThreeWayError(null)
+    setIsLoadingThreeWay(true)
+
+    try {
+      const result = await gitService.getThreeWayDiff(selectedTarget.path, filePath)
+      setThreeWayDiff(result)
+    } catch (err) {
+      setThreeWayError(err instanceof Error ? err.message : t('merge.threeWayDiffError'))
+    } finally {
+      setIsLoadingThreeWay(false)
+    }
+  }
+
+  // 关闭三方对比
+  const handleCloseThreeWayDiff = () => {
+    setSelectedConflictFile(null)
+    setThreeWayDiff(null)
+    setThreeWayError(null)
   }
 
   if (!isOpen) return null
@@ -263,15 +295,34 @@ export function MergePanel({
                       {mergeResult.conflicts.map((conflict: ConflictFile) => (
                         <li
                           key={conflict.path}
-                          className="text-sm text-gray-700 dark:text-gray-300 font-mono bg-white dark:bg-gray-800 px-2 py-1 rounded"
+                          className="flex items-center justify-between text-sm text-gray-700 dark:text-gray-300 font-mono bg-white dark:bg-gray-800 px-2 py-1 rounded"
                         >
-                          {conflict.path}
+                          <span className="truncate flex-1">{conflict.path}</span>
+                          <button
+                            onClick={() => handleViewThreeWayDiff(conflict.path)}
+                            className="ml-2 p-1 text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors flex-shrink-0"
+                            title={t('merge.viewThreeWayDiff')}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
                         </li>
                       ))}
                     </ul>
                     <div className="mt-3 text-xs text-yellow-600 dark:text-yellow-400">
                       {t('merge.conflictHint')}
                     </div>
+                  </div>
+                )}
+
+                {/* 三方对比视图 */}
+                {selectedConflictFile && selectedTarget && (
+                  <div className="mt-4 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                    <ThreeWayView
+                      threeWayDiff={threeWayDiff}
+                      isLoading={isLoadingThreeWay}
+                      error={threeWayError}
+                      onClose={handleCloseThreeWayDiff}
+                    />
                   </div>
                 )}
               </div>

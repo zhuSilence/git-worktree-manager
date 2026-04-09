@@ -94,41 +94,13 @@ fn get_linked_worktree(repo: &Repository, name: &str) -> anyhow::Result<Option<W
 /// 获取最后提交信息
 fn get_last_commit(commit: &git2::Commit) -> anyhow::Result<LastCommit> {
     let time = commit.time();
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs() as i64;
-
-    let relative_time = format_relative_time(now, time.seconds());
 
     Ok(LastCommit {
         hash: commit.id().to_string()[..7.min(commit.id().to_string().len())].to_string(),
         message: commit.summary().unwrap_or("No message").to_string(),
         author: commit.author().name().unwrap_or("Unknown").to_string(),
-        relative_time,
+        timestamp: time.seconds(),
     })
-}
-
-/// 格式化相对时间
-fn format_relative_time(now: i64, commit_time: i64) -> String {
-    let diff = now - commit_time;
-
-    if diff < 0 {
-        "in the future".to_string()
-    } else if diff < 60 {
-        "just now".to_string()
-    } else if diff < 3600 {
-        format!("{} 分钟前", diff / 60)
-    } else if diff < 86400 {
-        format!("{} 小时前", diff / 3600)
-    } else if diff < 604800 {
-        format!("{} 天前", diff / 86400)
-    } else if diff < 2592000 {
-        format!("{} 周前", diff / 604800)
-    } else if diff < 31536000 {
-        format!("{} 月前", diff / 2592000)
-    } else {
-        format!("{} 年前", diff / 31536000)
-    }
 }
 
 /// 获取 worktree 与远程分支的同步状态

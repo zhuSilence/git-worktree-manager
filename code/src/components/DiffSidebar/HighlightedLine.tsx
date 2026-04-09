@@ -11,12 +11,13 @@ interface HighlightedLineProps {
   content: string
   lineType: string
   charSegments?: CharSegment[]
+  filePath?: string
 }
 
 /**
  * 高亮行组件 - 支持字符级差异高亮 + 语法着色
  */
-export function HighlightedLine({ content, lineType, charSegments }: HighlightedLineProps) {
+export function HighlightedLine({ content, lineType, charSegments, filePath }: HighlightedLineProps) {
   // 如果有字符级 diff segments，优先用它
   if (charSegments && charSegments.length > 0) {
     const hlClass =
@@ -37,7 +38,7 @@ export function HighlightedLine({ content, lineType, charSegments }: Highlighted
 
   // context 行：应用语法着色
   if (lineType === 'context') {
-    const tokens = tokenize(content)
+    const tokens = tokenize(content, filePath)
     return (
       <span className="text-gray-700 dark:text-gray-300">
         {tokens.map((t, i) => {
@@ -62,7 +63,7 @@ export function HighlightedLine({ content, lineType, charSegments }: Highlighted
         ? DELETION_TEXT_CLASS
         : ''
 
-  const tokens = tokenize(content)
+  const tokens = tokenize(content, filePath)
   return (
     <span className={baseClass}>
       {tokens.map((t, i) => {
