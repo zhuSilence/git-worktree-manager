@@ -113,7 +113,7 @@ pub fn get_diff(worktree_path: &str, target_branch: &str, ignore_whitespace: &st
         "change" => { cmd.arg("--ignore-space-change"); }
         _ => {} // "none" - 不添加参数
     }
-    cmd.arg(&format!("{}...HEAD", target_branch));
+    cmd.arg(format!("{}...HEAD", target_branch));
     let output = cmd.current_dir(worktree_path).output()?;
 
     if output.status.success() {
@@ -487,7 +487,7 @@ pub fn get_detailed_diff(
         "change" => { cmd.arg("--ignore-space-change"); }
         _ => {} // "none" - 不添加参数
     }
-    cmd.arg(&format!("{}...HEAD", target_branch));
+    cmd.arg(format!("{}...HEAD", target_branch));
     let output = cmd.current_dir(worktree_path).output()?;
 
     if output.status.success() {

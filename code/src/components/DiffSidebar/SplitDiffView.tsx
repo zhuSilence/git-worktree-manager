@@ -105,7 +105,7 @@ export const SplitDiffView = memo(function SplitDiffView({
         </span>
       </div>
     )
-  }, [fileIdx, selectedLine])
+  }, [fileIdx, selectedLine, filePath])
 
   // 渲染单行（右侧）
   const renderRightLine = useCallback((
