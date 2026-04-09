@@ -65,16 +65,16 @@ export const SIDEBAR_WIDTH_STORAGE_KEY = 'diff-sidebar-width'
 
 // ==================== 样式类名常量 ====================
 /** 添加行背景色 - 加深 */
-export const ADDITION_BG_CLASS = 'bg-green-100 dark:bg-green-900/40'
+export const ADDITION_BG_CLASS = 'bg-green-200 dark:bg-green-900/60'
 
 /** 删除行背景色 - 加深 */
-export const DELETION_BG_CLASS = 'bg-red-100 dark:bg-red-900/40'
+export const DELETION_BG_CLASS = 'bg-red-200 dark:bg-red-900/60'
 
 /** 添加行号背景色 - 加深 */
-export const ADDITION_LINE_NUMBER_BG_CLASS = 'bg-green-200 dark:bg-green-900/50'
+export const ADDITION_LINE_NUMBER_BG_CLASS = 'bg-green-300 dark:bg-green-900/60'
 
 /** 删除行号背景色 - 加深 */
-export const DELETION_LINE_NUMBER_BG_CLASS = 'bg-red-200 dark:bg-red-900/50'
+export const DELETION_LINE_NUMBER_BG_CLASS = 'bg-red-300 dark:bg-red-900/60'
 
 /** 添加行文字色 */
 export const ADDITION_TEXT_CLASS = 'text-green-800 dark:text-green-300'
@@ -101,10 +101,10 @@ export const HUNK_HEADER_TEXT_CLASS = 'text-blue-600 dark:text-blue-400'
 export const COLLAPSE_INDICATOR_BG_CLASS = 'bg-blue-50 dark:bg-blue-900/30'
 
 /** 字符级高亮 - 删除 - 加深 */
-export const CHAR_DELETION_HIGHLIGHT_CLASS = 'bg-red-300 dark:bg-red-700/80 rounded-sm px-[1px]'
+export const CHAR_DELETION_HIGHLIGHT_CLASS = 'bg-red-400 dark:bg-red-700/90 rounded-sm px-[1px]'
 
 /** 字符级高亮 - 添加 - 加深 */
-export const CHAR_ADDITION_HIGHLIGHT_CLASS = 'bg-green-300 dark:bg-green-700/80 rounded-sm px-[1px]'
+export const CHAR_ADDITION_HIGHLIGHT_CLASS = 'bg-green-400 dark:bg-green-700/90 rounded-sm px-[1px]'
 
 // ==================== 文件状态样式映射 ====================
 export const FILE_STATUS_COLOR_MAP: Record<string, string> = {

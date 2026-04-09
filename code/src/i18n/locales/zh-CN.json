@@ -1,4 +1,14 @@
 {
+  "time": {
+    "justNow": "刚刚",
+    "minutesAgo": "{{count}} 分钟前",
+    "hoursAgo": "{{count}} 小时前",
+    "daysAgo": "{{count}} 天前",
+    "weeksAgo": "{{count}} 周前",
+    "monthsAgo": "{{count}} 个月前",
+    "yearsAgo": "{{count}} 年前",
+    "inFuture": "未来"
+  },
   "common": {
     "cancel": "取消",
     "save": "保存",
@@ -233,7 +243,12 @@
     "loading": "加载中...",
     "noCommits": "暂无提交记录",
     "tryLongerRange": "尝试选择更长的时间范围",
-    "title": "时间线"
+    "title": "时间线",
+    "7days": "7天",
+    "30days": "30天",
+    "all": "全部",
+    "totalCommits": "共 {{count}} 条提交",
+    "commitCount": "{{count}} 条提交"
   },
   "branchManager": {
     "title": "分支管理",
@@ -275,6 +290,14 @@
     "suggestion": "建议",
     "prevChange": "上一个变更",
     "nextChange": "下一个变更",
+    "nextFile": "下一个文件",
+    "prevFile": "上一个文件",
+    "nextHunk": "下一个 Hunk",
+    "prevHunk": "上一个 Hunk",
+    "toggleAll": "展开/收起全部",
+    "search": "搜索",
+    "showHelp": "显示帮助",
+    "keyboardShortcuts": "键盘快捷键",
     "files": "文件",
     "noDiff": "没有发现差异",
     "sameContent": "当前分支与 {{branch}} 内容相同",
@@ -283,6 +306,8 @@
     "statusDeleted": "删除",
     "statusModified": "修改",
     "statusRenamed": "重命名",
+    "statusUntracked": "未跟踪",
+    "statusWorkspace": "工作区",
     "tooNarrow": "窗口太窄，请拖宽后使用",
     "splitView": "拆分视图",
     "hideFileList": "隐藏文件列表",
@@ -298,7 +323,24 @@
     "issues": "个问题",
     "lines": "行",
     "line": "行",
-    "linesAffected": "行受影响"
+    "linesAffected": "行受影响",
+    "binaryFileChanged": "二进制文件已变更",
+    "fileTooLarge": "文件过大，无法显示差异",
+    "fileTooLargeHint": "文件超过 5MB 或 10,000 行限制",
+    "searchPlaceholder": "搜索差异内容...",
+    "caseSensitive": "区分大小写",
+    "useRegex": "使用正则表达式",
+    "prevMatch": "上一个匹配",
+    "nextMatch": "下一个匹配",
+    "whitespaceFilter": "空白过滤",
+    "showWhitespace": "显示空白变更",
+    "ignoreWhitespaceChange": "忽略空白变化",
+    "ignoreAllWhitespace": "忽略所有空白",
+    "filesChanged": "{{count}} 个文件变更",
+    "added": "新增",
+    "modified": "修改",
+    "deleted": "删除",
+    "renamed": "重命名"
   },
   "header": {
     "create": "创建",
@@ -350,7 +392,14 @@
     "abort": "中止合并",
     "complete": "完成合并",
     "conflictFiles": "冲突文件",
-    "conflictHint": "请在目标 worktree 中手动解决冲突，然后点击「完成合并」"
+    "conflictHint": "请在目标 worktree 中手动解决冲突，然后点击「完成合并」",
+    "viewThreeWayDiff": "查看三方对比",
+    "threeWayDiffTitle": "三方对比",
+    "loadingThreeWayDiff": "加载三方对比中...",
+    "threeWayDiffError": "获取三方对比失败",
+    "currentBranch": "当前",
+    "incomingBranch": "远程",
+    "noContentAvailable": "无内容可显示"
   },
   "groups": {
     "title": "分组管理",

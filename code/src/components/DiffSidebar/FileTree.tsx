@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen } from 'lucide-react'
 import { clsx } from 'clsx'
+import { useTranslation } from 'react-i18next'
 import type { FileTreeNode, SortedFile } from './types'
 import type { FileDiff } from '@/types/worktree'
 
@@ -125,6 +126,7 @@ export function FileTreeNodeItem({
   expandedDirs,
   toggleDir,
 }: FileTreeNodeItemProps) {
+  const { t } = useTranslation()
   if (node.isFile) {
     return (
       <button
@@ -146,16 +148,16 @@ export function FileTreeNodeItem({
           )}
         />
         <FileText className="w-3 h-3 text-gray-400 flex-shrink-0" />
-        <span className="truncate font-medium">{node.name}</span>
+        <span className="truncate font-medium min-w-0">{node.name}</span>
         {/* 变更来源标签 */}
         {node.source && node.source !== 'committed' && (
           <span className={clsx(
-            'text-[10px] px-1 rounded ml-1',
+            'text-[10px] px-1 rounded ml-1 whitespace-nowrap flex-shrink-0',
             node.source === 'untracked'
               ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
               : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
           )}>
-            {node.source === 'untracked' ? '未跟踪' : '工作区'}
+            {node.source === 'untracked' ? t('diff.statusUntracked') : t('diff.statusWorkspace')}
           </span>
         )}
       </button>

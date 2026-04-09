@@ -9,6 +9,7 @@ import { getLineIssues } from '@/utils/aiReview'
 import { InlineReviewMarker } from './InlineReviewMarker'
 import { CopyButton } from './CopyButton'
 import { HighlightedLine } from './HighlightedLine'
+import { LazyRender } from './LazyRender'
 import {
   ADDITION_BG_CLASS,
   DELETION_BG_CLASS,
@@ -96,7 +97,7 @@ export const SplitDiffView = memo(function SplitDiffView({
         </span>
         <span className="flex-1 px-1 whitespace-pre-wrap break-all text-[11px] leading-[22px] relative">
           {line ? (
-            <HighlightedLine content={line.content} lineType={line.lineType} charSegments={charSegments} />
+            <HighlightedLine content={line.content} lineType={line.lineType} charSegments={charSegments} filePath={filePath} />
           ) : (
             ''
           )}
@@ -164,7 +165,7 @@ export const SplitDiffView = memo(function SplitDiffView({
         </span>
         <span className="flex-1 px-1 whitespace-pre-wrap break-all text-[11px] leading-[22px] relative">
           {line ? (
-            <HighlightedLine content={line.content} lineType={line.lineType} charSegments={charSegments} />
+            <HighlightedLine content={line.content} lineType={line.lineType} charSegments={charSegments} filePath={filePath} />
           ) : (
             ''
           )}
@@ -305,8 +306,16 @@ export const SplitDiffView = memo(function SplitDiffView({
           alignedContent = renderAlignedLines(simpleAligned, hunkIdx)
         }
 
+        // 估算 hunk 高度：header (28px) + 每行 (22px)
+        const estimatedHunkHeight = 28 + hunk.lines.length * 22
+
         return (
-          <div key={hunkIdx}>
+          <LazyRender
+            key={hunkIdx}
+            estimatedHeight={estimatedHunkHeight}
+            rootMargin="300px"
+            keepOnceRendered={true}
+          >
             {/* Hunk header */}
             <div className={`px-3 py-1 ${HUNK_HEADER_BG_CLASS} ${HUNK_HEADER_TEXT_CLASS} border-y border-blue-200 dark:border-blue-800 text-xs font-mono flex items-center justify-between`}>
               <span>
@@ -321,7 +330,7 @@ export const SplitDiffView = memo(function SplitDiffView({
 
             {/* 对齐后的内容 */}
             {alignedContent}
-          </div>
+          </LazyRender>
         )
       })}
     </div>

@@ -12,6 +12,7 @@ import { InlineReviewMarker } from './InlineReviewMarker'
 import { CopyButton } from './CopyButton'
 import { HighlightedLine } from './HighlightedLine'
 import { CollapsedIndicator } from './CollapsedIndicator'
+import { LazyRender } from './LazyRender'
 import {
   DEFAULT_ENABLE_SMART_MERGE,
   DEFAULT_MAX_GAP_LINES,
@@ -172,8 +173,16 @@ export const UnifiedDiffView = memo(function UnifiedDiffView({
           currentIdx++
         }
 
+        // 估算 hunk 高度：header (28px) + 每行 (22px)
+        const estimatedHunkHeight = 28 + renderLines.length * 22
+
         return (
-          <div key={hunkIdx}>
+          <LazyRender
+            key={hunkIdx}
+            estimatedHeight={estimatedHunkHeight}
+            rootMargin="300px"
+            keepOnceRendered={true}
+          >
             {/* Hunk header - 显示合并标识 */}
             <div className={`px-3 py-1 ${HUNK_HEADER_BG_CLASS} ${HUNK_HEADER_TEXT_CLASS} border-y border-blue-200 dark:border-blue-800 text-xs font-mono flex items-center justify-between`}>
               <span>
@@ -265,13 +274,13 @@ export const UnifiedDiffView = memo(function UnifiedDiffView({
                     {line.lineType === 'addition' ? '+' : line.lineType === 'deletion' ? '-' : ' '}
                   </span>
                   <span className="flex-1 px-2 whitespace-pre text-[11px] leading-[22px] relative">
-                    <HighlightedLine content={line.content} lineType={line.lineType} charSegments={segments} />
+                    <HighlightedLine content={line.content} lineType={line.lineType} charSegments={segments} filePath={filePath} />
                     <CopyButton text={line.content} />
                   </span>
                 </div>
               )
             })}
-          </div>
+          </LazyRender>
         )
       })}
     </div>
