@@ -213,20 +213,21 @@ pub async fn ai_review(request: AIReviewRequest) -> Result<AIReviewResponse, Str
 
     // 2. 获取 Diff 内容
     debug!("[ai_review] 获取详细 diff...");
-    let detailed_diff = match get_detailed_diff(&request.worktree_path, &request.target_branch, "none") {
-        Ok(diff) => {
-            debug!("[ai_review] Diff 获取成功: {} 个文件", diff.files.len());
-            diff
-        }
-        Err(e) => {
-            debug!("[ai_review] Diff 获取失败: {}", e);
-            return Ok(AIReviewResponse {
-                success: false,
-                result: None,
-                error: Some(format!("获取代码变更失败: {}", e)),
-            });
-        }
-    };
+    let detailed_diff =
+        match get_detailed_diff(&request.worktree_path, &request.target_branch, "none") {
+            Ok(diff) => {
+                debug!("[ai_review] Diff 获取成功: {} 个文件", diff.files.len());
+                diff
+            }
+            Err(e) => {
+                debug!("[ai_review] Diff 获取失败: {}", e);
+                return Ok(AIReviewResponse {
+                    success: false,
+                    result: None,
+                    error: Some(format!("获取代码变更失败: {}", e)),
+                });
+            }
+        };
 
     // 3. 构造原始 diff 字符串
     let diff_content = build_diff_content(&detailed_diff);

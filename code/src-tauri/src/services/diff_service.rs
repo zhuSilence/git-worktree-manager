@@ -82,7 +82,11 @@ fn find_target_commit<'a>(
 }
 
 /// 获取 worktree 与目标分支的 diff
-pub fn get_diff(worktree_path: &str, target_branch: &str, ignore_whitespace: &str) -> anyhow::Result<DiffResponse> {
+pub fn get_diff(
+    worktree_path: &str,
+    target_branch: &str,
+    ignore_whitespace: &str,
+) -> anyhow::Result<DiffResponse> {
     // 验证 target_branch 参数，防止注入攻击
     sanitize_branch_name(target_branch).map_err(|e| anyhow::anyhow!("{}", e))?;
 
@@ -109,8 +113,12 @@ pub fn get_diff(worktree_path: &str, target_branch: &str, ignore_whitespace: &st
     cmd.args(["-c", "core.quotepath=false", "diff", "--numstat"]);
     // 根据参数添加空白过滤选项
     match ignore_whitespace {
-        "all" => { cmd.arg("--ignore-all-space"); }
-        "change" => { cmd.arg("--ignore-space-change"); }
+        "all" => {
+            cmd.arg("--ignore-all-space");
+        }
+        "change" => {
+            cmd.arg("--ignore-space-change");
+        }
         _ => {} // "none" - 不添加参数
     }
     cmd.arg(format!("{}...HEAD", target_branch));
@@ -154,8 +162,12 @@ pub fn get_diff(worktree_path: &str, target_branch: &str, ignore_whitespace: &st
     worktree_cmd.args(["-c", "core.quotepath=false", "diff", "--numstat"]);
     // 根据参数添加空白过滤选项
     match ignore_whitespace {
-        "all" => { worktree_cmd.arg("--ignore-all-space"); }
-        "change" => { worktree_cmd.arg("--ignore-space-change"); }
+        "all" => {
+            worktree_cmd.arg("--ignore-all-space");
+        }
+        "change" => {
+            worktree_cmd.arg("--ignore-space-change");
+        }
         _ => {} // "none" - 不添加参数
     }
     worktree_cmd.arg("HEAD");
@@ -483,8 +495,12 @@ pub fn get_detailed_diff(
     cmd.args(["-c", "core.quotepath=false", "diff"]);
     // 根据参数添加空白过滤选项
     match ignore_whitespace {
-        "all" => { cmd.arg("--ignore-all-space"); }
-        "change" => { cmd.arg("--ignore-space-change"); }
+        "all" => {
+            cmd.arg("--ignore-all-space");
+        }
+        "change" => {
+            cmd.arg("--ignore-space-change");
+        }
         _ => {} // "none" - 不添加参数
     }
     cmd.arg(format!("{}...HEAD", target_branch));
@@ -506,8 +522,12 @@ pub fn get_detailed_diff(
     worktree_cmd.args(["-c", "core.quotepath=false", "diff"]);
     // 根据参数添加空白过滤选项
     match ignore_whitespace {
-        "all" => { worktree_cmd.arg("--ignore-all-space"); }
-        "change" => { worktree_cmd.arg("--ignore-space-change"); }
+        "all" => {
+            worktree_cmd.arg("--ignore-all-space");
+        }
+        "change" => {
+            worktree_cmd.arg("--ignore-space-change");
+        }
         _ => {} // "none" - 不添加参数
     }
     worktree_cmd.arg("HEAD");
@@ -673,7 +693,10 @@ pub fn get_detailed_diff(
                 true // 稍后在获取时检查
             } else {
                 let new_path = std::path::Path::new(worktree_path).join(&file.path);
-                new_path.exists() && std::fs::metadata(&new_path).map(|m| m.len() <= MAX_FILE_SIZE_BYTES).unwrap_or(false)
+                new_path.exists()
+                    && std::fs::metadata(&new_path)
+                        .map(|m| m.len() <= MAX_FILE_SIZE_BYTES)
+                        .unwrap_or(false)
             };
 
             if !file_size_ok && file.status != FileStatus::Deleted {
@@ -685,7 +708,12 @@ pub fn get_detailed_diff(
                 let sanitized_branch = sanitize_branch_name(target_branch);
                 if sanitized_branch.is_ok() {
                     let old_output = Command::new("git")
-                        .args(["-c", "core.quotepath=false", "show", &format!("{}:{}", target_branch, &file.path)])
+                        .args([
+                            "-c",
+                            "core.quotepath=false",
+                            "show",
+                            &format!("{}:{}", target_branch, &file.path),
+                        ])
                         .current_dir(worktree_path)
                         .output();
                     if let Ok(output) = old_output {
@@ -694,7 +722,8 @@ pub fn get_detailed_diff(
                             if output.stdout.len() as u64 <= MAX_FILE_SIZE_BYTES {
                                 use base64::Engine;
                                 file.old_image_base64 = Some(
-                                    base64::engine::general_purpose::STANDARD.encode(&output.stdout)
+                                    base64::engine::general_purpose::STANDARD
+                                        .encode(&output.stdout),
                                 );
                             }
                         }
@@ -709,9 +738,8 @@ pub fn get_detailed_diff(
                     if let Ok(bytes) = std::fs::read(&new_path) {
                         if bytes.len() as u64 <= MAX_FILE_SIZE_BYTES {
                             use base64::Engine;
-                            file.new_image_base64 = Some(
-                                base64::engine::general_purpose::STANDARD.encode(&bytes)
-                            );
+                            file.new_image_base64 =
+                                Some(base64::engine::general_purpose::STANDARD.encode(&bytes));
                         }
                     }
                 }
@@ -722,7 +750,14 @@ pub fn get_detailed_diff(
     // 转换为 Vec 并过滤
     let mut files: Vec<FileDiff> = files_map
         .into_values()
-        .filter(|f| !f.hunks.is_empty() || f.status == FileStatus::Added || f.status == FileStatus::Deleted || f.is_binary || f.is_too_large || f.is_image)
+        .filter(|f| {
+            !f.hunks.is_empty()
+                || f.status == FileStatus::Added
+                || f.status == FileStatus::Deleted
+                || f.is_binary
+                || f.is_too_large
+                || f.is_image
+        })
         .collect();
 
     // 按变更量排序
@@ -816,7 +851,6 @@ fn get_commit_revwalk(
 
     Ok(revwalk)
 }
-
 
 /// 获取三方合并 Diff（用于合并冲突场景）
 ///
