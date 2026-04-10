@@ -67,16 +67,11 @@ pub fn merge_branch_in_worktree(params: &MergeParams) -> anyhow::Result<MergeRes
                 Some(AutoHandleUncommitted::Stash) => {
                     // 暂存变更
                     let marker = format!("merge-autostash-{}", chrono::Utc::now().timestamp());
-                    let stash_ref =
-                        quick_stash(&params.target_worktree_path, &marker).map_err(|e| {
-                            anyhow::anyhow!("暂存变更失败: {}", e)
-                        })?;
+                    let stash_ref = quick_stash(&params.target_worktree_path, &marker)
+                        .map_err(|e| anyhow::anyhow!("暂存变更失败: {}", e))?;
 
                     if stash_ref != "no-stash" {
-                        info!(
-                            "[merge] Stashed uncommitted changes at {}",
-                            stash_ref
-                        );
+                        info!("[merge] Stashed uncommitted changes at {}", stash_ref);
                         auto_handle_result = Some(AutoHandleResult {
                             strategy: AutoHandleUncommitted::Stash,
                             stash_ref: Some(stash_ref.clone()),
@@ -96,10 +91,7 @@ pub fn merge_branch_in_worktree(params: &MergeParams) -> anyhow::Result<MergeRes
                 Some(AutoHandleUncommitted::Commit) => {
                     // 创建临时提交
                     let temp_commit_id = create_temp_commit(&target_repo)?;
-                    info!(
-                        "[merge] Created temporary commit: {}",
-                        temp_commit_id
-                    );
+                    info!("[merge] Created temporary commit: {}", temp_commit_id);
                     auto_handle_result = Some(AutoHandleResult {
                         strategy: AutoHandleUncommitted::Commit,
                         stash_ref: None,

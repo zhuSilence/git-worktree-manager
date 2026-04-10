@@ -24,7 +24,9 @@ pub use git_service::{
 };
 pub use hotfix_service::{abort_hotfix, finish_hotfix, get_hotfix_status, start_hotfix};
 pub use log_service::{cleanup_old_logs, export_operations, list_operations, record_operation};
-pub use merge_service::{abort_merge, check_merge_conflicts, complete_merge, merge_branch_in_worktree};
+pub use merge_service::{
+    abort_merge, check_merge_conflicts, complete_merge, merge_branch_in_worktree,
+};
 pub use worktree_service::{
     batch_delete_worktrees, create_worktree, delete_worktree, get_merged_hints, get_stale_hints,
     get_worktree_status, list_worktrees, prune_worktrees,

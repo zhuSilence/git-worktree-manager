@@ -1,9 +1,9 @@
 use super::run_blocking;
 use crate::models::{MergeConflictCheckResult, MergeParams, MergeResult};
+use crate::services::backup_service::pop_stash;
 use crate::services::{
     abort_merge, check_merge_conflicts, complete_merge, merge_branch_in_worktree,
 };
-use crate::services::backup_service::pop_stash;
 use crate::utils::validation::validate_path;
 use tauri::command;
 
