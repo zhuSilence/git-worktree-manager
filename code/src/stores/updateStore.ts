@@ -76,35 +76,39 @@ export const updateStore = create<UpdateState>((set, get) => ({
     set({ isDownloading: true, downloadProgress: 0, error: null })
 
     try {
+      // 重新获取更新对象以进行下载（Tauri updater API 要求通过 check() 获取的对象调用 downloadAndInstall）
       const update = await check()
 
-      if (update) {
-        await update.downloadAndInstall((event) => {
-          switch (event.event) {
-            case 'Started':
-              set({ contentLength: event.data.contentLength || 0 })
-              break
-            case 'Progress':
-              {
-                const chunkLength = event.data.chunkLength
-                const currentDownloaded = get().downloaded + chunkLength
-                const contentLength = get().contentLength
-                const progress = contentLength > 0 ? (currentDownloaded / contentLength) * 100 : 0
-                set({
-                  downloaded: currentDownloaded,
-                  downloadProgress: Math.min(progress, 100),
-                })
-              }
-              break
-            case 'Finished':
-              set({ downloadProgress: 100 })
-              break
-          }
-        })
-
-        // 安装完成后重启应用
-        await relaunch()
+      if (!update) {
+        set({ error: '更新已不可用，请重新检查', isDownloading: false })
+        return
       }
+
+      await update.downloadAndInstall((event) => {
+        switch (event.event) {
+          case 'Started':
+            set({ contentLength: event.data.contentLength || 0 })
+            break
+          case 'Progress':
+            {
+              const chunkLength = event.data.chunkLength
+              const currentDownloaded = get().downloaded + chunkLength
+              const contentLength = get().contentLength
+              const progress = contentLength > 0 ? (currentDownloaded / contentLength) * 100 : 0
+              set({
+                downloaded: currentDownloaded,
+                downloadProgress: Math.min(progress, 100),
+              })
+            }
+            break
+          case 'Finished':
+            set({ downloadProgress: 100 })
+            break
+        }
+      })
+
+      // 安装完成后重启应用
+      await relaunch()
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : '下载更新失败',

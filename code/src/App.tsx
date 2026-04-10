@@ -16,10 +16,12 @@ import { useRepositoryStore } from './stores/repositoryStore'
 import { settingsStore } from './stores/settingsStore'
 import { updateStore } from './stores/updateStore'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { useTheme } from './hooks/useTheme'
 import type { RepositoryInfo } from './types/worktree'
 
 function App() {
   const { t } = useTranslation()
+  useTheme()
   // 使用选择器模式订阅单个状态，避免不必要的重渲染
   const currentRepo = useWorktreeStore(state => state.currentRepo)
   const isLoading = useWorktreeStore(state => state.isLoading)
@@ -103,18 +105,20 @@ function App() {
 
   // 启动时自动检查更新（延迟 3 秒，避免启动时卡顿）
   useEffect(() => {
-    const autoCheckUpdate = async () => {
-      const { hasAutoChecked, checkForUpdate, markAutoChecked } = updateStore.getState()
-      if (hasAutoChecked) return
+    const { hasAutoChecked, checkForUpdate, markAutoChecked } = updateStore.getState()
+    if (hasAutoChecked) return
 
-      markAutoChecked()
-      // 延迟 3 秒后检查更新
-      setTimeout(async () => {
+    markAutoChecked()
+    // 延迟 3 秒后检查更新
+    const timer = setTimeout(async () => {
+      try {
         await checkForUpdate()
-      }, 3000)
-    }
+      } catch {
+        // 静默忽略检查更新失败
+      }
+    }, 3000)
 
-    autoCheckUpdate()
+    return () => clearTimeout(timer)
   }, [])
 
   // 自动刷新

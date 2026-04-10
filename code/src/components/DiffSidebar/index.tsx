@@ -597,10 +597,10 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
 
     try {
       if (options.regex) {
-        searchRegex = new RegExp(query, options.caseSensitive ? 'g' : 'gi')
+        searchRegex = new RegExp(query, options.caseSensitive ? undefined : 'i')
       } else {
         const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        searchRegex = new RegExp(escaped, options.caseSensitive ? 'g' : 'gi')
+        searchRegex = new RegExp(escaped, options.caseSensitive ? undefined : 'i')
       }
     } catch {
       // 无效正则，静默忽略
@@ -620,7 +620,6 @@ export function DiffSidebar({ isOpen, onClose, worktreePath, worktreeName, branc
               filePath: file.path,
             })
           }
-          searchRegex.lastIndex = 0 // 重置 lastIndex
         })
       })
     })

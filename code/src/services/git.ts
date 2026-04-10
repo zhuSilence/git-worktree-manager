@@ -19,6 +19,7 @@ import type {
   FinishHotfixResult,
   MergeParams,
   MergeResult,
+  MergeConflictCheckResult,
   WorktreeConflictDetectionResponse,
   ThreeWayDiff,
 } from '@/types/worktree'
@@ -269,6 +270,28 @@ export const gitService = {
    */
   async completeMerge(worktreePath: string, message?: string): Promise<MergeResult> {
     return invoke<MergeResult>('complete_merge_cmd', { worktreePath, message })
+  },
+
+  /**
+   * 预检测合并冲突（不实际执行合并）
+   */
+  async checkMergeConflicts(
+    worktreePath: string,
+    mainRepoPath: string,
+    sourceBranch: string
+  ): Promise<MergeConflictCheckResult> {
+    return invoke<MergeConflictCheckResult>('check_merge_conflicts_cmd', {
+      worktreePath,
+      mainRepoPath,
+      sourceBranch,
+    })
+  },
+
+  /**
+   * 合并后弹出暂存的变更
+   */
+  async popStashAfterMerge(worktreePath: string, stashRef: string): Promise<boolean> {
+    return invoke<boolean>('pop_stash_after_merge_cmd', { worktreePath, stashRef })
   },
 
   // ============ 操作日志相关 ============

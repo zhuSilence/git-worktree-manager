@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { clsx } from 'clsx'
 import { Columns, AlignJustify, ImageOff } from 'lucide-react'
 
-type ViewMode = 'side-by-side' | 'swipe' | 'overlay'
+type ViewMode = 'side-by-side' | 'swipe'
 
 interface ImageDiffProps {
   oldImageBase64?: string | null
@@ -39,7 +39,6 @@ export function ImageDiff({ oldImageBase64, newImageBase64, filePath, status }: 
   const { t } = useTranslation()
   const [viewMode, setViewMode] = useState<ViewMode>('side-by-side')
   const [swipePosition, setSwipePosition] = useState(50)
-  const [overlayOpacity, setOverlayOpacity] = useState(0.5)
 
   const mimeType = useMemo(() => getMimeType(filePath), [filePath])
 
@@ -182,7 +181,7 @@ export function ImageDiff({ oldImageBase64, newImageBase64, filePath, status }: 
                 src={oldSrc}
                 alt="Old"
                 className="h-full object-contain"
-                style={{ width: `${100 / (swipePosition / 100)}%`, maxWidth: 'none' }}
+                style={{ width: `${100 / Math.max(1, swipePosition / 100)}%`, maxWidth: 'none' }}
               />
             </div>
           )}
@@ -207,35 +206,6 @@ export function ImageDiff({ oldImageBase64, newImageBase64, filePath, status }: 
         </div>
       )}
 
-      {/* Overlay 模式（可选，暂不实现） */}
-      {isModified && viewMode === 'overlay' && (
-        <div className="relative border border-gray-200 dark:border-gray-700 rounded overflow-hidden">
-          {oldSrc && (
-            <img
-              src={oldSrc}
-              alt="Old"
-              className="w-full max-h-[600px] object-contain"
-              style={{ opacity: overlayOpacity }}
-            />
-          )}
-          {newSrc && (
-            <img
-              src={newSrc}
-              alt="New"
-              className="absolute top-0 left-0 w-full max-h-[600px] object-contain"
-              style={{ opacity: 1 - overlayOpacity }}
-            />
-          )}
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={overlayOpacity * 100}
-            onChange={(e) => setOverlayOpacity(Number(e.target.value) / 100)}
-            className="absolute bottom-3 left-1/2 -translate-x-1/2 w-3/4"
-          />
-        </div>
-      )}
     </div>
   )
 }

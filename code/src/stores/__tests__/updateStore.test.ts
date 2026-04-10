@@ -417,8 +417,9 @@ describe('updateStore', () => {
       const store = updateStore.getState();
       await store.downloadAndInstall();
 
-      // Should not throw, just return early
-      expect(updateStore.getState().error).toBeNull();
+      // Should set error message when update is no longer available
+      expect(updateStore.getState().error).toBe('更新已不可用，请重新检查');
+      expect(updateStore.getState().isDownloading).toBe(false);
     });
   });
 });

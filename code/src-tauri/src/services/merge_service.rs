@@ -2,7 +2,11 @@ use git2::Repository;
 use log::{error, info};
 use std::process::Command;
 
-use crate::models::{ConflictFile, MergeParams, MergeResult, MergeStatus};
+use crate::models::{
+    AutoHandleResult, AutoHandleUncommitted, ConflictFile, MergeConflictCheckResult, MergeParams,
+    MergeResult, MergeStatus,
+};
+use crate::services::backup_service::{pop_stash, quick_stash};
 use crate::services::worktree_service::get_worktree_status;
 
 /// 在目标 worktree 中合并源分支
@@ -35,23 +39,67 @@ pub fn merge_branch_in_worktree(params: &MergeParams) -> anyhow::Result<MergeRes
                 message: format!("找不到源分支 '{}': {}", params.source_branch, e),
                 commit_id: None,
                 conflicts: vec![],
-                target_branch: target_branch_name,
+                target_branch: target_branch_name.clone(),
+                auto_handle_result: None,
             });
         }
     };
 
-    // 5. 检查是否有未提交的更改
+    // 5. 检查是否有未提交的更改并自动处理
+    let mut auto_handle_result: Option<AutoHandleResult> = None;
+
     if let Ok(status) = get_worktree_status(&target_repo) {
         use crate::models::WorktreeStatus;
         if status == WorktreeStatus::Dirty || status == WorktreeStatus::Conflicted {
-            return Ok(MergeResult {
-                success: false,
-                status: MergeStatus::Failed,
-                message: "目标 worktree 有未提交的更改，请先提交或暂存".to_string(),
-                commit_id: None,
-                conflicts: vec![],
-                target_branch: target_branch_name,
-            });
+            match &params.auto_handle_uncommitted {
+                None => {
+                    // 无处理策略，返回状态让前端展示选项
+                    return Ok(MergeResult {
+                        success: false,
+                        status: MergeStatus::HasUncommittedChanges,
+                        message: "目标 worktree 有未提交的更改".to_string(),
+                        commit_id: None,
+                        conflicts: vec![],
+                        target_branch: target_branch_name.clone(),
+                        auto_handle_result: None,
+                    });
+                }
+                Some(AutoHandleUncommitted::Stash) => {
+                    // 暂存变更
+                    let marker = format!("merge-autostash-{}", chrono::Utc::now().timestamp());
+                    let stash_ref = quick_stash(&params.target_worktree_path, &marker)
+                        .map_err(|e| anyhow::anyhow!("暂存变更失败: {}", e))?;
+
+                    if stash_ref != "no-stash" {
+                        info!("[merge] Stashed uncommitted changes at {}", stash_ref);
+                        auto_handle_result = Some(AutoHandleResult {
+                            strategy: AutoHandleUncommitted::Stash,
+                            stash_ref: Some(stash_ref.clone()),
+                            temp_commit_id: None,
+                            stash_popped: None,
+                        });
+                    } else {
+                        // 实际上没有变更可暂存
+                        auto_handle_result = Some(AutoHandleResult {
+                            strategy: AutoHandleUncommitted::Stash,
+                            stash_ref: None,
+                            temp_commit_id: None,
+                            stash_popped: Some(true),
+                        });
+                    }
+                }
+                Some(AutoHandleUncommitted::Commit) => {
+                    // 创建临时提交
+                    let temp_commit_id = create_temp_commit(&target_repo)?;
+                    info!("[merge] Created temporary commit: {}", temp_commit_id);
+                    auto_handle_result = Some(AutoHandleResult {
+                        strategy: AutoHandleUncommitted::Commit,
+                        stash_ref: None,
+                        temp_commit_id: Some(temp_commit_id),
+                        stash_popped: None,
+                    });
+                }
+            }
         }
     }
 
@@ -67,7 +115,8 @@ pub fn merge_branch_in_worktree(params: &MergeParams) -> anyhow::Result<MergeRes
                     message: format!("合并失败: {}", e),
                     commit_id: None,
                     conflicts: vec![],
-                    target_branch: target_branch_name,
+                    target_branch: target_branch_name.clone(),
+                    auto_handle_result,
                 });
             }
         };
@@ -88,7 +137,8 @@ pub fn merge_branch_in_worktree(params: &MergeParams) -> anyhow::Result<MergeRes
             message: format!("合并存在 {} 个冲突文件，请手动解决", conflicts.len()),
             commit_id: None,
             conflicts,
-            target_branch: target_branch_name,
+            target_branch: target_branch_name.clone(),
+            auto_handle_result,
         });
     }
 
@@ -102,7 +152,8 @@ pub fn merge_branch_in_worktree(params: &MergeParams) -> anyhow::Result<MergeRes
                 message: format!("写入合并树失败: {}", e),
                 commit_id: None,
                 conflicts: vec![],
-                target_branch: target_branch_name,
+                target_branch: target_branch_name.clone(),
+                auto_handle_result,
             });
         }
     };
@@ -116,7 +167,8 @@ pub fn merge_branch_in_worktree(params: &MergeParams) -> anyhow::Result<MergeRes
                 message: format!("查找合并树失败: {}", e),
                 commit_id: None,
                 conflicts: vec![],
-                target_branch: target_branch_name,
+                target_branch: target_branch_name.clone(),
+                auto_handle_result,
             });
         }
     };
@@ -142,7 +194,8 @@ pub fn merge_branch_in_worktree(params: &MergeParams) -> anyhow::Result<MergeRes
                         message: format!("创建签名失败: {}", e),
                         commit_id: None,
                         conflicts: vec![],
-                        target_branch: target_branch_name,
+                        target_branch: target_branch_name.clone(),
+                        auto_handle_result,
                     });
                 }
             }
@@ -169,14 +222,37 @@ pub fn merge_branch_in_worktree(params: &MergeParams) -> anyhow::Result<MergeRes
                 message: format!("创建合并提交失败: {}", e),
                 commit_id: None,
                 conflicts: vec![],
-                target_branch: target_branch_name,
+                target_branch: target_branch_name.clone(),
+                auto_handle_result,
             });
         }
     };
 
     info!("[merge] Successfully merged into commit {}", commit_id);
 
-    // 9. 可选：推送
+    // 9. 如果是 stash 策略，尝试恢复暂存
+    if let Some(ref mut result) = auto_handle_result {
+        if result.strategy == AutoHandleUncommitted::Stash {
+            if let Some(ref stash_ref) = result.stash_ref {
+                match pop_stash(&params.target_worktree_path, stash_ref) {
+                    Ok(popped) => {
+                        result.stash_popped = Some(popped);
+                        if popped {
+                            info!("[merge] Stash {} restored after merge", stash_ref);
+                        } else {
+                            error!("[merge] Failed to pop stash {} after merge", stash_ref);
+                        }
+                    }
+                    Err(e) => {
+                        error!("[merge] Failed to pop stash: {}", e);
+                        result.stash_popped = Some(false);
+                    }
+                }
+            }
+        }
+    }
+
+    // 10. 可选：推送
     if params.auto_push {
         info!("[merge] Auto-pushing to remote...");
         match push_branch(&params.target_worktree_path, &target_branch_name) {
@@ -189,7 +265,8 @@ pub fn merge_branch_in_worktree(params: &MergeParams) -> anyhow::Result<MergeRes
                     message: format!("合并成功但推送失败: {}", e),
                     commit_id: Some(commit_id.to_string()),
                     conflicts: vec![],
-                    target_branch: target_branch_name,
+                    target_branch: target_branch_name.clone(),
+                    auto_handle_result,
                 });
             }
         }
@@ -205,6 +282,7 @@ pub fn merge_branch_in_worktree(params: &MergeParams) -> anyhow::Result<MergeRes
         commit_id: Some(commit_id.to_string()),
         conflicts: vec![],
         target_branch: target_branch_name,
+        auto_handle_result,
     })
 }
 
@@ -320,7 +398,8 @@ pub fn complete_merge(worktree_path: &str, message: Option<String>) -> anyhow::R
             message: "仍存在冲突文件，请先解决所有冲突".to_string(),
             commit_id: None,
             conflicts: extract_conflicts(&index).unwrap_or_default(),
-            target_branch: target_branch_name,
+            target_branch: target_branch_name.clone(),
+            auto_handle_result: None,
         });
     }
 
@@ -382,10 +461,85 @@ pub fn complete_merge(worktree_path: &str, message: Option<String>) -> anyhow::R
         commit_id: Some(commit_id.to_string()),
         conflicts: vec![],
         target_branch: target_branch_name,
+        auto_handle_result: None,
     })
 }
 
 /// 获取 git 配置值
 fn get_git_config(repo: &Repository, key: &str) -> Option<String> {
     repo.config().ok()?.get_string(key).ok()
+}
+
+/// 创建临时提交（将所有未提交变更提交到 HEAD）
+fn create_temp_commit(repo: &Repository) -> anyhow::Result<String> {
+    let mut index = repo.index()?;
+    index.add_all(["."].iter(), git2::IndexAddOption::DEFAULT, None)?;
+    index.write()?;
+
+    let tree_id = index.write_tree()?;
+    let tree = repo.find_tree(tree_id)?;
+    let head = repo.head()?.peel_to_commit()?;
+
+    let sig = match repo.signature() {
+        Ok(sig) => sig,
+        Err(_) => {
+            let name = get_git_config(repo, "user.name")
+                .or_else(|| std::env::var("GIT_AUTHOR_NAME").ok())
+                .unwrap_or_else(|| "Git Worktree Manager".to_string());
+            let email = get_git_config(repo, "user.email")
+                .or_else(|| std::env::var("GIT_AUTHOR_EMAIL").ok())
+                .unwrap_or_else(|| "git@worktree.manager".to_string());
+            git2::Signature::now(&name, &email)?
+        }
+    };
+
+    let commit_id = repo.commit(
+        Some("HEAD"),
+        &sig,
+        &sig,
+        "WIP: temporary commit before merge",
+        &tree,
+        &[&head],
+    )?;
+
+    Ok(commit_id.to_string())
+}
+
+/// 预检测合并是否会产生冲突（不实际执行合并）
+pub fn check_merge_conflicts(
+    worktree_path: &str,
+    main_repo_path: &str,
+    source_branch: &str,
+) -> anyhow::Result<MergeConflictCheckResult> {
+    info!(
+        "[merge] Pre-checking conflicts for merging '{}' into '{}'",
+        source_branch, worktree_path
+    );
+
+    let repo = Repository::open(worktree_path)?;
+    let target_commit = repo.head()?.peel_to_commit()?;
+
+    // 打开主仓库（用于查找源分支）
+    let main_repo = Repository::open(main_repo_path)?;
+
+    // 先在 worktree repo 中查找源分支，如果找不到则从主仓库查找
+    let source_commit = find_source_commit(&repo, source_branch)
+        .or_else(|_| find_source_commit(&main_repo, source_branch))
+        .map_err(|e| anyhow::anyhow!("找不到源分支 '{}': {}", source_branch, e))?;
+
+    let merge_opts = git2::MergeOptions::new();
+    let merge_index = repo.merge_commits(&target_commit, &source_commit, Some(&merge_opts))?;
+
+    if merge_index.has_conflicts() {
+        let conflicts = extract_conflicts(&merge_index).unwrap_or_default();
+        Ok(MergeConflictCheckResult {
+            has_conflicts: true,
+            conflict_files: conflicts,
+        })
+    } else {
+        Ok(MergeConflictCheckResult {
+            has_conflicts: false,
+            conflict_files: vec![],
+        })
+    }
 }

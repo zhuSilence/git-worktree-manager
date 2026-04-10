@@ -14,6 +14,7 @@ import {
   Sparkles,
   Github,
   ExternalLink,
+  Palette,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { settingsStore, IdeType, TerminalType } from '@/stores/settingsStore'
@@ -34,6 +35,13 @@ const APP_VERSION = __APP_VERSION__
 const languageOptions = [
   { value: 'zh-CN', label: '简体中文' },
   { value: 'en-US', label: 'English' },
+]
+
+// 主题选项
+const themeOptions = [
+  { value: 'system', label: 'system' },
+  { value: 'light', label: 'light' },
+  { value: 'dark', label: 'dark' },
 ]
 
 // 所有支持的编辑器
@@ -71,6 +79,8 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     setIdleThresholdDays,
     autoFetchOnStart,
     setAutoFetchOnStart,
+    theme,
+    setTheme,
   } = settingsStore()
 
   const { isUpdateAvailable, updateInfo } = updateStore()
@@ -85,6 +95,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const [localIdleDays, setLocalIdleDays] = useState(idleThresholdDays)
   const [localAutoFetch, setLocalAutoFetch] = useState(autoFetchOnStart)
   const [localLanguage, setLocalLanguage] = useState(i18n.language || 'zh-CN')
+  const [localTheme, setLocalTheme] = useState<'light' | 'dark' | 'system'>(theme)
 
   useEffect(() => {
     setLocalIde(defaultIde)
@@ -95,7 +106,8 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     setLocalIdleDays(idleThresholdDays)
     setLocalAutoFetch(autoFetchOnStart)
     setLocalLanguage(i18n.language || 'zh-CN')
-  }, [defaultIde, defaultTerminal, customIdePath, customTerminalPath, enableIdleDetection, idleThresholdDays, autoFetchOnStart, i18n.language, isOpen])
+    setLocalTheme(theme)
+  }, [defaultIde, defaultTerminal, customIdePath, customTerminalPath, enableIdleDetection, idleThresholdDays, autoFetchOnStart, i18n.language, theme, isOpen])
 
   const handleSave = () => {
     setDefaultIde(localIde)
@@ -113,6 +125,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     setEnableIdleDetection(localEnableIdle)
     setIdleThresholdDays(localIdleDays)
     setAutoFetchOnStart(localAutoFetch)
+    setTheme(localTheme)
     i18n.changeLanguage(localLanguage)
     onClose()
   }
@@ -297,6 +310,15 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 </h3>
               </div>
               <div className="p-4 space-y-4">
+                <SettingSelect
+                  icon={Palette}
+                  label={t('settings.theme', '主题')}
+                  value={localTheme}
+                  onChange={(value) => setLocalTheme(value as 'light' | 'dark' | 'system')}
+                  options={themeOptions.map(opt => ({ ...opt, label: t(`settings.theme${opt.value.charAt(0).toUpperCase()}${opt.value.slice(1)}`, opt.value) }))}
+                  helperText={t('settings.themeDesc', '选择界面主题')}
+                />
+
                 <SettingSelect
                   icon={Globe}
                   label={t('settings.language', '界面语言')}
