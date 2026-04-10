@@ -1,17 +1,66 @@
 use super::worktree_service::list_worktrees;
 use crate::models::{
     CommitInfo, DetailedDiffResponse, DiffHunk, DiffLine, DiffResponse, DiffStats, FileDiff,
-    TimelineResponse,
+    FileStatus, LineType, ThreeWayDiff, TimelineResponse,
 };
 use crate::utils::validation::sanitize_branch_name;
+use encoding_rs::GBK;
 use git2::Repository;
 use regex::Regex;
 use std::process::Command;
 use std::sync::LazyLock;
 
+/// 最大文件大小限制（5MB）
+const MAX_FILE_SIZE_BYTES: u64 = 5 * 1024 * 1024;
+/// 单文件最大 diff 行数
+const MAX_DIFF_LINES: usize = 10000;
+/// 支持的图片文件扩展名
+const IMAGE_EXTENSIONS: &[&str] = &[
+    "png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico", "avif",
+];
+
+/// 检测文件是否为图片
+fn is_image_file(path: &str) -> bool {
+    if let Some(ext) = path.rsplit('.').next() {
+        IMAGE_EXTENSIONS.contains(&ext.to_lowercase().as_str())
+    } else {
+        false
+    }
+}
+
 #[allow(clippy::unwrap_used)]
 static HUNK_HEADER_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@").unwrap());
+
+/// 解码字节数组为字符串，支持多种编码
+///
+/// 编码检测顺序：
+/// 1. UTF-8（优先）
+/// 2. UTF-8 with BOM
+/// 3. GBK/GB18030（中文 Windows 常见）
+/// 4. 最后 fallback 到 lossy UTF-8
+fn decode_bytes_to_string(bytes: &[u8]) -> String {
+    // 先尝试 UTF-8
+    if let Ok(s) = std::str::from_utf8(bytes) {
+        return s.to_string();
+    }
+
+    // 尝试检测编码 - UTF-8 BOM
+    if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
+        if let Ok(s) = std::str::from_utf8(&bytes[3..]) {
+            return s.to_string();
+        }
+    }
+
+    // 尝试 GBK (GB18030) - 中文 Windows 常用编码
+    let (decoded, _, had_errors) = GBK.decode(bytes);
+    if !had_errors {
+        return decoded.into_owned();
+    }
+
+    // 最后 fallback 到 lossy UTF-8
+    String::from_utf8_lossy(bytes).into_owned()
+}
 
 /// 查找目标分支的 commit
 fn find_target_commit<'a>(
@@ -33,7 +82,11 @@ fn find_target_commit<'a>(
 }
 
 /// 获取 worktree 与目标分支的 diff
-pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<DiffResponse> {
+pub fn get_diff(
+    worktree_path: &str,
+    target_branch: &str,
+    ignore_whitespace: &str,
+) -> anyhow::Result<DiffResponse> {
     // 验证 target_branch 参数，防止注入攻击
     sanitize_branch_name(target_branch).map_err(|e| anyhow::anyhow!("{}", e))?;
 
@@ -56,19 +109,23 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
     let mut total_deletions = 0;
 
     // 1. 获取分支间的提交差异（三点语法）
-    let output = Command::new("git")
-        .args([
-            "-c",
-            "core.quotepath=false",
-            "diff",
-            "--numstat",
-            &format!("{}...HEAD", target_branch),
-        ])
-        .current_dir(worktree_path)
-        .output()?;
+    let mut cmd = Command::new("git");
+    cmd.args(["-c", "core.quotepath=false", "diff", "--numstat"]);
+    // 根据参数添加空白过滤选项
+    match ignore_whitespace {
+        "all" => {
+            cmd.arg("--ignore-all-space");
+        }
+        "change" => {
+            cmd.arg("--ignore-space-change");
+        }
+        _ => {} // "none" - 不添加参数
+    }
+    cmd.arg(format!("{}...HEAD", target_branch));
+    let output = cmd.current_dir(worktree_path).output()?;
 
     if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stdout = decode_bytes_to_string(&output.stdout);
         for line in stdout.lines() {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 3 {
@@ -77,11 +134,11 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
                 let path = parts[2].to_string();
 
                 let status = if additions > 0 && deletions == 0 {
-                    "added"
+                    FileStatus::Added
                 } else if additions == 0 && deletions > 0 {
-                    "deleted"
+                    FileStatus::Deleted
                 } else {
-                    "modified"
+                    FileStatus::Modified
                 };
 
                 files_map.insert(
@@ -90,7 +147,7 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
                         path,
                         additions,
                         deletions,
-                        status: status.to_string(),
+                        status,
                     },
                 );
 
@@ -101,13 +158,23 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
     }
 
     // 2. 获取工作区未提交的变更（包含已跟踪文件的修改）
-    let worktree_output = Command::new("git")
-        .args(["-c", "core.quotepath=false", "diff", "--numstat", "HEAD"])
-        .current_dir(worktree_path)
-        .output()?;
+    let mut worktree_cmd = Command::new("git");
+    worktree_cmd.args(["-c", "core.quotepath=false", "diff", "--numstat"]);
+    // 根据参数添加空白过滤选项
+    match ignore_whitespace {
+        "all" => {
+            worktree_cmd.arg("--ignore-all-space");
+        }
+        "change" => {
+            worktree_cmd.arg("--ignore-space-change");
+        }
+        _ => {} // "none" - 不添加参数
+    }
+    worktree_cmd.arg("HEAD");
+    let worktree_output = worktree_cmd.current_dir(worktree_path).output()?;
 
     if worktree_output.status.success() {
-        let stdout = String::from_utf8_lossy(&worktree_output.stdout);
+        let stdout = decode_bytes_to_string(&worktree_output.stdout);
         for line in stdout.lines() {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 3 {
@@ -121,11 +188,11 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
                     existing.deletions += deletions;
                 } else {
                     let status = if additions > 0 && deletions == 0 {
-                        "added"
+                        FileStatus::Added
                     } else if additions == 0 && deletions > 0 {
-                        "deleted"
+                        FileStatus::Deleted
                     } else {
-                        "modified"
+                        FileStatus::Modified
                     };
 
                     files_map.insert(
@@ -134,7 +201,7 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
                             path,
                             additions,
                             deletions,
-                            status: status.to_string(),
+                            status,
                         },
                     );
                 }
@@ -158,16 +225,16 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
         .output()?;
 
     if untracked_output.status.success() {
-        let stdout = String::from_utf8_lossy(&untracked_output.stdout);
+        let stdout = decode_bytes_to_string(&untracked_output.stdout);
         for path in stdout.lines() {
             if path.is_empty() || files_map.contains_key(path) {
                 continue;
             }
-            // 获取未跟踪文件的行数作为 additions
-            let line_count =
-                std::fs::read_to_string(std::path::Path::new(worktree_path).join(path))
-                    .map(|content| content.lines().count())
-                    .unwrap_or(0);
+            // 获取未跟踪文件的行数作为 additions（使用二进制读取+编码检测）
+            let file_path = std::path::Path::new(worktree_path).join(path);
+            let line_count = std::fs::read(&file_path)
+                .map(|bytes| decode_bytes_to_string(&bytes).lines().count())
+                .unwrap_or(0);
 
             files_map.insert(
                 path.to_string(),
@@ -175,7 +242,7 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
                     path: path.to_string(),
                     additions: line_count,
                     deletions: 0,
-                    status: "added".to_string(),
+                    status: FileStatus::Added,
                 },
             );
             total_additions += line_count;
@@ -200,6 +267,7 @@ pub fn get_diff(worktree_path: &str, target_branch: &str) -> anyhow::Result<Diff
 pub fn get_detailed_diff(
     worktree_path: &str,
     target_branch: &str,
+    ignore_whitespace: &str,
 ) -> anyhow::Result<DetailedDiffResponse> {
     // 验证 target_branch 参数，防止注入攻击
     sanitize_branch_name(target_branch).map_err(|e| anyhow::anyhow!("{}", e))?;
@@ -229,6 +297,11 @@ pub fn get_detailed_diff(
                              source: &str| {
         let mut current_file: Option<FileDiff> = None;
         let mut current_hunk: Option<DiffHunk> = None;
+        // 增量计数器：用于 O(n) 复杂度的行号计算
+        let mut current_old_line: usize = 0;
+        let mut current_new_line: usize = 0;
+        // 单文件行数计数器
+        let mut current_file_line_count: usize = 0;
 
         for line in stdout.lines() {
             // 文件头
@@ -259,25 +332,31 @@ pub fn get_detailed_diff(
                     current_file = Some(FileDiff {
                         path,
                         old_path: None,
-                        status: "modified".to_string(),
+                        status: FileStatus::Modified,
                         hunks: Vec::new(),
                         additions: 0,
                         deletions: 0,
                         source: source.to_string(),
+                        is_binary: false,
+                        is_too_large: false,
+                        is_image: false,
+                        old_image_base64: None,
+                        new_image_base64: None,
                     });
                 }
                 current_hunk = None;
+                current_file_line_count = 0;
             }
             // 新文件标记
             else if line.starts_with("new file mode ") {
                 if let Some(ref mut file) = current_file {
-                    file.status = "added".to_string();
+                    file.status = FileStatus::Added;
                 }
             }
             // 删除文件标记
             else if line.starts_with("deleted file mode ") {
                 if let Some(ref mut file) = current_file {
-                    file.status = "deleted".to_string();
+                    file.status = FileStatus::Deleted;
                 }
             }
             // 重命名
@@ -285,7 +364,7 @@ pub fn get_detailed_diff(
                 if let Some(ref mut file) = current_file {
                     file.old_path =
                         Some(line.strip_prefix("rename from ").unwrap_or("").to_string());
-                    file.status = "renamed".to_string();
+                    file.status = FileStatus::Renamed;
                 }
             }
             // Hunk 头
@@ -318,77 +397,75 @@ pub fn get_detailed_diff(
                         new_lines,
                         lines: Vec::new(),
                     });
+                    // 初始化增量计数器
+                    current_old_line = old_start;
+                    current_new_line = new_start;
+                }
+            }
+            // 二进制文件检测
+            else if line.starts_with("Binary files") && line.contains("differ") {
+                if let Some(ref mut file) = current_file {
+                    file.is_binary = true;
                 }
             }
             // Diff 行
             else if line.starts_with('+') && !line.starts_with("+++") {
                 if let Some(ref mut file) = current_file {
+                    // 检查行数限制
+                    if current_file_line_count >= MAX_DIFF_LINES {
+                        file.is_too_large = true;
+                        continue;
+                    }
                     if let Some(ref mut hunk) = current_hunk {
                         hunk.lines.push(DiffLine {
-                            line_type: "addition".to_string(),
+                            line_type: LineType::Addition,
                             old_line: None,
-                            new_line: Some(
-                                hunk.new_start
-                                    + hunk
-                                        .lines
-                                        .iter()
-                                        .filter(|l| {
-                                            l.line_type == "addition" || l.line_type == "context"
-                                        })
-                                        .count(),
-                            ),
+                            new_line: Some(current_new_line),
                             content: line[1..].to_string(),
                         });
+                        current_new_line += 1;
                         file.additions += 1;
                         *total_additions += 1;
+                        current_file_line_count += 1;
                     }
                 }
             } else if line.starts_with('-') && !line.starts_with("---") {
                 if let Some(ref mut file) = current_file {
+                    // 检查行数限制
+                    if current_file_line_count >= MAX_DIFF_LINES {
+                        file.is_too_large = true;
+                        continue;
+                    }
                     if let Some(ref mut hunk) = current_hunk {
                         hunk.lines.push(DiffLine {
-                            line_type: "deletion".to_string(),
-                            old_line: Some(
-                                hunk.old_start
-                                    + hunk
-                                        .lines
-                                        .iter()
-                                        .filter(|l| {
-                                            l.line_type == "deletion" || l.line_type == "context"
-                                        })
-                                        .count(),
-                            ),
+                            line_type: LineType::Deletion,
+                            old_line: Some(current_old_line),
                             new_line: None,
                             content: line[1..].to_string(),
                         });
+                        current_old_line += 1;
                         file.deletions += 1;
                         *total_deletions += 1;
+                        current_file_line_count += 1;
                     }
                 }
             } else if let Some(stripped) = line.strip_prefix(' ') {
-                if let Some(ref mut _file) = current_file {
+                if let Some(ref mut file) = current_file {
+                    // 检查行数限制
+                    if current_file_line_count >= MAX_DIFF_LINES {
+                        file.is_too_large = true;
+                        continue;
+                    }
                     if let Some(ref mut hunk) = current_hunk {
-                        let ctx_count = hunk
-                            .lines
-                            .iter()
-                            .filter(|l| l.line_type == "context")
-                            .count();
-                        let add_count = hunk
-                            .lines
-                            .iter()
-                            .filter(|l| l.line_type == "addition")
-                            .count();
-                        let del_count = hunk
-                            .lines
-                            .iter()
-                            .filter(|l| l.line_type == "deletion")
-                            .count();
                         hunk.lines.push(DiffLine {
-                            line_type: "context".to_string(),
-                            old_line: Some(hunk.old_start + ctx_count + del_count),
-                            new_line: Some(hunk.new_start + ctx_count + add_count),
+                            line_type: LineType::Context,
+                            old_line: Some(current_old_line),
+                            new_line: Some(current_new_line),
                             content: stripped.to_string(),
                         });
+                        current_old_line += 1;
+                        current_new_line += 1;
+                        current_file_line_count += 1;
                     }
                 }
             }
@@ -414,18 +491,23 @@ pub fn get_detailed_diff(
     };
 
     // 1. 获取分支间的提交差异（三点语法）- committed
-    let output = Command::new("git")
-        .args([
-            "-c",
-            "core.quotepath=false",
-            "diff",
-            &format!("{}...HEAD", target_branch),
-        ])
-        .current_dir(worktree_path)
-        .output()?;
+    let mut cmd = Command::new("git");
+    cmd.args(["-c", "core.quotepath=false", "diff"]);
+    // 根据参数添加空白过滤选项
+    match ignore_whitespace {
+        "all" => {
+            cmd.arg("--ignore-all-space");
+        }
+        "change" => {
+            cmd.arg("--ignore-space-change");
+        }
+        _ => {} // "none" - 不添加参数
+    }
+    cmd.arg(format!("{}...HEAD", target_branch));
+    let output = cmd.current_dir(worktree_path).output()?;
 
     if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stdout = decode_bytes_to_string(&output.stdout);
         parse_diff_output(
             &stdout,
             &mut files_map,
@@ -436,13 +518,23 @@ pub fn get_detailed_diff(
     }
 
     // 2. 获取工作区未提交的变更（已跟踪文件）- unstaged
-    let worktree_output = Command::new("git")
-        .args(["-c", "core.quotepath=false", "diff", "HEAD"])
-        .current_dir(worktree_path)
-        .output()?;
+    let mut worktree_cmd = Command::new("git");
+    worktree_cmd.args(["-c", "core.quotepath=false", "diff"]);
+    // 根据参数添加空白过滤选项
+    match ignore_whitespace {
+        "all" => {
+            worktree_cmd.arg("--ignore-all-space");
+        }
+        "change" => {
+            worktree_cmd.arg("--ignore-space-change");
+        }
+        _ => {} // "none" - 不添加参数
+    }
+    worktree_cmd.arg("HEAD");
+    let worktree_output = worktree_cmd.current_dir(worktree_path).output()?;
 
     if worktree_output.status.success() {
-        let stdout = String::from_utf8_lossy(&worktree_output.stdout);
+        let stdout = decode_bytes_to_string(&worktree_output.stdout);
         parse_diff_output(
             &stdout,
             &mut files_map,
@@ -465,7 +557,7 @@ pub fn get_detailed_diff(
         .output()?;
 
     if untracked_output.status.success() {
-        let stdout = String::from_utf8_lossy(&untracked_output.stdout);
+        let stdout = decode_bytes_to_string(&untracked_output.stdout);
         for line in stdout.lines() {
             // porcelain 格式: XY PATH 或 XY ORIG_PATH -> PATH
             if line.len() < 3 {
@@ -479,42 +571,177 @@ pub fn get_detailed_diff(
                 let path = path_part.to_string();
                 let file_path = std::path::Path::new(worktree_path).join(&path);
 
-                // 读取文件内容创建 diff
-                if let Ok(content) = std::fs::read_to_string(&file_path) {
+                // 检查文件大小
+                let metadata = std::fs::metadata(&file_path);
+                if let Ok(meta) = metadata {
+                    if meta.len() > MAX_FILE_SIZE_BYTES {
+                        // 文件过大，标记为 too_large 但不读取内容
+                        let file_diff = FileDiff {
+                            path: path.clone(),
+                            old_path: None,
+                            status: FileStatus::Added,
+                            hunks: Vec::new(),
+                            additions: 0,
+                            deletions: 0,
+                            source: "untracked".to_string(),
+                            is_binary: false,
+                            is_too_large: true,
+                            is_image: false,
+                            old_image_base64: None,
+                            new_image_base64: None,
+                        };
+                        files_map.insert(path, file_diff);
+                        continue;
+                    }
+                }
+
+                // 读取文件内容创建 diff（使用二进制读取+编码检测）
+                if let Ok(bytes) = std::fs::read(&file_path) {
+                    let content = decode_bytes_to_string(&bytes);
                     let lines: Vec<&str> = content.lines().collect();
                     let line_count = lines.len();
 
-                    // 创建一个新的 hunk 包含所有行
-                    let mut diff_lines: Vec<DiffLine> = Vec::new();
-                    for (idx, line_content) in lines.iter().enumerate() {
-                        diff_lines.push(DiffLine {
-                            line_type: "addition".to_string(),
-                            old_line: None,
-                            new_line: Some(idx + 1),
-                            content: line_content.to_string(),
-                        });
+                    // 检查行数限制
+                    if line_count > MAX_DIFF_LINES {
+                        // 行数过多，截断并标记
+                        let mut diff_lines: Vec<DiffLine> = Vec::new();
+                        for (idx, line_content) in lines.iter().enumerate().take(MAX_DIFF_LINES) {
+                            diff_lines.push(DiffLine {
+                                line_type: LineType::Addition,
+                                old_line: None,
+                                new_line: Some(idx + 1),
+                                content: line_content.to_string(),
+                            });
+                        }
+
+                        let hunk = DiffHunk {
+                            old_start: 0,
+                            old_lines: 0,
+                            new_start: 1,
+                            new_lines: MAX_DIFF_LINES,
+                            lines: diff_lines,
+                        };
+
+                        let file_diff = FileDiff {
+                            path: path.clone(),
+                            old_path: None,
+                            status: FileStatus::Added,
+                            hunks: vec![hunk],
+                            additions: MAX_DIFF_LINES,
+                            deletions: 0,
+                            source: "untracked".to_string(),
+                            is_binary: false,
+                            is_too_large: true,
+                            is_image: false,
+                            old_image_base64: None,
+                            new_image_base64: None,
+                        };
+
+                        files_map.insert(path, file_diff);
+                        total_additions += MAX_DIFF_LINES;
+                    } else {
+                        // 创建一个新的 hunk 包含所有行
+                        let mut diff_lines: Vec<DiffLine> = Vec::new();
+                        for (idx, line_content) in lines.iter().enumerate() {
+                            diff_lines.push(DiffLine {
+                                line_type: LineType::Addition,
+                                old_line: None,
+                                new_line: Some(idx + 1),
+                                content: line_content.to_string(),
+                            });
+                        }
+
+                        let hunk = DiffHunk {
+                            old_start: 0,
+                            old_lines: 0,
+                            new_start: 1,
+                            new_lines: line_count,
+                            lines: diff_lines,
+                        };
+
+                        let file_diff = FileDiff {
+                            path: path.clone(),
+                            old_path: None,
+                            status: FileStatus::Added,
+                            hunks: vec![hunk],
+                            additions: line_count,
+                            deletions: 0,
+                            source: "untracked".to_string(),
+                            is_binary: false,
+                            is_too_large: false,
+                            is_image: false,
+                            old_image_base64: None,
+                            new_image_base64: None,
+                        };
+
+                        files_map.insert(path, file_diff);
+                        total_additions += line_count;
                     }
+                }
+            }
+        }
+    }
 
-                    let hunk = DiffHunk {
-                        old_start: 0,
-                        old_lines: 0,
-                        new_start: 1,
-                        new_lines: line_count,
-                        lines: diff_lines,
-                    };
+    // 处理图片文件：添加 base64 编码
+    for file in files_map.values_mut() {
+        if is_image_file(&file.path) {
+            file.is_image = true;
 
-                    let file_diff = FileDiff {
-                        path: path.clone(),
-                        old_path: None,
-                        status: "added".to_string(),
-                        hunks: vec![hunk],
-                        additions: line_count,
-                        deletions: 0,
-                        source: "untracked".to_string(),
-                    };
+            // 检查文件大小，超过限制则跳过 base64 编码
+            let file_size_ok = if file.status == FileStatus::Deleted {
+                // 删除的文件只需检查旧版本大小（通过 git show 获取）
+                true // 稍后在获取时检查
+            } else {
+                let new_path = std::path::Path::new(worktree_path).join(&file.path);
+                new_path.exists()
+                    && std::fs::metadata(&new_path)
+                        .map(|m| m.len() <= MAX_FILE_SIZE_BYTES)
+                        .unwrap_or(false)
+            };
 
-                    files_map.insert(path, file_diff);
-                    total_additions += line_count;
+            if !file_size_ok && file.status != FileStatus::Deleted {
+                continue; // 文件过大，跳过 base64 编码
+            }
+
+            // 获取旧版本图片（目标分支中的版本）
+            if file.status != FileStatus::Added {
+                let sanitized_branch = sanitize_branch_name(target_branch);
+                if sanitized_branch.is_ok() {
+                    let old_output = Command::new("git")
+                        .args([
+                            "-c",
+                            "core.quotepath=false",
+                            "show",
+                            &format!("{}:{}", target_branch, &file.path),
+                        ])
+                        .current_dir(worktree_path)
+                        .output();
+                    if let Ok(output) = old_output {
+                        if output.status.success() && !output.stdout.is_empty() {
+                            // 检查大小
+                            if output.stdout.len() as u64 <= MAX_FILE_SIZE_BYTES {
+                                use base64::Engine;
+                                file.old_image_base64 = Some(
+                                    base64::engine::general_purpose::STANDARD
+                                        .encode(&output.stdout),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 获取新版本图片（工作区中的版本）
+            if file.status != FileStatus::Deleted {
+                let new_path = std::path::Path::new(worktree_path).join(&file.path);
+                if new_path.exists() {
+                    if let Ok(bytes) = std::fs::read(&new_path) {
+                        if bytes.len() as u64 <= MAX_FILE_SIZE_BYTES {
+                            use base64::Engine;
+                            file.new_image_base64 =
+                                Some(base64::engine::general_purpose::STANDARD.encode(&bytes));
+                        }
+                    }
                 }
             }
         }
@@ -523,7 +750,14 @@ pub fn get_detailed_diff(
     // 转换为 Vec 并过滤
     let mut files: Vec<FileDiff> = files_map
         .into_values()
-        .filter(|f| !f.hunks.is_empty() || f.status == "added" || f.status == "deleted")
+        .filter(|f| {
+            !f.hunks.is_empty()
+                || f.status == FileStatus::Added
+                || f.status == FileStatus::Deleted
+                || f.is_binary
+                || f.is_too_large
+                || f.is_image
+        })
         .collect();
 
     // 按变更量排序
@@ -572,11 +806,7 @@ pub fn get_timeline(
                             }
                         }
 
-                        let now = std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)?
-                            .as_secs() as i64;
-
-                        let relative_time = format_relative_time(now, commit_time);
+                        let commit_time = commit.time().seconds();
 
                         // 格式化 ISO 8601 日期
                         let datetime = chrono::DateTime::from_timestamp(commit_time, 0)
@@ -589,7 +819,7 @@ pub fn get_timeline(
                             message: commit.summary().unwrap_or("No message").to_string(),
                             author: commit.author().name().unwrap_or("Unknown").to_string(),
                             date,
-                            relative_time,
+                            timestamp: commit_time,
                             worktree_name: worktree.name.clone(),
                             branch: worktree.branch.clone(),
                         });
@@ -622,25 +852,62 @@ fn get_commit_revwalk(
     Ok(revwalk)
 }
 
-/// 格式化相对时间
-fn format_relative_time(now: i64, commit_time: i64) -> String {
-    let diff = now - commit_time;
-
-    if diff < 0 {
-        "in the future".to_string()
-    } else if diff < 60 {
-        "just now".to_string()
-    } else if diff < 3600 {
-        format!("{} 分钟前", diff / 60)
-    } else if diff < 86400 {
-        format!("{} 小时前", diff / 3600)
-    } else if diff < 604800 {
-        format!("{} 天前", diff / 86400)
-    } else if diff < 2592000 {
-        format!("{} 周前", diff / 604800)
-    } else if diff < 31536000 {
-        format!("{} 月前", diff / 2592000)
-    } else {
-        format!("{} 年前", diff / 31536000)
+/// 获取三方合并 Diff（用于合并冲突场景）
+///
+/// 在合并冲突状态下，Git 会在 index 中存储三个版本：
+/// - Stage 1: base 版本（共同祖先）
+/// - Stage 2: ours 版本（当前分支）
+/// - Stage 3: theirs 版本（要合并的分支）
+pub fn get_three_way_diff(worktree_path: &str, file_path: &str) -> anyhow::Result<ThreeWayDiff> {
+    // 验证文件路径不包含危险字符
+    if file_path.contains("..") || file_path.contains('\0') {
+        anyhow::bail!("Invalid file path: {}", file_path);
     }
+
+    // 获取 base 版本 (stage 1)
+    let base_output = Command::new("git")
+        .args(["show", &format!(":1:{}", file_path)])
+        .current_dir(worktree_path)
+        .output()
+        .map_err(|e| anyhow::anyhow!("Failed to get base content: {}", e))?;
+
+    // 获取 ours 版本 (stage 2)
+    let ours_output = Command::new("git")
+        .args(["show", &format!(":2:{}", file_path)])
+        .current_dir(worktree_path)
+        .output()
+        .map_err(|e| anyhow::anyhow!("Failed to get ours content: {}", e))?;
+
+    // 获取 theirs 版本 (stage 3)
+    let theirs_output = Command::new("git")
+        .args(["show", &format!(":3:{}", file_path)])
+        .current_dir(worktree_path)
+        .output()
+        .map_err(|e| anyhow::anyhow!("Failed to get theirs content: {}", e))?;
+
+    // 解码内容
+    let base_content = if base_output.status.success() && !base_output.stdout.is_empty() {
+        Some(decode_bytes_to_string(&base_output.stdout))
+    } else {
+        None
+    };
+
+    let ours_content = if ours_output.status.success() && !ours_output.stdout.is_empty() {
+        Some(decode_bytes_to_string(&ours_output.stdout))
+    } else {
+        None
+    };
+
+    let theirs_content = if theirs_output.status.success() && !theirs_output.stdout.is_empty() {
+        Some(decode_bytes_to_string(&theirs_output.stdout))
+    } else {
+        None
+    };
+
+    Ok(ThreeWayDiff {
+        file_path: file_path.to_string(),
+        base_content,
+        ours_content,
+        theirs_content,
+    })
 }

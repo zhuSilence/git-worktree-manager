@@ -1,6 +1,6 @@
 [package]
 name = "git-worktree-manager"
-version = "0.0.12"
+version = "0.0.13"
 description = "A lightweight Git Worktree visual manager"
 authors = ["you"]
 edition = "2021"
@@ -38,6 +38,7 @@ base64 = "0.22"
 sha2 = "0.10"
 hex = "0.4"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
+encoding_rs = "0.8"
 
 [profile.dev]
 opt-level = 0

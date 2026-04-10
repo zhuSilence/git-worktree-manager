@@ -1,5 +1,25 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { cn, formatDate, formatRelativeTime } from '../format';
+
+// Mock i18n
+vi.mock('@/i18n', () => ({
+  default: {
+    language: 'zh-CN',
+    t: (key: string, options?: { count?: number }) => {
+      const translations: Record<string, string> = {
+        'time.justNow': '刚刚',
+        'time.minutesAgo': `${options?.count || 0} 分钟前`,
+        'time.hoursAgo': `${options?.count || 0} 小时前`,
+        'time.daysAgo': `${options?.count || 0} 天前`,
+        'time.weeksAgo': `${options?.count || 0} 周前`,
+        'time.monthsAgo': `${options?.count || 0} 个月前`,
+        'time.yearsAgo': `${options?.count || 0} 年前`,
+        'time.inFuture': '未来',
+      };
+      return translations[key] || key;
+    },
+  },
+}));
 
 describe('cn', () => {
   it('should merge class names', () => {
@@ -34,10 +54,10 @@ describe('cn', () => {
 });
 
 describe('formatDate', () => {
-  it('should format Date object to zh-CN locale string', () => {
+  it('should format Date object to locale string', () => {
     const date = new Date('2024-03-15');
     const result = formatDate(date);
-    // zh-CN format: YYYY/MM/DD or YYYY-MM-DD depending on locale
+    // format depends on locale, but should contain year/month/day
     expect(result).toMatch(/2024/);
     expect(result).toMatch(/03/);
     expect(result).toMatch(/15/);
@@ -62,39 +82,50 @@ describe('formatDate', () => {
 
 describe('formatRelativeTime', () => {
   it('should return "刚刚" for recent times', () => {
-    const now = new Date();
+    const now = Math.floor(Date.now() / 1000);
     const result = formatRelativeTime(now);
     expect(result).toBe('刚刚');
   });
 
   it('should return minutes ago for times within an hour', () => {
-    const date = new Date(Date.now() - 5 * 60 * 1000); // 5 minutes ago
-    const result = formatRelativeTime(date);
+    const timestamp = Math.floor(Date.now() / 1000) - 5 * 60; // 5 minutes ago
+    const result = formatRelativeTime(timestamp);
     expect(result).toBe('5 分钟前');
   });
 
   it('should return hours ago for times within a day', () => {
-    const date = new Date(Date.now() - 3 * 60 * 60 * 1000); // 3 hours ago
-    const result = formatRelativeTime(date);
+    const timestamp = Math.floor(Date.now() / 1000) - 3 * 60 * 60; // 3 hours ago
+    const result = formatRelativeTime(timestamp);
     expect(result).toBe('3 小时前');
   });
 
   it('should return days ago for older times', () => {
-    const date = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000); // 2 days ago
-    const result = formatRelativeTime(date);
+    const timestamp = Math.floor(Date.now() / 1000) - 2 * 24 * 60 * 60; // 2 days ago
+    const result = formatRelativeTime(timestamp);
     expect(result).toBe('2 天前');
   });
 
-  it('should handle date string input', () => {
-    const dateStr = new Date(Date.now() - 30 * 60 * 1000).toISOString(); // 30 minutes ago
-    const result = formatRelativeTime(dateStr);
-    expect(result).toBe('30 分钟前');
+  it('should return weeks ago for times within a month', () => {
+    const timestamp = Math.floor(Date.now() / 1000) - 2 * 7 * 24 * 60 * 60; // 2 weeks ago
+    const result = formatRelativeTime(timestamp);
+    expect(result).toBe('2 周前');
+  });
+
+  it('should return months ago for times within a year', () => {
+    const timestamp = Math.floor(Date.now() / 1000) - 60 * 24 * 60 * 60; // ~2 months ago
+    const result = formatRelativeTime(timestamp);
+    expect(result).toBe('2 个月前');
+  });
+
+  it('should return years ago for very old times', () => {
+    const timestamp = Math.floor(Date.now() / 1000) - 400 * 24 * 60 * 60; // ~1 year ago
+    const result = formatRelativeTime(timestamp);
+    expect(result).toBe('1 年前');
   });
 
   it('should handle future dates', () => {
-    const futureDate = new Date(Date.now() + 60 * 60 * 1000); // 1 hour in future
-    const result = formatRelativeTime(futureDate);
-    // Future dates have negative diff, so seconds will be negative
-    expect(result).toBe('刚刚');
+    const timestamp = Math.floor(Date.now() / 1000) + 60 * 60; // 1 hour in future
+    const result = formatRelativeTime(timestamp);
+    expect(result).toBe('未来');
   });
 });

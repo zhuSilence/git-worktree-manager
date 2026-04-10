@@ -36,7 +36,7 @@ pub fn detect_conflicts(repo_path: &str) -> anyhow::Result<WorktreeConflictDetec
         }
 
         // 获取该 worktree 与主分支的 diff
-        if let Ok(diff) = get_diff(&worktree.path, &main_branch) {
+        if let Ok(diff) = get_diff(&worktree.path, &main_branch, "none") {
             for file in &diff.files {
                 let change = WorktreeFileChange {
                     worktree_name: worktree.name.clone(),

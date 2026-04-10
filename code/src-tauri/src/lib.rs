@@ -66,6 +66,8 @@ pub fn run() {
             commands::worktree::get_hotfix_status_cmd,
             // 冲突检测命令
             commands::worktree::detect_conflicts_cmd,
+            // 三方合并 Diff 命令
+            commands::worktree::get_three_way_diff_cmd,
             // 合并相关命令
             commands::merge::merge_branch_cmd,
             commands::merge::abort_merge_cmd,

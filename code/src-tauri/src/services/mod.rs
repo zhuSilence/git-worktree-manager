@@ -15,7 +15,7 @@ pub use backup_service::{
     get_backup_info, list_backups, restore_backup,
 };
 pub use conflict_service::detect_conflicts;
-pub use diff_service::{get_detailed_diff, get_diff, get_timeline};
+pub use diff_service::{get_detailed_diff, get_diff, get_three_way_diff, get_timeline};
 pub use editor_service::{open_in_editor, open_in_file_manager, open_in_terminal};
 pub use git_service::{
     create_and_switch_branch, fetch_all, fetch_and_checkout, get_recent_commits,

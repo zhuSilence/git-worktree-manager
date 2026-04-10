@@ -7,9 +7,9 @@ use crate::services::{
     abort_hotfix, batch_delete_worktrees, create_and_switch_branch, create_worktree,
     delete_worktree, detect_conflicts, fetch_all, fetch_and_checkout, finish_hotfix,
     get_detailed_diff, get_diff, get_hotfix_status, get_merged_hints, get_repository_info,
-    get_stale_hints, get_timeline, is_git_repo, list_branches, list_remote_branches,
-    list_worktrees, open_in_editor, open_in_file_manager, open_in_terminal, prune_worktrees, pull,
-    push, start_hotfix, switch_branch,
+    get_stale_hints, get_three_way_diff, get_timeline, is_git_repo, list_branches,
+    list_remote_branches, list_worktrees, open_in_editor, open_in_file_manager, open_in_terminal,
+    prune_worktrees, pull, push, start_hotfix, switch_branch,
 };
 use crate::utils::validation::validate_path;
 use tauri::command;
@@ -112,9 +112,11 @@ pub async fn open_worktree_cmd(worktree_path: String) -> Result<(), String> {
 pub async fn get_diff_cmd(
     worktree_path: String,
     target_branch: String,
+    ignore_whitespace: Option<String>,
 ) -> Result<crate::models::DiffResponse, String> {
     validate_path(&worktree_path).map_err(|e| e.to_string())?;
-    run_blocking(move || get_diff(&worktree_path, &target_branch)).await
+    let ignore_ws = ignore_whitespace.unwrap_or_else(|| "none".to_string());
+    run_blocking(move || get_diff(&worktree_path, &target_branch, &ignore_ws)).await
 }
 
 /// 获取详细的 diff 内容（包含代码行）
@@ -122,9 +124,11 @@ pub async fn get_diff_cmd(
 pub async fn get_detailed_diff_cmd(
     worktree_path: String,
     target_branch: String,
+    ignore_whitespace: Option<String>,
 ) -> Result<crate::models::DetailedDiffResponse, String> {
     validate_path(&worktree_path).map_err(|e| e.to_string())?;
-    run_blocking(move || get_detailed_diff(&worktree_path, &target_branch)).await
+    let ignore_ws = ignore_whitespace.unwrap_or_else(|| "none".to_string());
+    run_blocking(move || get_detailed_diff(&worktree_path, &target_branch, &ignore_ws)).await
 }
 
 /// 获取仓库基本信息
@@ -301,4 +305,18 @@ pub async fn detect_conflicts_cmd(
 ) -> Result<crate::models::WorktreeConflictDetectionResponse, String> {
     validate_path(&repo_path).map_err(|e| e.to_string())?;
     run_blocking(move || detect_conflicts(&repo_path)).await
+}
+
+/// 获取三方合并 Diff
+#[command]
+pub async fn get_three_way_diff_cmd(
+    worktree_path: String,
+    file_path: String,
+) -> Result<crate::models::ThreeWayDiff, String> {
+    validate_path(&worktree_path).map_err(|e| e.to_string())?;
+    // 文件路径安全校验
+    if file_path.contains("..") || file_path.contains('\0') {
+        return Err("Invalid file path".to_string());
+    }
+    run_blocking(move || get_three_way_diff(&worktree_path, &file_path)).await
 }

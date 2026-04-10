@@ -11,7 +11,7 @@ export interface CharSegment {
  */
 export interface SyntaxToken {
   text: string
-  type: 'keyword' | 'string' | 'comment' | 'number' | 'normal'
+  type: 'keyword' | 'string' | 'comment' | 'number' | 'operator' | 'function' | 'punctuation' | 'plain'
 }
 
 /**

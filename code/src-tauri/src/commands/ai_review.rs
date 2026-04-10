@@ -1,6 +1,6 @@
 use crate::models::{
     AIConfig, AINamingRequest, AINamingResponse, AIProvider, AIReviewRequest, AIReviewResponse,
-    AITestConnectionResponse, DetailedDiffResponse,
+    AITestConnectionResponse, DetailedDiffResponse, FileStatus, LineType,
 };
 use crate::services::ai_service::AIService;
 use crate::services::{get_detailed_diff, get_diff, get_recent_commits};
@@ -213,20 +213,21 @@ pub async fn ai_review(request: AIReviewRequest) -> Result<AIReviewResponse, Str
 
     // 2. 获取 Diff 内容
     debug!("[ai_review] 获取详细 diff...");
-    let detailed_diff = match get_detailed_diff(&request.worktree_path, &request.target_branch) {
-        Ok(diff) => {
-            debug!("[ai_review] Diff 获取成功: {} 个文件", diff.files.len());
-            diff
-        }
-        Err(e) => {
-            debug!("[ai_review] Diff 获取失败: {}", e);
-            return Ok(AIReviewResponse {
-                success: false,
-                result: None,
-                error: Some(format!("获取代码变更失败: {}", e)),
-            });
-        }
-    };
+    let detailed_diff =
+        match get_detailed_diff(&request.worktree_path, &request.target_branch, "none") {
+            Ok(diff) => {
+                debug!("[ai_review] Diff 获取成功: {} 个文件", diff.files.len());
+                diff
+            }
+            Err(e) => {
+                debug!("[ai_review] Diff 获取失败: {}", e);
+                return Ok(AIReviewResponse {
+                    success: false,
+                    result: None,
+                    error: Some(format!("获取代码变更失败: {}", e)),
+                });
+            }
+        };
 
     // 3. 构造原始 diff 字符串
     let diff_content = build_diff_content(&detailed_diff);
@@ -234,7 +235,7 @@ pub async fn ai_review(request: AIReviewRequest) -> Result<AIReviewResponse, Str
 
     // 4. 获取 Diff 统计
     debug!("[ai_review] 获取 diff 统计...");
-    let diff_summary = match get_diff(&request.worktree_path, &request.target_branch) {
+    let diff_summary = match get_diff(&request.worktree_path, &request.target_branch, "none") {
         Ok(summary) => {
             debug!("[ai_review] Diff 统计获取成功");
             summary
@@ -301,13 +302,13 @@ fn build_diff_content(diff: &DetailedDiffResponse) -> String {
         // 文件头
         output.push_str(&format!("diff --git a/{} b/{}\n", file.path, file.path));
 
-        if file.status == "added" {
+        if file.status == FileStatus::Added {
             output.push_str("new file mode 100644\n");
             output.push_str(&format!("--- /dev/null\n+++ b/{}\n", file.path));
-        } else if file.status == "deleted" {
+        } else if file.status == FileStatus::Deleted {
             output.push_str("deleted file mode 100644\n");
             output.push_str(&format!("--- a/{}\n+++ /dev/null\n", file.path));
-        } else if file.status == "renamed" {
+        } else if file.status == FileStatus::Renamed {
             if let Some(old_path) = &file.old_path {
                 output.push_str(&format!(
                     "rename from {}\nrename to {}\n",
@@ -331,10 +332,10 @@ fn build_diff_content(diff: &DetailedDiffResponse) -> String {
             ));
 
             for line in &hunk.lines {
-                match line.line_type.as_str() {
-                    "context" => output.push_str(&format!(" {}\n", line.content)),
-                    "addition" => output.push_str(&format!("+{}\n", line.content)),
-                    "deletion" => output.push_str(&format!("-{}\n", line.content)),
+                match line.line_type {
+                    LineType::Context => output.push_str(&format!(" {}\n", line.content)),
+                    LineType::Addition => output.push_str(&format!("+{}\n", line.content)),
+                    LineType::Deletion => output.push_str(&format!("-{}\n", line.content)),
                     _ => {}
                 }
             }

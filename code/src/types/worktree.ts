@@ -38,8 +38,8 @@ export interface LastCommit {
   message: string
   /** 作者 */
   author: string
-  /** 相对时间 */
-  relativeTime: string
+  /** 提交时间戳 (Unix timestamp, 秒) */
+  timestamp: number
 }
 
 /**
@@ -228,6 +228,16 @@ export interface FileDiff {
   deletions: number
   /** 变更来源: committed(分支差异), unstaged(工作区修改), untracked(未跟踪文件) */
   source: 'committed' | 'unstaged' | 'untracked'
+  /** 是否为二进制文件 */
+  isBinary?: boolean
+  /** 是否文件过大（超过5MB或10000行） */
+  isTooLarge?: boolean
+  /** 是否为图片文件 */
+  isImage?: boolean
+  /** 旧版本图片的 base64 编码 */
+  oldImageBase64?: string | null
+  /** 新版本图片的 base64 编码 */
+  newImageBase64?: string | null
 }
 
 /**
@@ -327,8 +337,8 @@ export interface CommitInfo {
   author: string
   /** 提交时间 (ISO 8601) */
   date: string
-  /** 相对时间 */
-  relativeTime: string
+  /** 提交时间戳 (Unix timestamp, 秒) */
+  timestamp: number
   /** Worktree 名称 */
   worktreeName: string
   /** 分支名 */
@@ -551,4 +561,18 @@ export interface WorktreeConflictDetectionResponse {
   conflictFiles: WorktreeConflictFile[]
   /** 检测时间 */
   detectedAt: string
+}
+
+/**
+ * 三方合并 Diff（用于合并冲突场景）
+ */
+export interface ThreeWayDiff {
+  /** 文件路径 */
+  filePath: string
+  /** 基础版本内容（merge-base，stage 1） */
+  baseContent: string | null
+  /** 当前版本内容（ours，stage 2） */
+  oursContent: string | null
+  /** 远程版本内容（theirs，stage 3） */
+  theirsContent: string | null
 }

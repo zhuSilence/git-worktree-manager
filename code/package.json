@@ -1,6 +1,6 @@
 {
   "name": "git-worktree-manager",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "轻量级 Git Worktree 可视化管理工具",
   "type": "module",
   "scripts": {
@@ -38,6 +38,7 @@
     "i18next": "^25.10.9",
     "i18next-browser-languagedetector": "^8.2.1",
     "lucide-react": "^0.309.0",
+    "prismjs": "^1.30.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-i18next": "^16.6.5",
@@ -50,6 +51,7 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20.11.0",
+    "@types/prismjs": "^1.26.6",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "@typescript-eslint/eslint-plugin": "^8.58.0",

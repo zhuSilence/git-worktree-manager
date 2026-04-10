@@ -4,6 +4,8 @@ import { X, Clock, Calendar, Loader2 } from 'lucide-react'
 import { gitService } from '@/services/git'
 import type { CommitInfo, TimelineResponse } from '@/types/worktree'
 import { clsx } from 'clsx'
+import { formatRelativeTime } from '@/utils/format'
+import i18n from '@/i18n'
 
 interface TimelineProps {
   isOpen: boolean
@@ -64,9 +66,10 @@ export function Timeline({ isOpen, onClose, repoPath }: TimelineProps) {
     if (!timelineData?.commits) return {}
 
     const groups: Record<string, CommitInfo[]> = {}
+    const locale = i18n.language === 'en-US' ? 'en-US' : 'zh-CN'
 
     for (const commit of timelineData.commits) {
-      const date = new Date(commit.date).toLocaleDateString('zh-CN', {
+      const date = new Date(commit.date).toLocaleDateString(locale, {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
@@ -101,9 +104,9 @@ export function Timeline({ isOpen, onClose, repoPath }: TimelineProps) {
             {/* 时间范围选择器 */}
             <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
               {[
-                { value: '7d', label: '7天' },
-                { value: '30d', label: '30天' },
-                { value: 'all', label: '全部' },
+                { value: '7d', label: t('timeline.7days', '7天') },
+                { value: '30d', label: t('timeline.30days', '30天') },
+                { value: 'all', label: t('timeline.all', '全部') },
               ].map((option) => (
                 <button
                   key={option.value}
@@ -159,7 +162,7 @@ export function Timeline({ isOpen, onClose, repoPath }: TimelineProps) {
             <div className="space-y-6">
               {/* 统计信息 */}
               <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 px-2">
-                <span>共 {timelineData.totalCount} 条提交</span>
+                <span>{t('timeline.totalCommits', { count: timelineData.totalCount })}</span>
               </div>
 
               {/* 按日期分组显示 */}
@@ -172,7 +175,7 @@ export function Timeline({ isOpen, onClose, repoPath }: TimelineProps) {
                       {date}
                     </span>
                     <span className="text-xs text-gray-400">
-                      {commits.length} 条提交
+                      {t('timeline.commitCount', { count: commits.length })}
                     </span>
                   </div>
 
@@ -209,7 +212,7 @@ export function Timeline({ isOpen, onClose, repoPath }: TimelineProps) {
                               </div>
                             </div>
                             <span className="text-xs text-gray-400 flex-shrink-0">
-                              {commit.relativeTime}
+                              {formatRelativeTime(commit.timestamp)}
                             </span>
                           </div>
                         </div>
