@@ -111,7 +111,7 @@ pub fn check_delete_protection(
 }
 
 /// 获取 stash 列表（返回 stash ref 和消息的列表）
-fn get_stash_list(worktree_path: &str) -> anyhow::Result<Vec<(String, String)>> {
+pub fn get_stash_list(worktree_path: &str) -> anyhow::Result<Vec<(String, String)>> {
     let output = Command::new("git")
         .args(["stash", "list"])
         .current_dir(worktree_path)
@@ -139,6 +139,54 @@ fn get_stash_list(worktree_path: &str) -> anyhow::Result<Vec<(String, String)>> 
         .collect();
 
     Ok(stashes)
+}
+
+/// 弹出指定 stash（git stash pop）
+pub fn pop_stash(worktree_path: &str, stash_ref: &str) -> anyhow::Result<bool> {
+    if stash_ref == "no-stash" {
+        return Ok(true);
+    }
+
+    let output = Command::new("git")
+        .args(["stash", "pop", stash_ref])
+        .current_dir(worktree_path)
+        .output()?;
+
+    if output.status.success() {
+        Ok(true)
+    } else {
+        Err(anyhow::anyhow!(
+            "弹出 stash 失败: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ))
+    }
+}
+
+/// 快速暂存未提交变更（不记录备份元数据，仅用于合并流程）
+pub fn quick_stash(worktree_path: &str, marker: &str) -> anyhow::Result<String> {
+    let stashes_before = get_stash_list(worktree_path)?;
+    let stash_count_before = stashes_before.len();
+
+    let output = Command::new("git")
+        .args(["stash", "push", "-m", marker])
+        .current_dir(worktree_path)
+        .output()?;
+
+    if output.status.success() {
+        let stashes_after = get_stash_list(worktree_path)?;
+        if stashes_after.len() > stash_count_before {
+            let found = stashes_after.iter().find(|(_, msg)| msg.contains(marker));
+            if let Some((ref_str, _)) = found {
+                return Ok(ref_str.clone());
+            }
+            return Ok(stashes_after
+                .first()
+                .map(|(ref_str, _)| ref_str.clone())
+                .unwrap_or_else(|| "stash@{0}".to_string()));
+        }
+    }
+
+    Ok("no-stash".to_string())
 }
 
 /// 创建备份

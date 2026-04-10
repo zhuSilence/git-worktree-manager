@@ -5,7 +5,6 @@ import { gitService } from '@/services/git'
 import type { CommitInfo, TimelineResponse } from '@/types/worktree'
 import { clsx } from 'clsx'
 import { formatRelativeTime } from '@/utils/format'
-import i18n from '@/i18n'
 
 interface TimelineProps {
   isOpen: boolean
@@ -16,7 +15,7 @@ interface TimelineProps {
 type TimeRange = '7d' | '30d' | 'all'
 
 export function Timeline({ isOpen, onClose, repoPath }: TimelineProps) {
-  const { t } = useTranslation()
+  const { t, i18n: i18nInstance } = useTranslation()
   const [timelineData, setTimelineData] = useState<TimelineResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -66,7 +65,7 @@ export function Timeline({ isOpen, onClose, repoPath }: TimelineProps) {
     if (!timelineData?.commits) return {}
 
     const groups: Record<string, CommitInfo[]> = {}
-    const locale = i18n.language === 'en-US' ? 'en-US' : 'zh-CN'
+    const locale = i18nInstance.language === 'en-US' ? 'en-US' : 'zh-CN'
 
     for (const commit of timelineData.commits) {
       const date = new Date(commit.date).toLocaleDateString(locale, {
@@ -83,7 +82,7 @@ export function Timeline({ isOpen, onClose, repoPath }: TimelineProps) {
     }
 
     return groups
-  }, [timelineData])
+  }, [timelineData, i18nInstance.language])
 
   if (!isOpen) return null
 

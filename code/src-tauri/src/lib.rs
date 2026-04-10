@@ -72,6 +72,8 @@ pub fn run() {
             commands::merge::merge_branch_cmd,
             commands::merge::abort_merge_cmd,
             commands::merge::complete_merge_cmd,
+            commands::merge::check_merge_conflicts_cmd,
+            commands::merge::pop_stash_after_merge_cmd,
             // 操作日志和删除保护命令
             commands::log::list_operation_logs_cmd,
             commands::log::export_operation_logs_cmd,

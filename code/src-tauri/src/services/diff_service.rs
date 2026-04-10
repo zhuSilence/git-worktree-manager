@@ -37,7 +37,7 @@ static HUNK_HEADER_RE: LazyLock<Regex> =
 /// 编码检测顺序：
 /// 1. UTF-8（优先）
 /// 2. UTF-8 with BOM
-/// 3. GBK/GB18030（中文 Windows 常见）
+/// 3. GBK/GB18030（中文 Windows 常见）— 仅当内容包含常见中文字符范围时才采用
 /// 4. 最后 fallback 到 lossy UTF-8
 fn decode_bytes_to_string(bytes: &[u8]) -> String {
     // 先尝试 UTF-8
@@ -53,9 +53,20 @@ fn decode_bytes_to_string(bytes: &[u8]) -> String {
     }
 
     // 尝试 GBK (GB18030) - 中文 Windows 常用编码
+    // GBK 解码几乎不会报告错误（编码空间宽泛），所以增加中文内容概率检测
     let (decoded, _, had_errors) = GBK.decode(bytes);
     if !had_errors {
-        return decoded.into_owned();
+        let decoded_str = decoded.into_owned();
+        // 简单启发式：如果解码结果包含常见中文字符（CJK 统一汉字范围 U+4E00-U+9FFF），
+        // 则认为是 GBK 编码；否则可能误判，fallback 到 lossy UTF-8
+        let has_cjk = decoded_str.chars().any(|c| {
+            ('\u{4E00}'..='\u{9FFF}').contains(&c) // CJK 统一汉字
+                || ('\u{3400}'..='\u{4DBF}').contains(&c) // CJK 扩展 A
+                || ('\u{3000}'..='\u{303F}').contains(&c) // CJK 标点
+        });
+        if has_cjk {
+            return decoded_str;
+        }
     }
 
     // 最后 fallback 到 lossy UTF-8
@@ -806,8 +817,6 @@ pub fn get_timeline(
                             }
                         }
 
-                        let commit_time = commit.time().seconds();
-
                         // 格式化 ISO 8601 日期
                         let datetime = chrono::DateTime::from_timestamp(commit_time, 0)
                             .unwrap_or_else(chrono::Utc::now);
@@ -860,7 +869,7 @@ fn get_commit_revwalk(
 /// - Stage 3: theirs 版本（要合并的分支）
 pub fn get_three_way_diff(worktree_path: &str, file_path: &str) -> anyhow::Result<ThreeWayDiff> {
     // 验证文件路径不包含危险字符
-    if file_path.contains("..") || file_path.contains('\0') {
+    if file_path.contains("..") || file_path.contains('\0') || file_path.starts_with('/') {
         anyhow::bail!("Invalid file path: {}", file_path);
     }
 

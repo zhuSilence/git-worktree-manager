@@ -440,6 +440,11 @@ export interface FinishHotfixResult {
 // ============ 合并相关类型 ============
 
 /**
+ * 自动处理未提交变更的策略
+ */
+export type AutoHandleUncommitted = 'stash' | 'commit'
+
+/**
  * 合并参数
  */
 export interface MergeParams {
@@ -453,6 +458,8 @@ export interface MergeParams {
   autoPush: boolean
   /** 是否删除源 worktree */
   autoDeleteSource: boolean
+  /** 自动处理未提交变更的策略 */
+  autoHandleUncommitted?: AutoHandleUncommitted
 }
 
 /**
@@ -467,6 +474,8 @@ export enum MergeStatus {
   Failed = 'failed',
   /** 已中止 */
   Aborted = 'aborted',
+  /** 存在未提交的更改 */
+  HasUncommittedChanges = 'hasUncommittedChanges',
 }
 
 /**
@@ -479,6 +488,20 @@ export interface ConflictFile {
   ourOid?: string
   /** 远程版本 OID */
   theirOid?: string
+}
+
+/**
+ * 自动处理结果
+ */
+export interface AutoHandleResult {
+  /** 使用的策略 */
+  strategy: AutoHandleUncommitted
+  /** 暂存引用 */
+  stashRef?: string
+  /** 临时提交 ID */
+  tempCommitId?: string
+  /** 暂存是否已恢复 */
+  stashPopped?: boolean
 }
 
 /**
@@ -497,6 +520,8 @@ export interface MergeResult {
   conflicts: ConflictFile[]
   /** 目标分支名 */
   targetBranch: string
+  /** 自动处理未提交变更的结果 */
+  autoHandleResult?: AutoHandleResult
 }
 
 // ============ Worktree 冲突检测类型 ============
@@ -561,6 +586,16 @@ export interface WorktreeConflictDetectionResponse {
   conflictFiles: WorktreeConflictFile[]
   /** 检测时间 */
   detectedAt: string
+}
+
+/**
+ * 合并冲突预检测结果
+ */
+export interface MergeConflictCheckResult {
+  /** 是否存在冲突 */
+  hasConflicts: boolean
+  /** 冲突文件列表 */
+  conflictFiles: ConflictFile[]
 }
 
 /**
