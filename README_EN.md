@@ -23,7 +23,11 @@ Making Git worktree as easy as slicing a cake 🍰
 - **Quick Actions** - One-click open in IDE, terminal, or file manager
 - **Status Display** - Visualize Clean/Dirty/Conflict/Detached states
 - **Search & Sort** - Quick filtering by name or status
-- **Diff Comparison** - PR-style diff comparison (committed/unstaged/untracked sources, unified/split views)
+- **Diff Comparison** - PR-style diff comparison (committed/unstaged/untracked sources, unified/split/three-way views)
+  - **Three-Way View** - Show Base/Ours/Theirs simultaneously for conflict resolution
+  - **Image Diff** - Support image file comparison
+  - **Search** - Quick search within diff content
+  - **Performance** - Lazy loading, syntax highlighting cache
 - **Keyboard Shortcuts** - Full keyboard operation support for efficiency
 
 ### 🚀 Enhanced Features (P1)
@@ -31,6 +35,7 @@ Making Git worktree as easy as slicing a cake 🍰
 - **Multi-Repository Management** - Sidebar repo list, quick switching, persistent storage
 - **Branch Management** - Switch, create, and checkout remote branches
 - **Branch Merge** - Merge source branch to target worktree, with conflict detection and abort/complete operations
+- **Merge from Main** - One-click merge latest main branch code into current worktree, auto-handle uncommitted changes
 - **Worktree Grouping** - Create groups to manage worktrees, preset colors, quick categorization
 - **Settings Center** - Customize default IDE and terminal
 
@@ -39,12 +44,13 @@ Making Git worktree as easy as slicing a cake 🍰
 - **Smart Hints** - Merged branch alerts, stale branch reminders
 - **Batch Operations** - Bulk delete, one-click cleanup
 - **Timeline View** - View commit history timeline
-- **Auto Update** - Detect new versions, auto download and install updates
+- **Auto Update** - Detect new versions, auto download and install updates, show red dot badge on startup
 - **Tags & Notes** - Add custom tags and notes to worktrees
 - **Idle Detection** - Automatically detect long-unused worktrees
 - **Smart Naming** - Suggest branch naming based on conventions
 - **Operation Logs & Delete Protection** - Record operation history, auto backup before deletion, support recovery
 - **Hotfix Workflow** - One-click start/complete/cancel hotfix workflow
+- **Theme Switching** - Support Light / Dark / System theme modes
 
 ### 🤖 AI Features (P3)
 
@@ -180,7 +186,7 @@ Click the **"+ Add Repository"** button in the left sidebar and select a Git rep
 - **Delete**: Hover over the worktree card and click the delete icon
 - **Open**: Click quick action buttons on the card (IDE/Terminal/Finder)
 
-### 3. Diff Comparison
+### 4. Diff Comparison
 
 Click the **compare icon** on the worktree card to view differences against the main branch in the right sidebar:
 
@@ -188,6 +194,11 @@ Click the **compare icon** on the worktree card to view differences against the 
 - 🔽 **Next Change** - Jump to next modified line
 - **Unified View** - Merge display of old and new code
 - **Split View** - Side-by-side comparison
+- **Three-Way View** - Show Base (baseline), Ours (current), Theirs (target) for conflict resolution
+- **Image Diff** - Auto-detect image files and display side-by-side comparison
+- 🔍 **Search** - Quick search within diff content to locate key changes
+
+> 💡 **Performance**: Diff module uses lazy loading and caching technology for smooth browsing even with large files
 
 ### 4. Branch Management
 
@@ -205,7 +216,15 @@ Click the **merge icon** on the worktree card:
 - **Execute Merge** - Merge current branch into target branch
 - **Handle Conflicts** - Display conflict file list when conflicts occur, support abort or complete after resolution
 
-### 6. Worktree Grouping
+### 6. Merge from Main
+
+Click the **merge icon** in the toolbar to quickly merge the latest main branch code into current worktree:
+
+- **Auto Stash** - Automatically save uncommitted changes before merging
+- **Conflict Detection** - Detect conflicts during merge, show conflict file list
+- **One-click Resolution** - Support abort merge or continue after resolving conflicts
+
+### 7. Worktree Grouping
 
 Manage worktrees through grouping:
 
@@ -213,14 +232,14 @@ Manage worktrees through grouping:
 - **Custom Groups** - Create new groups, set colors and descriptions
 - **Quick Categorization** - Drag worktrees into corresponding groups
 
-### 7. Smart Hints
+### 8. Smart Hints
 
 Click the **warning icon** in the toolbar to view:
 
 - **Merged Branches** - Safe to delete
 - **Stale Branches** - Branches not updated for a long time
 
-### 8. Hotfix Workflow
+### 9. Hotfix Workflow
 
 Click the **Hotfix icon** in the toolbar to start emergency fix workflow:
 
@@ -228,7 +247,17 @@ Click the **Hotfix icon** in the toolbar to start emergency fix workflow:
 - **Complete Hotfix** - Merge back to main branch and cleanup
 - **Cancel Hotfix** - Abort current hotfix workflow
 
-### 9. AI Features
+### 10. Theme Switching
+
+Switch theme in the settings panel:
+
+- **Light** - Light mode
+- **Dark** - Dark mode
+- **System** - Auto-follow system theme
+
+> 💡 **Tip**: When selecting System mode, the app will automatically follow macOS/Windows theme settings
+
+### 11. AI Features
 
 Click the **AI icon** in the toolbar to configure and use AI features:
 
@@ -236,7 +265,7 @@ Click the **AI icon** in the toolbar to configure and use AI features:
 - **Code Review** - AI review of current diff, get improvement suggestions
 - **Naming Suggestions** - Get AI-generated naming suggestions when creating worktree
 
-### 10. Keyboard Shortcuts
+### 12. Keyboard Shortcuts
 
 Global keyboard shortcuts are supported for common operations without a mouse:
 
@@ -307,7 +336,7 @@ git-worktree-manager/
 │       │   │   ├── log.rs      # Operation logs, delete protection, backup management
 │       │   │   └── ai_review.rs # AI review, naming suggestions, config management
 │       │   ├── models/         # Data models
-│       │   ├── services/       # Business logic (git_service/ai_service/shell_service)
+│       │   ├── services/       # Business logic (git_service/ai_service/conflict_service/diff_service/merge_service/shell_service)
 │       │   └── utils/          # Utility functions (validation)
 │       └── tauri.conf.json     # Tauri config
 │
