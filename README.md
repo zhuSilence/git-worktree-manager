@@ -45,6 +45,7 @@
 - **智能命名** - 基于命名规范给出分支命名建议
 - **操作日志与删除保护** - 记录操作历史，删除前自动备份，支持恢复
 - **Hotfix 流程** - 一键开始/完成/取消 hotfix 工作流
+- **Worktree 冲突检测** - 检测多个 worktree 同时修改相同文件，预判潜在合并冲突（高/中/低风险分级）
 
 ### 🤖 AI 功能 (P3)
 
@@ -236,7 +237,16 @@ npm run tauri:build
 - **代码评审** - 对当前 Diff 进行 AI 评审，获取改进建议
 - **命名建议** - 创建 worktree 时获取 AI 生成的命名建议
 
-### 10. 键盘快捷键
+### 10. Worktree 冲突检测
+
+点击工具栏的 **冲突检测图标**，扫描多个 worktree 之间的潜在冲突：
+
+- **风险分级** - 高/中/低三级风险，按修改文件数和变更行数计算
+- **文件列表** - 显示哪些文件被多个 worktree 同时修改
+- **变更详情** - 每个 worktree 对该文件的增删行数
+- **冲突描述** - 自动生成可读的冲突说明
+
+### 11. 键盘快捷键
 
 支持全局键盘快捷键，无需鼠标即可完成常用操作：
 
@@ -307,7 +317,7 @@ git-worktree-manager/
 │       │   │   ├── log.rs      # 操作日志、删除保护、备份管理
 │       │   │   └── ai_review.rs # AI 评审、命名建议、配置管理
 │       │   ├── models/         # 数据模型
-│       │   ├── services/       # 业务逻辑（git_service/ai_service/shell_service）
+│       │   ├── services/       # 业务逻辑（git_service/ai_service/conflict_service/shell_service）
 │       │   └── utils/          # 工具函数（validation）
 │       └── tauri.conf.json     # Tauri 配置
 │

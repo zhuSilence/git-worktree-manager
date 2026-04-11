@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.0.8] - 2026-04-04
+### ✨ Added
+
+- Worktree 冲突检测功能
+  - 跨 worktree 潜在冲突扫描（高/中/低三级风险）
+  - 冲突文件列表展示（多 worktree 同时修改的文件）
+  - 每个文件在每个 worktree 中的增删行数统计
+  - 自动生成可读的冲突原因描述
+
+## [0.0.9] - 2026-04-04
 
 ### ✨ Added
 

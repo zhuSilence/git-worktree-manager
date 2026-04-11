@@ -45,6 +45,7 @@ Making Git worktree as easy as slicing a cake 🍰
 - **Smart Naming** - Suggest branch naming based on conventions
 - **Operation Logs & Delete Protection** - Record operation history, auto backup before deletion, support recovery
 - **Hotfix Workflow** - One-click start/complete/cancel hotfix workflow
+- **Worktree Conflict Detection** - Detect potential merge conflicts between worktrees that modify the same files simultaneously (High/Medium/Low risk levels)
 
 ### 🤖 AI Features (P3)
 
@@ -236,7 +237,16 @@ Click the **AI icon** in the toolbar to configure and use AI features:
 - **Code Review** - AI review of current diff, get improvement suggestions
 - **Naming Suggestions** - Get AI-generated naming suggestions when creating worktree
 
-### 10. Keyboard Shortcuts
+### 10. Worktree Conflict Detection
+
+Click the **Conflict Detection icon** in the toolbar to scan for potential conflicts across worktrees:
+
+- **Risk Levels** - High/Medium/Low risk based on number of modified files and changed lines
+- **File List** - Shows which files are modified by multiple worktrees simultaneously
+- **Change Details** - Additions/deletions per worktree for each file
+- **Conflict Description** - Auto-generated human-readable conflict explanations
+
+### 11. Keyboard Shortcuts
 
 Global keyboard shortcuts are supported for common operations without a mouse:
 
