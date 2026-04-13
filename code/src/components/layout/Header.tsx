@@ -1,4 +1,4 @@
-import { GitBranch, Settings, RefreshCw, Plus, Clock, Download, Zap } from 'lucide-react'
+import { GitBranch, Settings, RefreshCw, Plus, Clock, Download, Zap, ScrollText } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/common'
 import { useWorktreeStore } from '@/stores/worktreeStore'
@@ -9,11 +9,12 @@ interface HeaderProps {
   onOpenSettings?: () => void
   onOpenTimeline?: () => void
   onOpenHotfix?: () => void
+  onOpenOperationLog?: () => void
   onRefresh?: () => void
   onFetch?: () => void
 }
 
-export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings, onOpenTimeline, onOpenHotfix, onRefresh, onFetch }) => {
+export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings, onOpenTimeline, onOpenHotfix, onOpenOperationLog, onRefresh, onFetch }) => {
   const { t } = useTranslation()
   const { currentRepo, refreshWorktrees, isLoading, isFetching } = useWorktreeStore()
   const isUpdateAvailable = updateStore(state => state.isUpdateAvailable)
@@ -82,6 +83,15 @@ export const Header: React.FC<HeaderProps> = ({ onCreateWorktree, onOpenSettings
                 title={t('timeline.title')}
               >
                 <Clock className="h-4 w-4" />
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onOpenOperationLog}
+                title={t('operationLog.title')}
+              >
+                <ScrollText className="h-4 w-4" />
               </Button>
 
               <Button

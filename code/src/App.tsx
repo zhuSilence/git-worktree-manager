@@ -10,6 +10,7 @@ import { HotfixPanel } from './components/HotfixPanel'
 import { Sidebar } from './components/Sidebar'
 import { DiffSidebar } from './components/DiffSidebar'
 import { Timeline } from './components/Timeline'
+import { OperationLogPanel } from './components/OperationLogPanel'
 import { ToastContainer } from './components/common'
 import { useWorktreeStore } from './stores/worktreeStore'
 import { useRepositoryStore } from './stores/repositoryStore'
@@ -42,6 +43,7 @@ function App() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showTimeline, setShowTimeline] = useState(false)
+  const [showOperationLog, setShowOperationLog] = useState(false)
   const [showHotfix, setShowHotfix] = useState(false)
   const [diffWorktree, setDiffWorktree] = useState<{ path: string; name: string } | null>(null)
   const [mainCollapsed, setMainCollapsed] = useState(() => localStorage.getItem('main-panel-collapsed') === 'true')
@@ -141,6 +143,7 @@ function App() {
         onCreateWorktree={() => setShowCreateDialog(true)}
         onOpenSettings={() => setShowSettings(true)}
         onOpenTimeline={() => setShowTimeline(true)}
+        onOpenOperationLog={() => setShowOperationLog(true)}
         onOpenHotfix={() => setShowHotfix(true)}
         onRefresh={async () => {
           await Promise.all([
@@ -257,6 +260,13 @@ function App() {
       <Timeline
         isOpen={showTimeline}
         onClose={() => setShowTimeline(false)}
+        repoPath={currentRepo?.mainWorktreePath || null}
+      />
+
+      {/* 操作日志面板 */}
+      <OperationLogPanel
+        isOpen={showOperationLog}
+        onClose={() => setShowOperationLog(false)}
         repoPath={currentRepo?.mainWorktreePath || null}
       />
 
