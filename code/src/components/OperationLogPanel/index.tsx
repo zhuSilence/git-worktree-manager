@@ -82,8 +82,8 @@ export function OperationLogPanel({ isOpen, onClose, repoPath }: OperationLogPan
     try {
       const data = await gitService.listOperationLogs(filter)
       setLogData(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('operationLog.loadError'))
+    } catch (_err) {
+      setError(_err instanceof Error ? _err.message : t('operationLog.loadError'))
     } finally {
       setIsLoading(false)
     }
@@ -131,7 +131,7 @@ export function OperationLogPanel({ isOpen, onClose, repoPath }: OperationLogPan
         await gitService.exportOperationLogs(outputPath)
         toast.success(t('operationLog.exportSuccess'))
       }
-    } catch (err) {
+    } catch {
       toast.error(t('operationLog.exportFailed'))
     }
   }
