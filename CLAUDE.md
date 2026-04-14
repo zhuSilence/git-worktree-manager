@@ -34,44 +34,12 @@ Rust backend builds are handled by Tauri; no separate `cargo` commands needed fo
 ## Architecture
 
 ```
-┌─────────────────────────────────────────┐
-│  Frontend (WebView)                     │
-│  React 18 + TypeScript + TailwindCSS    │
-│  State: Zustand    i18n: i18next        │
-└───────────────┬─────────────────────────┘
-                │ Tauri IPC (invoke)
-┌───────────────▼─────────────────────────┐
-│  Backend (Rust)                         │
-│  Tauri 2.0 Commands + git2 (libgit2)   │
-└─────────────────────────────────────────┘
+Frontend (WebView)  ←→  Tauri IPC (invoke)  ←→  Backend (Rust)
+React 18 + TypeScript                        Tauri 2.0 + git2
+State: Zustand    i18n: i18next              Commands → Services → Models
 ```
 
-### Frontend (`code/src/`)
-
-- **IPC layer**: `services/git.ts` and `services/ai.ts` wrap all `invoke()` calls to Rust. Every Tauri command has a corresponding typed wrapper here.
-- **State**: Zustand stores in `stores/` — `worktreeStore` (worktree CRUD, loading state with transaction pattern), `repositoryStore` (multi-repo management), `settingsStore` (user preferences, persisted to localStorage), `aiReviewStore`, `updateStore`.
-- **Components**: Feature-based folders (`WorktreeList/`, `DiffSidebar/`, `HotfixPanel/`, `Sidebar/`, etc.). Common UI primitives in `components/common/` (Button, Dialog, Toast, etc.) using Radix UI.
-- **i18n**: `i18n/` directory with i18next + browser language detection.
-- **Path alias**: `@/` maps to `code/src/` (configured in vite, vitest, and tsconfig).
-
-### Backend (`code/src-tauri/src/`)
-
-- **Commands** (`commands/`): Tauri `#[command]` handlers. `worktree.rs` handles all git/worktree/hotfix commands; `ai_review.rs` handles AI review. Commands use a `run_blocking` helper to wrap synchronous git2 operations as async. All path inputs go through `utils::validation::validate_path`.
-- **Services** (`services/`): Core business logic — `worktree_service` (CRUD), `git_service` (branch ops, push/pull/fetch), `diff_service` (diff/timeline), `hotfix_service` (hotfix workflow), `editor_service` (open in terminal/editor/file manager), `ai_service` (AI code review via HTTP).
-- **Models** (`models/`): Rust structs with serde for IPC serialization, matching TypeScript types in `types/`.
-- **Re-exports**: `services/mod.rs` re-exports all public functions so commands import from `crate::services::*`.
-
-### IPC Contract
-
-Frontend `invoke('command_name_cmd', { camelCaseParams })` maps to Rust `#[command] pub async fn command_name_cmd(snake_case_params)`. Tauri auto-converts between camelCase (JS) and snake_case (Rust). All commands are registered in `lib.rs` via `generate_handler![]`.
-
-### Key Features
-
-- **Multi-repo**: Sidebar manages multiple repositories; `repositoryStore` tracks the active repo.
-- **Diff viewer**: Split/unified diff views with syntax highlighting, implemented in `DiffSidebar/`.
-- **Hotfix workflow**: Start/finish/abort hotfix via dedicated panel and backend service.
-- **AI code review**: Configurable AI provider integration for reviewing diffs.
-- **Auto-update**: Tauri updater plugin with GitHub releases endpoint.
+详见 [docs/技术方案.md](docs/技术方案.md)
 
 ## Adding New Tauri Commands
 
@@ -84,11 +52,32 @@ Frontend `invoke('command_name_cmd', { camelCaseParams })` maps to Rust `#[comma
 
 ## Testing
 
-- Frontend tests use Vitest + jsdom + React Testing Library
-- Test files live next to source: `__tests__/` directories (e.g., `stores/__tests__/`, `i18n/__tests__/`, `utils/__tests__/`)
-- Setup file: `src/setupTests.ts`
+- Frontend tests: Vitest + jsdom + React Testing Library
+- Test files: `__tests__/` directories alongside source
+- Setup: `src/setupTests.ts`
 - No Rust tests currently configured
 
 ## Pre-commit
 
 Husky + lint-staged runs ESLint fix and Prettier on staged `.ts`/`.tsx`/`.json`/`.css` files.
+
+## Documentation Index
+
+| 文档 | 位置 | 内容 |
+|------|------|------|
+| PRD | [docs/PRD.md](docs/PRD.md) | 产品需求、功能清单、数据模型、迭代记录 |
+| 技术方案 | [docs/技术方案.md](docs/技术方案.md) | 架构设计、IPC 合约、安全设计、自动更新 |
+| 发布指南 | [RELEASE-GUIDE.md](RELEASE-GUIDE.md) | 版本管理、CI/CD、Homebrew Tap 维护 |
+| 更新日志 | [CHANGELOG.md](CHANGELOG.md) | 版本变更记录 |
+
+## Documentation Update Convention
+
+When making code changes, update the corresponding documentation sections:
+
+| 变更类型 | 需更新的文档章节 |
+|----------|-----------------|
+| 新增/修改功能 | PRD > 功能清单 + 迭代记录 |
+| 架构变更（新增模块/命令/Store） | 技术方案 > 目录结构 + IPC 合约 |
+| 新增数据模型 | PRD > 数据模型 + 技术方案 > 数据模型 |
+| 安全相关变更 | 技术方案 > 安全设计 |
+| 版本发布 | CHANGELOG.md + PRD > 迭代记录 |
